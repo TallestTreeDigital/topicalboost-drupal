@@ -1,0 +1,11 @@
+name: TopicalBoost
+type: module
+description: AI-powered topic analysis and schema.org structured data generation for enhanced content discoverability and SEO.
+package: Custom
+core_version_requirement: ^9 || ^10 || ^11
+version: 8.x-1.7
+dependencies:
+  - drupal:node
+  - scheduler:scheduler
+  - advancedqueue:advancedqueue
+  - pathauto:pathauto

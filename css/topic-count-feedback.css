@@ -1,0 +1,358 @@
+/* Integrated Topic Count Feedback - Modern UX approach */
+.ttd-topics-tabs-container .description {
+  line-height: 1.5 !important;
+}
+
+/* Only color the feedback elements, not the entire description */
+.ttd-topics-tabs-container .description.loading em {
+  color: #6b7280 !important;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.ttd-topics-tabs-container .description.success strong {
+  color: #059669 !important;
+}
+
+.ttd-topics-tabs-container .description.warning strong {
+  color: #d97706 !important;
+}
+
+.ttd-topics-tabs-container .description.error strong {
+  color: #dc2626 !important;
+}
+
+/* Style the result line specifically */
+.ttd-topics-tabs-container .description strong {
+  font-weight: 600 !important;
+  margin-right: 4px;
+}
+
+/* Modern Frequency Slider Styles */
+.frequency-slider-container {
+  margin: 16px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.frequency-slider-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #007cba, #005a87);
+  border-radius: 12px 12px 0 0;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.slider-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+  letter-spacing: 0.3px;
+}
+
+.slider-value-display {
+  display: flex;
+  align-items: center;
+  background: #007cba;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0, 124, 186, 0.3);
+}
+
+.slider-value-display::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.frequency-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 10px;
+  background: #e9ecef;
+  outline: none;
+  margin: 12px 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  appearance: none;
+}
+
+.frequency-slider:hover {
+  box-shadow: 0 0 0 8px rgba(0, 124, 186, 0.1);
+}
+
+.frequency-slider:focus {
+  box-shadow: 0 0 0 4px rgba(0, 124, 186, 0.2);
+}
+
+.frequency-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007cba, #005a87);
+  cursor: pointer;
+  border: 4px solid white;
+  box-shadow: 0 4px 16px rgba(0, 124, 186, 0.5), 0 0 0 1px rgba(0, 124, 186, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.frequency-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(0, 124, 186, 0.6);
+}
+
+.frequency-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 124, 186, 0.8);
+}
+
+.frequency-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007cba, #005a87);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 124, 186, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.frequency-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(0, 124, 186, 0.6);
+}
+
+.frequency-slider::-webkit-slider-track {
+  height: 8px;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.frequency-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+}
+
+.slider-range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Dynamic recommendation zones */
+.recommendation-zones {
+  position: relative;
+  height: 40px;
+  margin-top: 12px;
+}
+
+.recommendation-zone {
+  position: absolute;
+  top: 20px;
+  height: 4px;
+  border-radius: 2px;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+.recommendation-zone:hover {
+  height: 6px;
+  top: 19px;
+  z-index: 2;
+}
+
+.recommendation-zone .zone-label {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  opacity: 0.85;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.9);
+}
+
+.recommendation-zone:hover .zone-label {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.05);
+  background: rgba(255,255,255,1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Conservative zone - green (show more topics) */
+.recommendation-zone.conservative {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.4), rgba(40, 167, 69, 0.7));
+}
+
+.recommendation-zone.conservative .zone-label {
+  color: #28a745;
+}
+
+/* Balanced zone - blue (recommended) */
+.recommendation-zone.balanced {
+  background: linear-gradient(90deg, rgba(0, 124, 186, 0.4), rgba(0, 124, 186, 0.7));
+}
+
+.recommendation-zone.balanced .zone-label {
+  color: #007cba;
+}
+
+/* Selective zone - orange (fewer topics) */
+.recommendation-zone.selective {
+  background: linear-gradient(90deg, rgba(253, 126, 20, 0.4), rgba(253, 126, 20, 0.7));
+}
+
+.recommendation-zone.selective .zone-label {
+  color: #fd7e14;
+}
+
+/* Static fallback zone */
+.recommendation-zone.static {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.3), rgba(40, 167, 69, 0.6));
+}
+
+.recommendation-zone.static .zone-label {
+  color: #28a745;
+}
+
+/* Hide the original number input when slider is active */
+.frequency-slider-container ~ input[type="number"] {
+  display: none !important;
+}
+
+/* Enhanced description styling */
+.description {
+  line-height: 1.5;
+  color: #495057;
+}
+
+/* Integrated impact feedback styling */
+.integrated-feedback-area .topic-feedback-result {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.integrated-feedback-area .topic-feedback-result .result-header {
+  display: none;
+}
+
+.integrated-feedback-area .topic-feedback-result .result-value {
+  display: block;
+  padding: 8px 0 0 0;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6c757d;
+  text-align: center;
+  position: relative;
+}
+
+/* Status-based styling - Subtle integrated approach */
+.integrated-feedback-area .topic-feedback-result.success .result-value {
+  color: #28a745;
+}
+
+.integrated-feedback-area .topic-feedback-result.warning .result-value {
+  color: #fd7e14;
+}
+
+.integrated-feedback-area .topic-feedback-result.error .result-value {
+  color: #dc3545;
+}
+
+.integrated-feedback-area .topic-feedback-result.loading .result-value {
+  color: #007bff;
+  position: relative;
+}
+
+.integrated-feedback-area .topic-feedback-result.loading .result-value::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #007bff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Integrated feedback area styling */
+.integrated-feedback-area {
+  margin-top: 16px;
+}
+
+.integrated-feedback-area .topic-feedback-result {
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .frequency-slider-container {
+    padding: 16px;
+    margin: 12px 0;
+  }
+  
+  .slider-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .integrated-feedback-area {
+    margin-top: 12px;
+  }
+}
+
+/* Clean, accessible styling focused on usability */

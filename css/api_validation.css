@@ -1,0 +1,364 @@
+.ttd-topics-api-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.ttd-topics-api-status .api-status-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ttd-topics-api-success {
+  background-color: #f0fdf4;
+  border-left-color: #16a34a;
+  color: #166534;
+}
+
+.ttd-topics-api-error {
+  background-color: #fef2f2;
+  border-left-color: #dc2626;
+  color: #991b1b;
+}
+
+.ttd-topics-api-loading {
+  background-color: #fef3c7;
+  border-left-color: #f59e0b;
+  color: #92400e;
+}
+
+.ttd-topics-validate-api-key {
+  margin-top: 0.75rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ttd-topics-validate-api-key:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.ttd-topics-validate-api-key:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Style the API key field */
+#ttd-topics-api-key-field {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  padding: 0.75rem;
+  padding-right: 50px !important; /* Make room for the indicator */
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  height: auto;
+  line-height: 1.5;
+}
+
+#ttd-topics-api-key-field:focus {
+  border-color: #3b82f6;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* API Key Field with Validation Styling */
+.ttd-topics-api-key-field {
+  position: relative;
+  transition: all 0.3s ease;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  padding-right: 50px !important; /* Make room for the indicator */
+}
+
+/* Ensure the form item container can contain positioned elements */
+.api-key-container {
+  position: relative;
+}
+
+/* Position the indicator relative to the input field */
+.api-key-container .form-item {
+  position: relative;
+}
+.api-key-indicator {
+  display: none;
+  position: absolute;
+  top: 42px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.api-key-indicator .api-key-icon {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Valid State */
+.api-key-valid {
+  background-color: #10b981;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.api-key-valid .api-key-icon {
+  color: white;
+}
+
+/* Invalid State */
+.api-key-invalid {
+  background-color: #ef4444;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.api-key-invalid .api-key-icon {
+  color: white;
+}
+
+/* Loading State */
+.api-key-loading {
+  background-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.api-key-loading .api-key-icon {
+  color: white;
+  animation: spin 1s linear infinite;
+}
+
+/* Spinning animation for loading icon */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+}
+  to {
+    transform: rotate(360deg);
+}
+}
+
+/* Toggle Switch Styling */
+.ttd-topics-toggle {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  margin-right: 12px;
+  vertical-align: middle;
+}
+
+.ttd-topics-toggle input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.ttd-topics-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.3s ease;
+  border-radius: 24px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ttd-topics-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s ease;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ttd-topics-toggle-slider.active {
+  background-color: #3b82f6;
+}
+
+.ttd-topics-toggle-slider.active:before {
+  transform: translateX(26px);
+}
+
+.ttd-topics-toggle input:focus + .ttd-topics-toggle-slider {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Toggle field wrapper */
+.ttd-topics-toggle-field {
+  margin: 1.5rem 0;
+}
+
+.ttd-topics-toggle-field .form-item {
+  margin-bottom: 0;
+}
+
+.ttd-topics-toggle-field label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+/* Ensure toggle container integrates with Drupal form structure */
+.ttd-topics-toggle-field .ttd-topics-toggle {
+  order: -1; /* Put toggle before label text */
+}
+
+.ttd-topics-toggle-field .description {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  margin-left: 0;
+}
+
+/* Adjust general field spacing */
+.ttd-topics-field-group {
+  margin-bottom: 0;
+}
+
+.ttd-topics-field-group .description {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Fix Drupal form field descriptions */
+.form-item .description {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Fix specific description margin-left */
+#edit-enable-frontend--description {
+  margin-left: 0 !important;
+}
+
+/* Field Glow Effects */
+.field-glow-success {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15),
+  0 0 8px rgba(16, 185, 129, 0.4),
+  0 0 16px rgba(16, 185, 129, 0.2) !important;
+  background-color: rgba(16, 185, 129, 0.03) !important;
+  transition: all 0.3s ease !important;
+  animation: successPulse 0.6s ease-out !important;
+  outline: none !important;
+}
+
+.field-glow-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15),
+  0 0 8px rgba(239, 68, 68, 0.4),
+  0 0 16px rgba(239, 68, 68, 0.2) !important;
+  background-color: rgba(239, 68, 68, 0.03) !important;
+  transition: all 0.3s ease !important;
+  animation: errorPulse 0.6s ease-out !important;
+  outline: none !important;
+}
+
+/* More aggressive focus override to ensure our styles show */
+#ttd-topics-api-key-field.field-glow-success:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2),
+  0 0 10px rgba(16, 185, 129, 0.5),
+  0 0 18px rgba(16, 185, 129, 0.25) !important;
+  outline: none !important;
+}
+
+#ttd-topics-api-key-field.field-glow-error:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2),
+  0 0 10px rgba(239, 68, 68, 0.5),
+  0 0 18px rgba(239, 68, 68, 0.25) !important;
+  outline: none !important;
+}
+
+/* Subtle pulse animations */
+@keyframes successPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3),
+    0 0 6px rgba(16, 185, 129, 0.2),
+    0 0 12px rgba(16, 185, 129, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1),
+    0 0 12px rgba(16, 185, 129, 0.5),
+    0 0 20px rgba(16, 185, 129, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15),
+    0 0 8px rgba(16, 185, 129, 0.4),
+    0 0 16px rgba(16, 185, 129, 0.2);
+  }
+}
+
+@keyframes errorPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3),
+    0 0 6px rgba(239, 68, 68, 0.2),
+    0 0 12px rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.1),
+    0 0 12px rgba(239, 68, 68, 0.5),
+    0 0 20px rgba(239, 68, 68, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15),
+    0 0 8px rgba(239, 68, 68, 0.4),
+    0 0 16px rgba(239, 68, 68, 0.2);
+  }
+}
+
+/* Ensure smooth transitions when removing glow */
+#ttd-topics-api-key-field {
+  transition: all 0.3s ease;
+}
+
+/* Remove any unwanted artifacts */
+.api-key-indicator::before,
+.api-key-indicator::after {
+  display: none;
+}

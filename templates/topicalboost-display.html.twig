@@ -1,0 +1,31 @@
+{#
+/**
+ * @file
+ * TopicalBoost topics display template.
+ *
+ * Available variables:
+ * - node: The node entity.
+ * - filtered_topics: Array of filtered TopicalBoost topic entities.
+ * - topics_list_label: Label for the topics section.
+ * - maximum_visible_post_topics: Maximum number of topics to show initially.
+ * - options: Display options.
+ */
+#}
+
+{% if filtered_topics %}
+  <div class="topicalboost-section">
+    <div class="topicalboost-inline-mentions">
+      <span class="mentions-label">{{ topics_list_label }}:</span>
+      <div class="mentions-list" data-max-visible="{{ maximum_visible_post_topics }}">
+        {% for topic in filtered_topics %}
+          <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.id}) }}" class="mention-tag{% if loop.index > maximum_visible_post_topics %} hidden{% endif %}">
+            {{ topic.label|trim }}
+          </a>
+        {% endfor %}
+        {% if filtered_topics|length > maximum_visible_post_topics %}
+          <button class="toggle-mentions-btn" type="button">+{{ filtered_topics|length - maximum_visible_post_topics }} more</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %} 

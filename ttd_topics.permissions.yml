@@ -1,0 +1,9 @@
+administer topicalboost configuration:
+  title: 'Administer TopicalBoost configuration'
+  description: 'Configure TopicalBoost module settings and API access.'
+  restrict access: true
+
+administer topicalboost:
+  title: 'Administer TopicalBoost'
+  description: 'Allow access to TopicalBoost API endpoints and topic management'
+  restrict access: false

@@ -1,0 +1,787 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the TopicalBoost module.
+ */
+
+use Drupal\advancedqueue\Entity\Queue;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
+use Drupal\Core\File\FileSystemInterface;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\taxonomy\Entity\Vocabulary;
+
+/**
+ * Implements hook_schema().
+ */
+function ttd_topics_schema() {
+  $schema = [];
+
+  // Main entities table.
+  $schema['ttd_entities'] = [
+    'description' => 'Stores TTD Topics entities data',
+    'fields' => [
+      'ttd_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Primary key: TTD Entity ID',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Entity creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Entity last update timestamp',
+      ],
+      'count' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+        'description' => 'Number of posts/nodes this entity appears in',
+      ],
+      'hide' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this entity should be hidden',
+      ],
+      'name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Entity display name',
+      ],
+      'mid' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Machine ID',
+      ],
+      'nl_name' => [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Natural language name',
+      ],
+      'nl_type' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Natural language type',
+      ],
+      'wikipedia_url' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Wikipedia URL',
+      ],
+      'kg_name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Knowledge Graph name',
+      ],
+      'kg_image' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Knowledge Graph image URL',
+      ],
+      'wb_qid' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Wikibase QID',
+      ],
+      'wb_name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Wikibase name',
+      ],
+      'wb_description' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Wikibase description',
+      ],
+      'wb_date_modified' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Wikibase last modified date',
+      ],
+      'wb_instances' => [
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+        'description' => 'Wikibase instances JSON',
+      ],
+      'wb_image' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Wikibase image URL',
+      ],
+      'wb_logo_image' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Wikibase logo image URL',
+      ],
+      'official_website' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Official website URL',
+      ],
+      'country' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Country',
+      ],
+      'genre' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Genre',
+      ],
+      'creator' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Creator',
+      ],
+      'author' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Author',
+      ],
+      'producer' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Producer',
+      ],
+      'director' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Director',
+      ],
+      'screenwriter' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Screenwriter',
+      ],
+      'cast_member' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Cast member',
+      ],
+      'characters' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Characters',
+      ],
+      'composer' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Composer',
+      ],
+      'publication_date' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Publication date',
+      ],
+      'duration' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Duration',
+      ],
+      'start_time' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Start time',
+      ],
+      'end_time' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'End time',
+      ],
+      'inception' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Inception date',
+      ],
+      'date_of_birth' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Date of birth',
+      ],
+      'series' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Series',
+      ],
+      'season' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Season',
+      ],
+      'mpa_film_rating' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'MPA film rating',
+      ],
+      'imdb_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'IMDB ID',
+      ],
+      'rotten_tomatoes_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Rotten Tomatoes ID',
+      ],
+      'goodreads_work_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Goodreads work ID',
+      ],
+      'allmusic_album_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'AllMusic album ID',
+      ],
+      'spotify_album_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Spotify album ID',
+      ],
+      'freebase_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Freebase ID',
+      ],
+      'google_knowledge_graph_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Google Knowledge Graph ID',
+      ],
+      'isbn_13' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'ISBN-13',
+      ],
+      'twitter_username' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Twitter username',
+      ],
+      'facebook_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Facebook ID',
+      ],
+      'linkedin_personal_profile_id' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'LinkedIn personal profile ID',
+      ],
+    ],
+    'primary key' => ['ttd_id'],
+    'indexes' => [
+      'idx_wikipedia_url' => [['wikipedia_url', 191]],
+      'idx_kg_image' => [['kg_image', 191]],
+      'idx_wb_description' => [['wb_description', 191]],
+      'idx_wb_logo_image' => [['wb_logo_image', 191]],
+      'idx_official_website' => [['official_website', 191]],
+    ],
+  ];
+
+  // Schema types lookup table.
+  $schema['ttd_schema_types'] = [
+    'description' => 'Stores schema types for entities',
+    'fields' => [
+      'ttd_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Primary key: Schema type TTD ID',
+      ],
+      'name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Schema type name',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last update timestamp',
+      ],
+    ],
+    'primary key' => ['ttd_id'],
+  ];
+
+  // Wikibase categories lookup table.
+  $schema['ttd_wb_categories'] = [
+    'description' => 'Stores Wikibase categories for entities',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary key: Auto-increment ID',
+      ],
+      'ttd_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'WB category TTD ID',
+      ],
+      'qid' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Wikibase QID',
+      ],
+      'name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'WB category name',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last update timestamp',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'ttd_id' => ['ttd_id'],
+    ],
+  ];
+
+  // Entity to post/node relationship table.
+  $schema['ttd_entity_post_ids'] = [
+    'description' => 'Maps entities to posts/nodes',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary key: Auto-increment ID',
+      ],
+      'entity_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Entity TTD ID',
+      ],
+      'post_id' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => TRUE,
+        'description' => 'Post/Node ID',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last update timestamp',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'entity_id_post_id' => ['entity_id', ['post_id', 191]],
+    ],
+  ];
+
+  // Entity to schema types relationship table.
+  $schema['ttd_entity_schema_types'] = [
+    'description' => 'Maps entities to schema types',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary key: Auto-increment ID',
+      ],
+      'entity_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Entity TTD ID',
+      ],
+      'schema_type_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Schema type TTD ID',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last update timestamp',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'entity_id' => ['entity_id', 'schema_type_id'],
+    ],
+  ];
+
+  // Entity to WB categories relationship table.
+  $schema['ttd_entity_wb_categories'] = [
+    'description' => 'Maps entities to Wikibase categories',
+    'fields' => [
+      'id' => [
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary key: Auto-increment ID',
+      ],
+      'createdAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Creation timestamp',
+      ],
+      'updatedAt' => [
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last update timestamp',
+      ],
+      'entity_id' => [
+        'type' => 'int',
+        'size' => 'big',
+        'not null' => TRUE,
+        'description' => 'Entity TTD ID',
+      ],
+      'wb_category_id' => [
+        'type' => 'int',
+        'size' => 'big',
+        'not null' => TRUE,
+        'description' => 'WB category TTD ID',
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'entity_id' => ['entity_id'],
+      'wb_category_id' => ['wb_category_id'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function ttd_topics_install() {
+  // Create the ttd_topics vocabulary.
+  if (!Vocabulary::load('ttd_topics')) {
+    $vocabulary = Vocabulary::create([
+      'vid' => 'ttd_topics',
+      'description' => 'Vocabulary for TopicalBoost',
+      'name' => 'Topics',
+    ]);
+    $vocabulary->save();
+  }
+
+  // Define all field storage configs.
+  $field_storage_configs = [
+    [
+      'field_name' => 'field_ttd_rejected_topics',
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => [
+        'target_type' => 'taxonomy_term',
+        'handler' => 'default:taxonomy_term',
+        'handler_settings' => [
+          'target_bundles' => [
+            'ttd_topics' => 'ttd_topics',
+          ],
+          'auto_create' => FALSE,
+        ],
+      ],
+      'cardinality' => -1,
+    ],
+    [
+      'field_name' => 'field_ttd_last_analyzed',
+      'entity_type' => 'node',
+      'type' => 'datetime',
+      'settings' => ['datetime_type' => 'datetime'],
+    ],
+    [
+      'field_name' => 'field_ttd_topics',
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'taxonomy_term', 'handler' => 'default'],
+      'cardinality' => -1,
+    ],
+    [
+      'field_name' => 'field_ttd_analysis_in_progress',
+      'entity_type' => 'node',
+      'type' => 'boolean',
+      'cardinality' => 1,
+    ],
+  ];
+
+  // Create field storages.
+  foreach ($field_storage_configs as $field_storage_config) {
+    if (!FieldStorageConfig::loadByName($field_storage_config['entity_type'], $field_storage_config['field_name'])) {
+      FieldStorageConfig::create($field_storage_config)->save();
+    }
+  }
+
+  // Note: Fields will be added to content types when they are enabled in the module settings.
+  // This ensures the module works with any site's content type configuration.
+
+  // Add fields to taxonomy terms.
+  $term_field_storage_configs = [
+    [
+      'field_name' => 'field_ttd_id',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'string',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_hide',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'boolean',
+      'cardinality' => 1,
+    ],
+  ];
+
+  foreach ($term_field_storage_configs as $field_storage_config) {
+    if (!FieldStorageConfig::loadByName($field_storage_config['entity_type'], $field_storage_config['field_name'])) {
+      FieldStorageConfig::create($field_storage_config)->save();
+    }
+  }
+
+  foreach ($term_field_storage_configs as $field_storage_config) {
+    if (!FieldConfig::loadByName('taxonomy_term', 'ttd_topics', $field_storage_config['field_name'])) {
+      FieldConfig::create([
+        'field_name' => $field_storage_config['field_name'],
+        'entity_type' => 'taxonomy_term',
+        'bundle' => 'ttd_topics',
+        'label' => ucfirst(str_replace('_', ' ', $field_storage_config['field_name'])),
+      ])->save();
+    }
+  }
+
+  // Create the TTD Topics analysis queue.
+  if (!Queue::load('ttd_topics_analysis')) {
+    Queue::create([
+      'id' => 'ttd_topics_analysis',
+      'label' => 'TopicalBoost Analysis',
+      'backend' => 'database',
+      'processor' => 'cron',
+    ])->save();
+  }
+
+  // Create pathauto pattern for TTD Topics using helper function.
+  ttd_topics_ensure_pathauto_pattern();
+
+  // Configure the form display for ttd_topics vocabulary.
+  $form_display = EntityFormDisplay::load('taxonomy_term.ttd_topics.default');
+  if (!$form_display) {
+    $form_display = EntityFormDisplay::create([
+      'targetEntityType' => 'taxonomy_term',
+      'bundle' => 'ttd_topics',
+      'mode' => 'default',
+      'status' => TRUE,
+    ]);
+    $form_display->save();
+
+    $form_display->setComponent('field_hide', [
+      'type' => 'boolean_checkbox',
+      'weight' => 1,
+      'settings' => [
+        'display_label' => TRUE,
+      ],
+    ]);
+    $form_display->save();
+  }
+
+  // Configure the view display.
+  $view_display = EntityViewDisplay::create([
+    'targetEntityType' => 'taxonomy_term',
+    'bundle' => 'ttd_topics',
+    'mode' => 'default',
+    'status' => TRUE,
+    'content' => [
+      'description' => [
+        'type' => 'text_default',
+        'weight' => 0,
+        'label' => 'hidden',
+        'settings' => [],
+        'third_party_settings' => [],
+      ],
+    ],
+    'hidden' => [
+      'field_hide' => TRUE,
+      'field_ttd_id' => TRUE,
+    ],
+    'dependencies' => [
+      'config' => [
+        'taxonomy.vocabulary.ttd_topics',
+      ],
+      'module' => [
+        'text',
+      ],
+    ],
+  ]);
+  $view_display->save();
+
+  // Create directory for logo uploads.
+  $directory = 'public://logos';
+  \Drupal::service('file_system')->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+
+  // Set default configuration.
+  \Drupal::configFactory()->getEditable('topicalboost.settings')
+    ->set('enabled_content_types', [])
+    ->set('enable_frontend', 0)
+    ->set('maximum_visible_post_topics', 10)
+    ->set('post_topic_minimum_display_count', 10)
+    ->set('topics_list_label', 'Mentions')
+    ->set('topicalboost_api_key', '')
+    ->set('organization_facebook_url', '')
+    ->set('organization_twitter_url', '')
+    ->set('organization_linkedin_url', '')
+    ->set('organization_youtube_url', '')
+    ->set('organization_wikipedia_url', '')
+    ->set('organization_logo_method', 'auto')
+    ->set('organization_logo_fid', NULL)
+    ->set('organization_logo_url', '')
+    ->save();
+
+  // Grant permissions to administrator role by default so users can actually use the module.
+  $admin_role = \Drupal\user\Entity\Role::load('administrator');
+  if ($admin_role) {
+    $admin_role->grantPermission('administer topicalboost configuration');
+    $admin_role->grantPermission('administer topicalboost');
+    $admin_role->save();
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function ttd_topics_uninstall() {
+  $database = \Drupal::database();
+
+  // Remove all ttd_topics terms using proper entity deletion.
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  $terms = $term_storage->loadByProperties(['vid' => 'ttd_topics']);
+  if (!empty($terms)) {
+    $term_storage->delete($terms);
+  }
+
+  // Delete the vocabulary itself.
+  $vocabulary_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary');
+  $vocabulary = $vocabulary_storage->load('ttd_topics');
+  if ($vocabulary) {
+    $vocabulary->delete();
+  }
+
+  // Drop custom TTD tables.
+  $ttd_tables = [
+    'ttd_entity_wb_categories',
+    'ttd_entity_schema_types',
+    'ttd_entity_post_ids',
+    'ttd_wb_categories',
+    'ttd_schema_types',
+    'ttd_entities',
+  ];
+
+  foreach ($ttd_tables as $table) {
+    if ($database->schema()->tableExists($table)) {
+      $database->schema()->dropTable($table);
+    }
+  }
+
+  // Remove all related config properly using Drupal's config system.
+  $config_factory = \Drupal::configFactory();
+  $config_names = [
+    'taxonomy.vocabulary.ttd_topics',
+    'pathauto.pattern.ttd_topics',
+    'advancedqueue.advancedqueue_queue.ttd_topics_analysis',
+    'core.entity_form_display.taxonomy_term.ttd_topics.default',
+    'core.entity_view_display.taxonomy_term.ttd_topics.default',
+    'field.storage.node.field_ttd_last_analyzed',
+    'field.storage.node.field_ttd_topics',
+    'field.storage.node.field_ttd_rejected_topics',
+    'field.storage.node.field_ttd_analysis_in_progress',
+    'field.storage.taxonomy_term.field_ttd_id',
+    'field.storage.taxonomy_term.field_hide',
+    'topicalboost.settings',
+  ];
+
+  foreach ($config_names as $config_name) {
+    $config = $config_factory->getEditable($config_name);
+    if (!$config->isNew()) {
+      $config->delete();
+    }
+  }
+
+  // Clear entity caches.
+  \Drupal::entityTypeManager()->getStorage('taxonomy_term')->resetCache();
+  \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->resetCache();
+}
+
+
+
+
+
+
+
+
+
+

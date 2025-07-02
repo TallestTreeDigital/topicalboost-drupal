@@ -1,0 +1,13 @@
+topicalboost.settings_form:
+  title: TopicalBoost Settings
+  description: Configure TopicalBoost AI-powered topic analysis and schema generation.
+  parent: system.admin_config_content
+  route_name: topicalboost.settings_form
+  weight: 10
+
+topicalboost.bulk_analysis:
+  title: TopicalBoost Bulk Analysis
+  description: Analyze multiple content items at once with filtering and batch processing.
+  parent: system.admin_config_content
+  route_name: topicalboost.bulk_analysis
+  weight: 11

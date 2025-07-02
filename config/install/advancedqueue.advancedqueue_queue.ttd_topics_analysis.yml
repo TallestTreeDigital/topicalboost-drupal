@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies: {  }
+id: ttd_topics_analysis
+label: 'TopicalBoost Analysis'
+backend: database
+backend_configuration: {  }
+processor: cron
+processing_time: 60
+locked: false

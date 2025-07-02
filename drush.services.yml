@@ -1,0 +1,20 @@
+services:
+  ttd_topics.commands:
+    class: \Drupal\ttd_topics\Commands\CreateTtdTopicsCommand
+    tags:
+      - { name: drush.command }
+
+  ttd_topics.attribute_commands:
+    class: \Drupal\ttd_topics\Commands\AttributeTtdTopicsCommand
+    tags:
+      - { name: drush.command }
+
+  ttd_topics.clear_commands:
+    class: \Drupal\ttd_topics\Commands\ClearTtdTopicsCommand
+    tags:
+      - { name: drush.command }
+
+  ttd_topics.hide_commands:
+    class: \Drupal\ttd_topics\Commands\HideTtdTopicsCommand
+    tags:
+      - { name: drush.command }

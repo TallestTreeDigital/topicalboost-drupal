@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="topicalboost">
+  <description>PHP CodeSniffer configuration for TTD Topics module.</description>
+  <file>.</file>
+  <arg name="extensions" value="inc,install,module,php,profile,test,theme,css,js,yml"/>
+  <config name="drupal_core_version" value="9"/>
+
+  <!-- Use 's' to print the full sniff name in the report. -->
+  <arg value="s"/>
+  <arg value="-colors"/>
+  <arg name="report-width" value="120"/>
+
+  <!-- Exclude patterns -->
+  <exclude-pattern>./vendor/*</exclude-pattern>
+  <exclude-pattern>./node_modules/*</exclude-pattern>
+  <exclude-pattern>./.git/*</exclude-pattern>
+  <exclude-pattern>./libraries/*</exclude-pattern>
+  <exclude-pattern>./config/*</exclude-pattern>
+  <exclude-pattern>./tests/fixtures/*</exclude-pattern>
+  <exclude-pattern>README.md</exclude-pattern>
+  <exclude-pattern>CHANGELOG.md</exclude-pattern>
+  <exclude-pattern>.DS_Store</exclude-pattern>
+
+  <!-- Include all Drupal and DrupalPractice sniffs -->
+  <rule ref="Drupal"/>
+  <rule ref="DrupalPractice"/>
+
+  <!-- Customizations for this module -->
+  <rule ref="Drupal.Files.LineLength">
+    <properties>
+      <property name="lineLimit" value="120"/>
+      <property name="absoluteLineLimit" value="140"/>
+    </properties>
+  </rule>
+
+  <!-- Allow longer array declarations -->
+  <rule ref="Drupal.Arrays.Array">
+    <properties>
+      <property name="lineLimit" value="120"/>
+    </properties>
+  </rule>
+
+  <!-- Relax some rules for JavaScript files -->
+  <rule ref="Drupal.WhiteSpace.ScopeIndent">
+    <exclude-pattern>*.js</exclude-pattern>
+  </rule>
+  
+  <!-- Exclude JavaScript files from HTML/CSS formatting rules -->
+  <rule ref="Squiz.CSS.MissingColon">
+    <exclude-pattern>*.js</exclude-pattern>
+  </rule>
+  <rule ref="Drupal.Strings.UnnecessaryStringConcat">
+    <exclude-pattern>*.js</exclude-pattern>
+  </rule>
+
+  <!-- Allow empty lines after comments -->
+  <rule ref="DrupalPractice.Commenting.CommentEmptyLine">
+    <severity>0</severity>
+  </rule>
+
+  <!-- Some rules we might want to relax during development -->
+  <!-- Uncomment these if you want to be less strict initially -->
+  <!--
+  <rule ref="Drupal.Commenting.DocComment.MissingShort">
+    <severity>0</severity>
+  </rule>
+  <rule ref="Drupal.Commenting.ClassComment.Missing">
+    <severity>0</severity>
+  </rule>
+  -->
+
+</ruleset> 

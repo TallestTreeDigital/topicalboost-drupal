@@ -1,0 +1,1155 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for TopicalBoost module.
+ */
+
+// Define the API endpoint as a constant.
+define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+
+use Drupal\advancedqueue\Job;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\Database\Database;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
+use Drupal\taxonomy\Entity\Term;
+use Drupal\ttd_topics\Controller\TtdTopicsController;
+use GuzzleHttp\Exception\RequestException;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+
+/**
+ * Implements hook_theme().
+ */
+function ttd_topics_theme($existing, $type, $theme, $path) {
+  return [
+    'topicalboost_display' => [
+      'variables' => [
+        'node' => NULL,
+        'filtered_topics' => [],
+        'topics_list_label' => '',
+        'maximum_visible_post_topics' => 5,
+        'options' => [],
+      ],
+      'template' => 'topicalboost-display',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for node templates.
+ */
+function ttd_topics_preprocess_node(&$variables) {
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+  if (in_array($variables['node']->getType(), $enabled_content_types)) {
+
+    // Check if frontend is enabled or user is logged in.
+    $frontend_enabled = $config->get('enable_frontend');
+    $user_logged_in = \Drupal::currentUser()->isAuthenticated();
+    $automatic_mentions_enabled = $config->get('enable_automatic_mentions') ?? TRUE;
+
+    // Still process topics for schema, but control display.
+    $variables['show_ttd_topics'] = $frontend_enabled || $user_logged_in;
+
+    // Only add topics for automatic display if automatic mentions is enabled
+    if ($automatic_mentions_enabled) {
+      // Always process these for schema.
+      $variables['topics_list_label'] = $config->get('topics_list_label');
+      $maximum_visible_post_topics = $config->get('maximum_visible_post_topics');
+      $min_display_count = $config->get('post_topic_minimum_display_count');
+      $variables['maximum_visible_post_topics'] = $maximum_visible_post_topics;
+
+      // Use the helper function to get filtered topics.
+      $filtered_topics = ttd_topics_get_filtered_topics_for_node($variables['node']);
+
+      // Pass the filtered and sorted topics to the template.
+      $variables['filtered_topics'] = $filtered_topics;
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for node_form.
+ */
+function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $node = $form_state->getFormObject()->getEntity();
+
+  if ($node->hasField('field_ttd_topics')) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $min_display_count = $config->get('post_topic_minimum_display_count');
+
+    // Hide the original field_ttd_topics field.
+    $form['field_ttd_topics']['#access'] = FALSE;
+
+    // Create a new fieldset for TopicalBoost in the sidebar.
+    $form['ttd_topics'] = [
+      '#type' => 'details',
+      '#title' => t('TopicalBoost'),
+      '#group' => 'advanced',
+      '#weight' => 100,
+      '#optional' => FALSE,
+      '#open' => TRUE,
+    ];
+
+    // Check if the node has been saved at least once.
+    $is_saved = !$node->isNew();
+
+    // Check if analysis is in progress.
+    $analysis_in_progress = $node->get('field_ttd_analysis_in_progress')->value;
+
+    if ($is_saved && !$analysis_in_progress) {
+      // Add the "Run Analysis" button with explanation.
+      $form['ttd_topics']['run_analysis_wrapper'] = [
+        '#type' => 'container',
+        '#weight' => -10,
+        '#attributes' => ['id' => 'ttd-topics-run-analysis-wrapper'],
+      ];
+
+      $form['ttd_topics']['run_analysis_wrapper']['run_analysis'] = [
+        '#type' => 'button',
+        '#value' => t('Run Analysis'),
+        '#ajax' => [
+          'callback' => 'ttd_topics_run_analysis_ajax_callback',
+          'wrapper' => 'ttd-topics-run-analysis-wrapper',
+          'progress' => [
+            'type' => 'throbber',
+            'message' => t('Running analysis...'),
+          ],
+        ],
+        '#suffix' => '<span class="ttd-help-icon" data-tooltip="' . t('This optional button analyzes draft posts so you can see topics before the post goes live, or re-analyze published posts after they\'ve been edited. Posts are automatically analyzed on first publish.') . '">?</span>',
+      ];
+    }
+    elseif ($analysis_in_progress) {
+      $form['ttd_topics']['analysis_in_progress'] = [
+        '#markup' => '<p>' . t('TopicalBoost analysis is currently in progress...') . '</p>',
+        '#weight' => -10,
+      ];
+    }
+    elseif (!$is_saved) {
+      $form['ttd_topics']['not_saved'] = [
+        '#markup' => '<p>' . t('Save the content as a draft to enable TopicalBoost analysis.') . '</p>',
+        '#weight' => -10,
+      ];
+    }
+
+    // Add custom CSS to style the explanation.
+    $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
+
+    $term_ids = $node->get('field_ttd_topics')->getValue();
+    $rejected_term_ids = $node->get('field_ttd_rejected_topics')->getValue();
+
+    if (empty($term_ids) && !$analysis_in_progress) {
+      $form['ttd_topics']['empty'] = [
+        '#markup' => t('No topics available for this node.'),
+      ];
+    }
+    else {
+      // Extract term IDs.
+      $term_ids = array_column($term_ids, 'target_id');
+
+      // Get the count of nodes for each term only if there are terms.
+      $term_counts = !empty($term_ids) ? ttd_topics_get_topic_node_counts($term_ids) : [];
+
+      // Create an array of terms with their counts.
+      $terms_with_counts = [];
+      foreach ($term_ids as $term_id) {
+        $term = Term::load($term_id);
+        if ($term && !$term->get('field_hide')->value) {
+          $count = $term_counts[$term_id] ?? 0;
+          $terms_with_counts[] = [
+            'term' => $term,
+            'count' => $count,
+          ];
+        }
+      }
+
+      // Sort terms by count in descending order.
+      usort($terms_with_counts, function ($a, $b) {
+        return $b['count'] - $a['count'];
+      });
+
+      // Create form elements for sorted terms.
+      foreach ($terms_with_counts as $term_data) {
+        $term = $term_data['term'];
+        $count = $term_data['count'];
+        $is_below_threshold = $count < $min_display_count;
+
+        // Skip hidden terms in the form.
+        if ($term->get('field_hide')->value) {
+          continue;
+        }
+
+        $form['ttd_topics'][$term->id()] = [
+          '#type' => 'checkbox',
+          '#title' => $term->getName() . ' (' . $count . ')',
+          '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
+          '#disabled' => $is_below_threshold,
+          '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
+        ];
+      }
+
+      // Add custom CSS to style the below-threshold topics.
+      $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
+    }
+
+    // Add the entity builder to process form values before saving the entity.
+    $form['#entity_builders'][] = 'ttd_topics_node_builder';
+
+    if ($node->get('field_ttd_analysis_in_progress')->value) {
+      $form['ttd_topics']['analysis_in_progress'] = [
+        '#markup' => t('<p>Analysis is in progress...</p>'),
+      ];
+    }
+    else {
+      // Existing code for displaying topics...
+    }
+  }
+}
+
+/**
+ * Get the count of nodes for each TTD Topic term.
+ */
+function ttd_topics_get_ttd_topic_node_counts($term_ids) {
+  if (empty($term_ids)) {
+    return [];
+  }
+
+  $query = \Drupal::database()->select('taxonomy_index', 'ti');
+  $query->addField('ti', 'tid');
+  $query->addExpression('COUNT(DISTINCT ti.nid)', 'node_count');
+  $query->condition('ti.tid', $term_ids, 'IN');
+  $query->groupBy('ti.tid');
+
+  $results = $query->execute()->fetchAllKeyed();
+
+  return $results;
+}
+
+/**
+ * Entity builder for the node form to map checkbox values to rejected topics.
+ */
+function ttd_topics_node_builder($entity_type, $entity, &$form, FormStateInterface $form_state) {
+  $all_topics = $entity->get('field_ttd_topics')->getValue();
+  $current_rejected_topics = $entity->get('field_ttd_rejected_topics')->getValue();
+  $new_rejected_topics = [];
+
+  // Process each topic from the form.
+  foreach ($all_topics as $topic) {
+    if (isset($topic['target_id'])) {
+      $topic_id = $topic['target_id'];
+      $checkbox_value = $form_state->getValue($topic_id);
+
+      if ($checkbox_value === 0) {
+        $new_rejected_topics[] = ['target_id' => $topic_id];
+      }
+    }
+  }
+
+  // Only update if there's a change in rejected topics.
+  if ($new_rejected_topics != $current_rejected_topics) {
+    $entity->set('field_ttd_rejected_topics', $new_rejected_topics);
+  }
+}
+
+/**
+ * Attach the topicalboost.styles library to node edit forms.
+ */
+function ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  if (substr($form_id, 0, 5) == 'node_') {
+    $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
+  }
+}
+
+/**
+ * Helper function to get filtered topics for a node.
+ */
+function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
+  $config = \Drupal::config('ttd_topics.settings');
+  $min_display_count = $config->get('post_topic_minimum_display_count');
+  $filtered_topics = [];
+
+  // Load the terms from the field_ttd_topics field.
+  if (!empty($node->field_ttd_topics)) {
+    $rejected_term_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
+    $term_ids = [];
+    foreach ($node->field_ttd_topics as $term_ref) {
+      $term = $term_ref->entity;
+      if ($term && !$term->get('field_hide')->value && !in_array($term->id(), $rejected_term_ids)) {
+        $term_ids[] = $term->id();
+      }
+    }
+
+    // Get the count of nodes for each term.
+    $term_counts = ttd_topics_get_topic_node_counts($term_ids);
+
+    foreach ($node->field_ttd_topics as $term_ref) {
+      $term = $term_ref->entity;
+      if ($term && !$term->get('field_hide')->value) {
+        $tid = $term->id();
+
+        // Skip rejected topics.
+        if (in_array($tid, $rejected_term_ids)) {
+          continue;
+        }
+
+        $count = $term_counts[$tid] ?? 0;
+
+        // Only include terms associated with at least the minimum display count.
+        if ($count >= $min_display_count) {
+          $filtered_topics[] = [
+            'term' => $term,
+            'count' => $count,
+          ];
+        }
+      }
+    }
+
+    // Sort filtered topics by count in descending order.
+    usort($filtered_topics, function ($a, $b) {
+      return $b['count'] - $a['count'];
+    });
+
+    // Only include topics that meet the minimum display count.
+    $filtered_topics = array_filter($filtered_topics, function ($topic) use ($min_display_count) {
+      return $topic['count'] >= $min_display_count;
+    });
+
+    // Extract just the term objects for the template.
+    $filtered_topics = array_column($filtered_topics, 'term');
+  }
+
+  return $filtered_topics;
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function ttd_topics_node_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, $view_mode) {
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+  // Check if this is an enabled content type.
+  if (in_array($entity->getType(), $enabled_content_types)) {
+    // Attach the frontend library.
+    $build['#attached']['library'][] = 'ttd_topics/ttd_topics.frontend';
+
+    // Only add topics display for full view mode (single post pages).
+    if ($view_mode == 'full') {
+      // Check if frontend is enabled or user is logged in.
+      $frontend_enabled = $config->get('enable_frontend');
+      $user_logged_in = \Drupal::currentUser()->isAuthenticated();
+      $automatic_mentions_enabled = $config->get('enable_automatic_mentions') ?? TRUE;
+
+      // Master toggle: if automatic mentions is disabled, don't automatically add topics
+      if (!$automatic_mentions_enabled) {
+        return;
+      }
+
+      if ($frontend_enabled || $user_logged_in) {
+        // Get the same data that's processed in preprocess.
+        $filtered_topics = ttd_topics_get_filtered_topics_for_node($entity);
+
+        if (!empty($filtered_topics)) {
+          // Add the topics display at the bottom of the content.
+          $build['topicalboost_display'] = [
+            '#theme' => 'topicalboost_display',
+            '#node' => $entity,
+            '#filtered_topics' => $filtered_topics,
+            '#topics_list_label' => $config->get('topics_list_label'),
+            '#maximum_visible_post_topics' => $config->get('maximum_visible_post_topics'),
+            '#options' => [],
+            '#weight' => 100, // Place at the bottom.
+          ];
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function ttd_topics_element_info_alter(array &$info) {
+  $info['topicalboost_checkboxes'] = [
+    '#input' => TRUE,
+    '#process' => [
+      ['\Drupal\ttd_topics\Element\TtdTopicsCheckboxes', 'processTtdTopicsCheckboxes'],
+    ],
+    '#theme_wrappers' => ['checkboxes'],
+  ];
+}
+
+// /**
+//  * Implements hook_node_update().
+//  */
+// function ttd_topics_node_update(Drupal\node\NodeInterface $node) {
+//   // Log the node update event.
+//   topicalboost_log_to_file('debug', 'Node update hook triggered', ['nid' => $node->id(), 'status' => $node->isPublished()]);
+// // Check if the node is being analyzed to avoid recursion
+//   if (\Drupal::service('topicalboost.commands')->isAnalyzing) {
+//     return;
+//   }
+// // Run analysis regardless of the node's published status.
+//   ttd_topics_run_analysis($node);
+// }
+// /**
+//  * Implements hook_node_insert().
+//  */
+// function ttd_topics_node_insert(Drupal\node\NodeInterface $node) {
+//   // Log the node insert event.
+//   topicalboost_log_to_file('debug', 'Node insert hook triggered', ['nid' => $node->id(), 'status' => $node->isPublished()]);
+// // Check if the node is being analyzed to avoid recursion
+//   if (\Drupal::service('topicalboost.commands')->isAnalyzing) {
+//     return;
+//   }
+// // Run analysis regardless of the node's published status.
+//   ttd_topics_run_analysis($node);
+// }
+
+/**
+ * Runs the analysis on the node.
+ */
+function ttd_topics_run_analysis(NodeInterface $node) {
+  // Get the queue service.
+  $queue = \Drupal::queue('ttd_topics_analysis');
+
+  // Add the node to the queue.
+  $queue->createItem($node);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function ttd_topics_form_taxonomy_term_ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $term = $form_state->getFormObject()->getEntity();
+
+  // Hide the field_ttd_id field from the form (it's used internally to connect with custom table).
+  if (isset($form['field_ttd_id'])) {
+    $form['field_ttd_id']['#access'] = FALSE;
+  }
+
+  // Check if the field_hide exists and is a boolean field.
+  if ($term->hasField('field_hide') && $term->get('field_hide')->getFieldDefinition()->getType() == 'boolean') {
+    // The field should already be present in the form, we just need to adjust its properties.
+    if (isset($form['field_hide'])) {
+      $form['field_hide']['widget']['value']['#title'] = t('Hide this topic');
+      $form['field_hide']['widget']['value']['#description'] = t('If checked, this topic will be hidden from display.');
+      // Move it to the top of the form.
+      $form['field_hide']['#weight'] = -5;
+    }
+  }
+
+  // Display TTD entity information if the term has a ttd_id.
+  if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+    $ttd_id = $term->get('field_ttd_id')->value;
+    $entity_info = ttd_topics_get_ttd_entity_info($ttd_id);
+
+    if ($entity_info) {
+      $form['ttd_entity_info'] = [
+        '#type' => 'details',
+        '#title' => t('TopicalBoost Entity Information'),
+        '#weight' => 10,
+        '#open' => TRUE,
+      ];
+
+      // Display the TTD ID at the top.
+      $form['ttd_entity_info']['ttd_id_display'] = [
+        '#markup' => '<p><strong>' . t('TTD ID: @ttd_id', ['@ttd_id' => $ttd_id]) . '</strong></p>',
+        '#weight' => -10,
+      ];
+
+      $rows = ttd_topics_format_entity_info_for_display($entity_info);
+
+      if (!empty($rows)) {
+        $form['ttd_entity_info']['entity_table'] = [
+          '#type' => 'table',
+          '#header' => [t('Field'), t('Value')],
+          '#rows' => $rows,
+          '#empty' => t('No TTD entity data available.'),
+        ];
+      }
+      else {
+        $form['ttd_entity_info']['no_data'] = [
+          '#markup' => '<p>' . t('No TTD entity data available for TTD ID: @ttd_id', ['@ttd_id' => $ttd_id]) . '</p>',
+        ];
+      }
+    }
+    else {
+      $form['ttd_entity_info'] = [
+        '#type' => 'details',
+        '#title' => t('TopicalBoost Entity Information'),
+        '#weight' => 10,
+        '#open' => TRUE,
+      ];
+
+      $form['ttd_entity_info']['no_entity'] = [
+        '#markup' => '<p>' . t('No TTD entity found for TTD ID: @ttd_id', ['@ttd_id' => $ttd_id]) . '</p>',
+      ];
+    }
+  }
+
+  // Remove any custom submit handlers we might have added before.
+  if (isset($form['actions']['submit']['#submit'])) {
+    $form['actions']['submit']['#submit'] = array_filter($form['actions']['submit']['#submit'], function ($handler) {
+      return $handler !== 'topicalboost_term_form_submit';
+    });
+  }
+}
+
+/**
+ * Implements hook_entity_presave().
+ */
+function ttd_topics_entity_presave(EntityInterface $entity) {
+  if ($entity instanceof NodeInterface) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+    
+    if (in_array($entity->bundle(), $enabled_content_types)) {
+    $is_newly_published = $entity->isPublished() && (!$entity->original || !$entity->original->isPublished());
+
+    if ($is_newly_published) {
+      try {
+        $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+        $queue = $queue_storage->load('ttd_topics_analysis');
+        if ($queue) {
+          $job = Job::create('ttd_topics_analysis', [
+            'node_id' => $entity->id() ? $entity->id() : $entity->uuid(),
+            'force_analysis' => FALSE,
+          ]);
+          $queue->enqueueJob($job);
+
+          // Set analysis in progress.
+          $entity->set('field_ttd_analysis_in_progress', TRUE);
+        }
+        else {
+          \Drupal::logger('topicalboost')->error('TopicalBoost analysis queue not found');
+        }
+      }
+      catch (\Exception $e) {
+        \Drupal::logger('topicalboost')->error('Error queueing TopicalBoost analysis job: @message', ['@message' => $e->getMessage()]);
+      }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function ttd_topics_cron() {
+  // AdvancedQueue handles its own processing via JobType plugins with cron annotations.
+  // The ttd_topics_analysis JobType should have cron settings to be processed automatically.
+  // Bulk analysis is now handled by the TtdBulkAnalysisPoller job type
+  // which automatically polls and triggers apply when analysis completes.
+}
+
+/**
+ * Perform single analysis for a node.
+ */
+function ttd_topics_perform_single_analysis(NodeInterface $node) {
+  $config = \Drupal::config('ttd_topics.settings');
+  $api_key = $config->get('topicalboost_api_key');
+  // Adjust if necessary.
+  $api_base_url = 'https://topics-api.tallesttree.digital';
+
+  $client = \Drupal::httpClient();
+
+  try {
+    // Step 1: Initiate analysis.
+    $response = $client->post($api_base_url . '/analyze/single', [
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'x-api-key' => $api_key,
+      ],
+      'json' => [
+        'customer_id' => $node->id(),
+        'url' => $node->toUrl()->setAbsolute()->toString(),
+        'title' => $node->getTitle(),
+        'text' => $node->get('body')->value,
+      ],
+    ]);
+
+    $result = json_decode($response->getBody(), TRUE);
+    $analysis_id = $result['analysis_id'];
+
+    // Step 2: Poll for analysis completion.
+    $completed = FALSE;
+    $max_attempts = 10;
+    $attempt = 0;
+
+    while (!$completed && $attempt < $max_attempts) {
+      // Wait for 5 seconds between polls.
+      sleep(5);
+      $poll_response = $client->get($api_base_url . '/analyze/single/progress/' . $analysis_id, [
+        'headers' => ['x-api-key' => $api_key],
+      ]);
+
+      $poll_result = json_decode($poll_response->getBody(), TRUE);
+      if ($poll_result['status'] === 'completed') {
+        $completed = TRUE;
+      }
+
+      $attempt++;
+    }
+
+    if (!$completed) {
+      throw new \Exception('Analysis timed out');
+    }
+
+    // Step 3: Get analysis results.
+    $results_response = $client->get($api_base_url . '/analyze/single/results/' . $analysis_id, [
+      'headers' => ['x-api-key' => $api_key],
+    ]);
+
+    $analysis_results = json_decode($results_response->getBody(), TRUE);
+
+    // Process and save the results.
+    ttd_topics_save_analysis_results($node, $analysis_results);
+
+    // Update the ttd_last_analyzed field.
+    $node->set('field_ttd_last_analyzed', \Drupal::time()->getRequestTime());
+    $node->save();
+
+  }
+  catch (RequestException $e) {
+    \Drupal::logger('topicalboost')->error('Error during TopicalBoost analysis: @error', ['@error' => $e->getMessage()]);
+  }
+}
+
+/**
+ * Save the analysis results to the node.
+ */
+function ttd_topics_save_analysis_results(NodeInterface $node, array $results) {
+  // Process the results and save them to the node
+  // This is where you'd update the node's TopicalBoost field, etc.
+  // Example:
+  $topicalboost = [];
+  foreach ($results['entities'] as $entity) {
+    $topicalboost[] = [
+      'target_id' => ttd_topics_get_or_create_term($entity['name'], $entity['id']),
+    ];
+  }
+  $node->set('field_ttd_topics', $topicalboost);
+  $node->save();
+}
+
+/**
+ * Get or create a taxonomy term for a TTD Topic.
+ */
+function ttd_topics_get_or_create_term($name, $ttd_id) {
+  $terms = \Drupal::entityTypeManager()
+    ->getStorage('taxonomy_term')
+    ->loadByProperties([
+      'vid' => 'topicalboost',
+      'field_ttd_id' => $ttd_id,
+    ]);
+
+  if (!empty($terms)) {
+    return reset($terms)->id();
+  }
+
+  $term = Term::create([
+    'vid' => 'topicalboost',
+    'name' => $name,
+    'field_ttd_id' => $ttd_id,
+  ]);
+  $term->save();
+
+  return $term->id();
+}
+
+/**
+ * Fetches TTD entity information from the database.
+ */
+function ttd_topics_get_ttd_entity_info($ttd_id) {
+  $connection = Database::getConnection();
+
+  // Fetch main entity data.
+  $query = $connection->select('ttd_entities', 'e')
+    ->fields('e')
+    ->condition('e.ttd_id', $ttd_id);
+  $entity = $query->execute()->fetchAssoc();
+
+  if (!$entity) {
+    return NULL;
+  }
+
+  // Fetch schema types.
+  $query = $connection->select('ttd_entity_schema_types', 'est')
+    ->fields('est', ['schema_type_id'])
+    ->condition('est.entity_id', $ttd_id);
+  $schema_type_ids = $query->execute()->fetchCol();
+
+  if (!empty($schema_type_ids)) {
+    $query = $connection->select('ttd_schema_types', 'st')
+      ->fields('st', ['name'])
+      ->condition('st.ttd_id', $schema_type_ids, 'IN');
+    $entity['schema_types'] = $query->execute()->fetchCol();
+  }
+
+  // Fetch WB categories.
+  $query = $connection->select('ttd_entity_wb_categories', 'ewc')
+    ->fields('ewc', ['wb_category_id'])
+    ->condition('ewc.entity_id', $ttd_id);
+  $wb_category_ids = $query->execute()->fetchCol();
+
+  if (!empty($wb_category_ids)) {
+    $query = $connection->select('ttd_wb_categories', 'wc')
+      ->fields('wc', ['name'])
+      ->condition('wc.id', $wb_category_ids, 'IN');
+    $entity['wb_categories'] = $query->execute()->fetchCol();
+  }
+
+  return $entity;
+}
+
+/**
+ * Formats entity information for display in a table.
+ */
+function ttd_topics_format_entity_info_for_display($entity_info) {
+  $rows = [];
+  $skip_fields = ['ttd_id', 'createdAt', 'updatedAt', 'count', 'hide'];
+
+  foreach ($entity_info as $key => $value) {
+    if (in_array($key, $skip_fields)) {
+      continue;
+    }
+
+    // Skip empty or null values.
+    if (empty($value) && $value !== '0') {
+      continue;
+    }
+
+    if ($key === 'schema_types' || $key === 'wb_categories') {
+      $value = is_array($value) ? implode(', ', $value) : $value;
+    }
+    elseif ($key === 'wb_instances') {
+      $value = json_encode(json_decode($value), JSON_PRETTY_PRINT);
+    }
+
+    $rows[] = [
+      'field' => ucwords(str_replace('_', ' ', $key)),
+      'value' => [
+        'data' => [
+          '#type' => 'markup',
+          '#markup' => '<pre>' . htmlspecialchars($value) . '</pre>',
+        ],
+      ],
+    ];
+  }
+
+  return $rows;
+}
+
+/**
+ * Implements hook_entity_access().
+ */
+function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountInterface $account) {
+  if ($entity->getEntityTypeId() === 'taxonomy_term' && $entity->bundle() === 'topicalboost') {
+    if ($operation === 'view' && $entity->hasField('field_hide')) {
+      // Get minimum display count from config.
+      $config = \Drupal::config('ttd_topics.settings');
+      $min_display_count = $config->get('post_topic_minimum_display_count');
+
+      // Get post count for this term.
+      $count = \Drupal::database()->select('taxonomy_index', 'ti')
+        ->condition('tid', $entity->id())
+        ->countQuery()
+        ->execute()
+        ->fetchField();
+
+      // Return 404 if hidden OR below minimum count for anonymous users.
+      if (($entity->get('field_hide')->value || $count < $min_display_count) && $account->isAnonymous()) {
+        return AccessResult::forbidden()->addCacheableDependency($entity);
+      }
+    }
+  }
+  return AccessResult::neutral();
+}
+
+/**
+ * AJAX callback for the "Run Analysis" button.
+ */
+function ttd_topics_run_analysis_ajax_callback(array &$form, FormStateInterface $form_state) {
+  $node = $form_state->getFormObject()->getEntity();
+  $identifier = $node->id() ? $node->id() : $node->uuid();
+
+  try {
+    $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+    $queue = $queue_storage->load('ttd_topics_analysis');
+    if ($queue) {
+      $job = Job::create('ttd_topics_analysis', [
+        'node_id' => $identifier,
+        'force_analysis' => TRUE,
+      ]);
+      $queue->enqueueJob($job);
+
+      // Set the analysis in progress flag.
+      $node->set('field_ttd_analysis_in_progress', TRUE);
+      $node->save();
+
+      $message = t('Analysis has been queued and will run in the background. Please check back in a few minutes.');
+    }
+    else {
+      $message = t('Error: TTD Topics analysis queue not found.');
+    }
+  }
+  catch (\Exception $e) {
+    $message = t('Error queueing TTD Topics analysis: @message', ['@message' => $e->getMessage()]);
+    \Drupal::logger('topicalboost')->error('Error queueing TTD Topics analysis job: @message', ['@message' => $e->getMessage()]);
+  }
+
+  $response = new AjaxResponse();
+  $response->addCommand(new ReplaceCommand(
+    '#ttd-topics-run-analysis-wrapper',
+    '<div id="ttd-topics-run-analysis-wrapper"><p>' . $message . '</p></div>'
+  ));
+
+  return $response;
+}
+
+/**
+ * Implements hook_page_attachments().
+ */
+function ttd_topics_page_attachments(array &$attachments) {
+  $node = \Drupal::routeMatch()->getParameter('node');
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+  
+  if ($node && in_array($node->bundle(), $enabled_content_types)) {
+    try {
+      \Drupal::logger('topicalboost')->debug('Starting schema generation for node @nid', ['@nid' => $node->id()]);
+
+      $schema_generator = \Drupal::service('ttd_topics.schema_generator');
+      $schema_data = $schema_generator->getNodeTopicsSchema($node->id());
+
+      \Drupal::logger('topicalboost')->debug('Schema data: @data', ['@data' => print_r($schema_data, TRUE)]);
+
+      if (!empty($schema_data) && !empty($schema_data['@graph'])) {
+        $attachments['#attached']['html_head'][] = [
+          [
+            '#type' => 'html_tag',
+            '#tag' => 'script',
+            '#value' => json_encode($schema_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            '#attributes' => [
+              'type' => 'application/ld+json',
+              'class' => 'schema-graph',
+            ],
+          ],
+          'topicalboost_schema',
+        ];
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('topicalboost')->error('Schema generation error: @message', [
+        '@message' => $e->getMessage(),
+        '@trace' => $e->getTraceAsString(),
+      ]);
+    }
+  }
+}
+
+/**
+ * Implements hook_simple_sitemap_links_alter().
+ */
+function ttd_topics_simple_sitemap_links_alter(array &$links) {
+  // Get minimum display count from config.
+  $config = \Drupal::config('ttd_topics.settings');
+  $min_display_count = $config->get('post_topic_minimum_display_count');
+
+  foreach ($links as $key => $link) {
+    // Check if this is a taxonomy term link for topicalboost.
+    if (isset($link['entity_info'])
+        && $link['entity_info']['entity_type'] === 'taxonomy_term'
+        && $link['entity_info']['bundle'] === 'topicalboost') {
+
+      $term = \Drupal::entityTypeManager()
+        ->getStorage('taxonomy_term')
+        ->load($link['entity_info']['id']);
+
+      if ($term) {
+        // Check if term is hidden.
+        if ($term->get('field_hide')->value) {
+          unset($links[$key]);
+          continue;
+        }
+
+        // Check post count.
+        $count = \Drupal::database()->select('taxonomy_index', 'ti')
+          ->condition('tid', $term->id())
+          ->countQuery()
+          ->execute()
+          ->fetchField();
+
+        if ($count < $min_display_count) {
+          unset($links[$key]);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Get node counts for topic terms.
+ *
+ * @param array $term_ids
+ *   Array of term IDs.
+ *
+ * @return array
+ *   Array of term ID => count pairs.
+ */
+function ttd_topics_get_topic_node_counts(array $term_ids) {
+  if (empty($term_ids)) {
+    return [];
+  }
+
+  $database = \Drupal::database();
+  $query = $database->select('taxonomy_index', 'ti')
+    ->fields('ti', ['tid'])
+    ->condition('tid', $term_ids, 'IN')
+    ->groupBy('tid');
+  $query->addExpression('COUNT(nid)', 'count');
+
+  $results = $query->execute()->fetchAllKeyed();
+
+  // Ensure all term IDs are present in the result.
+  $counts = [];
+  foreach ($term_ids as $tid) {
+    $counts[$tid] = isset($results[$tid]) ? (int) $results[$tid] : 0;
+  }
+
+  return $counts;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for taxonomy_overview_terms.
+ *
+ * Adds a search filter and improved overview.
+ */
+function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $vocabulary = $form_state->getBuildInfo()['args'][0] ?? NULL;
+
+  if ($vocabulary && $vocabulary->id() === 'ttd_topics') {
+    // Hide the default terms table to avoid duplication.
+    if (isset($form['terms'])) {
+      $form['terms']['#access'] = FALSE;
+    }
+
+    // Add search filter form.
+    $search = \Drupal::request()->query->get('search', '');
+    $min_posts = \Drupal::request()->query->get('min_posts', '');
+
+    $form['search_filter'] = [
+      '#type' => 'details',
+      '#title' => t('Filter topics'),
+      '#open' => TRUE,
+      '#weight' => -100,
+      '#attributes' => ['class' => ['container-inline']],
+    ];
+
+    $form['search_filter']['search'] = [
+      '#type' => 'search',
+      '#title' => t('Search'),
+      '#title_display' => 'invisible',
+      '#placeholder' => t('Filter by topic name...'),
+      '#default_value' => $search,
+      '#size' => 25,
+    ];
+
+    $form['search_filter']['min_posts'] = [
+      '#type' => 'select',
+      '#title' => t('Minimum posts'),
+      '#title_display' => 'invisible',
+      '#options' => [
+        '' => t('Any post count'),
+        '1' => t('1+ posts'),
+        '5' => t('5+ posts'),
+        '10' => t('10+ posts'),
+        '25' => t('25+ posts'),
+        '50' => t('50+ posts'),
+        '100' => t('100+ posts'),
+      ],
+      '#default_value' => $min_posts,
+    ];
+
+    $form['search_filter']['submit'] = [
+      '#type' => 'submit',
+      '#value' => t('Filter'),
+      '#submit' => ['ttd_topics_search_submit'],
+      '#button_type' => 'primary',
+    ];
+
+    if (!empty($search) || !empty($min_posts)) {
+      $form['search_filter']['reset'] = [
+        '#type' => 'submit',
+        '#value' => t('Reset'),
+        '#submit' => ['ttd_topics_search_reset'],
+      ];
+    }
+
+    // Load the controller output.
+    $controller = \Drupal::service('class_resolver')->getInstanceFromDefinition('Drupal\\ttd_topics\\Controller\\TtdTopicsController');
+    $overview_build = $controller->overviewPage();
+
+    // Insert our overview near the top.
+    $form['topicalboost_overview_custom'] = $overview_build + ['#weight' => -50];
+
+    // Remove all the default taxonomy form elements that aren't needed.
+    $elements_to_hide = [
+      'description',
+      '#description',
+      'pager',
+      'actions',
+      'reset_alphabetical',
+    ];
+
+    foreach ($elements_to_hide as $element) {
+      if (isset($form[$element])) {
+        $form[$element]['#access'] = FALSE;
+      }
+    }
+
+    // Also try to remove any description attached to the form itself.
+    if (isset($form['#description'])) {
+      unset($form['#description']);
+    }
+
+    // Hide the drag-and-drop help text that appears below the table.
+    if (isset($form['#suffix'])) {
+      $form['#suffix'] = '';
+    }
+
+    // Remove any other help text elements that might contain the drag-and-drop message.
+    $help_elements = ['help', '#help', 'help_text', '#help_text'];
+    foreach ($help_elements as $help_element) {
+      if (isset($form[$help_element])) {
+        $form[$help_element]['#access'] = FALSE;
+      }
+    }
+  }
+}
+
+/**
+ * Submit handler for search filter.
+ */
+function ttd_topics_search_submit(array &$form, FormStateInterface $form_state) {
+  $search = $form_state->getValue('search');
+  $min_posts = $form_state->getValue('min_posts');
+  $current_path = \Drupal::request()->getPathInfo();
+
+  $query_params = [];
+  if (!empty($search)) {
+    $query_params['search'] = $search;
+  }
+  if (!empty($min_posts)) {
+    $query_params['min_posts'] = $min_posts;
+  }
+
+  $url = Url::fromUserInput($current_path, ['query' => $query_params]);
+  $form_state->setRedirectUrl($url);
+}
+
+/**
+ * Submit handler for search reset.
+ */
+function ttd_topics_search_reset(array &$form, FormStateInterface $form_state) {
+  $current_path = \Drupal::request()->getPathInfo();
+  $url = Url::fromUserInput($current_path);
+  $form_state->setRedirectUrl($url);
+}
+
+/**
+ * Implements hook_url_inbound_alter().
+ * Provides custom routing for the improved overview page.
+ */
+function ttd_topics_url_inbound_alter(&$path, $original_path, $path_language) {
+  if ($path === '/admin/config/content/ttd-topics/test-overview') {
+    $path = '/ttd-topics/test-overview';
+  }
+}
+
+/**
+ * Custom page callback for improved topics overview.
+ */
+function ttd_topics_improved_overview_page() {
+  $controller = new TtdTopicsController();
+  return $controller->overviewPage();
+}
+
+/**
+ * Implements hook_page_top().
+ *
+ * Simple redirect approach to handle /overview path.
+ */
+function ttd_topics_page_top(array &$page_top) {
+  $current_path = \Drupal::service('path.current')->getPath();
+  if ($current_path === '/admin/config/content/ttd-topics/overview') {
+    $response = new RedirectResponse('/admin/config/content/ttd-topics?view=overview');
+    $response->send();
+    exit;
+  }
+}
+
+/**
+ * Ensure the ttd_topics Pathauto pattern exists.
+ *
+ * This helper is used during install and whenever Pathauto is installed
+ * afterwards, guaranteeing that topic terms always receive friendly aliases.
+ */
+function ttd_topics_ensure_pathauto_pattern() {
+  /** @var \Drupal\Core\Entity\EntityStorageInterface $pattern_storage */
+  $pattern_storage = \Drupal::entityTypeManager()->getStorage('pathauto_pattern');
+
+  // Bail if the pattern already exists.
+  if ($pattern_storage->load('ttd_topics')) {
+    return;
+  }
+
+  // Determine the desired prefix from configuration, defaulting to /topics/.
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  $prefix = $config->get('topic_url_path_prefix') ?: '/topics/';
+  $prefix = '/' . trim($prefix, '/') . '/';
+
+  $pattern = $prefix . '[term:name]';
+
+  // Create the pattern entity.
+  $pattern_storage->create([
+    'id' => 'ttd_topics',
+    'label' => 'TTD Topics',
+    'type' => 'canonical_entities:taxonomy_term',
+    'pattern' => $pattern,
+    'selection_criteria' => [
+      [
+        'id' => 'entity_bundle:taxonomy_term',
+        'bundles' => ['ttd_topics' => 'ttd_topics'],
+        'negate' => FALSE,
+        'context_mapping' => ['taxonomy_term' => 'taxonomy_term'],
+      ],
+    ],
+    'weight' => 0,
+    'status' => TRUE,
+  ])->save();
+
+  // Clear caches so the new pattern is recognised immediately.
+  \Drupal::service('plugin.manager.alias_type')->clearCachedDefinitions();
+  \Drupal::messenger()->addMessage(t('Pathauto pattern for TTD Topics was created automatically.'));
+}
+
+/**
+ * Implements hook_modules_installed().
+ *
+ * Creates the Pathauto pattern if Pathauto is enabled after TopicalBoost.
+ */
+function ttd_topics_modules_installed($modules) {
+  if (in_array('pathauto', $modules, TRUE)) {
+    ttd_topics_ensure_pathauto_pattern();
+  }
+}

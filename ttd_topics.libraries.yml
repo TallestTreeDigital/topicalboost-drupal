@@ -1,0 +1,137 @@
+debug_stub:
+  js:
+    js/debug-stub.js: {}
+  dependencies:
+    - core/drupal
+
+ttd_topics.styles:
+  css:
+    theme:
+      css/topicalboost.css: {}
+      css/icons.css: {}
+
+tabs:
+  css:
+    theme:
+      css/tabs.css: {}
+  js:
+    js/tabs.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+    - ttd_topics/debug_stub
+
+tabs_css:
+  css:
+    theme:
+      css/tabs.css: {}
+
+progress_bars:
+  css:
+    theme:
+      css/progress-bars.css: {}
+
+topics_display:
+  css:
+    theme:
+      css/topics-display.css: {}
+  js:
+    js/topics-display.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+topic_count_feedback:
+  css:
+    theme:
+      css/topic-count-feedback.css: {}
+  js:
+    js/topic-count-feedback.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+modern_forms:
+  css:
+    theme:
+      css/modern-forms.css: {}
+
+api_validation:
+  css:
+    theme:
+      css/api_validation.css: {}
+  js:
+    js/api_validation.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - ttd_topics/debug_stub
+
+# Polyfill to restore legacy jQuery.once behaviour.
+jquery_once_polyfill:
+  js:
+    js/jquery-once-polyfill.js: {}
+  dependencies:
+    - core/jquery
+    - core/once
+
+select2:
+  css:
+    theme:
+      libraries/select2/dist/css/select2.min.css: {}
+  js:
+    libraries/select2/dist/js/select2.min.js: {}
+    js/select2-init.js: {}
+  dependencies:
+    - core/jquery
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+    - ttd_topics/debug_stub
+
+bulk_analysis:
+  css:
+    theme:
+      css/bulk_analysis.css: {}
+  js:
+    js/bulk_analysis.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+    - ttd_topics/debug_stub
+
+ttd_topics_admin:
+  js:
+    js/topicalboost_admin.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+ttd_topics.frontend:
+  css:
+    theme:
+      css/topicalboost.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+url_preview:
+  js:
+    js/url-preview.js: {}
+  dependencies:
+    - core/drupal
+
+
+
+
+
+

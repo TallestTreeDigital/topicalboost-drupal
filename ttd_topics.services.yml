@@ -1,0 +1,10 @@
+services:
+  ttd_topics.twig_extension:
+    class: Drupal\ttd_topics\TwigExtension\TopicsExtension
+    arguments: ['@config.factory', '@database', '@renderer']
+    tags:
+      - { name: twig.extension }
+  
+  ttd_topics.schema_generator:
+    class: Drupal\ttd_topics\SchemaGenerator
+    arguments: ['@database', '@path_alias.manager']

@@ -1,0 +1,103 @@
+topicalboost.example:
+  path: '/topicalboost/example'
+  defaults:
+    _title: 'Example'
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::build'
+  requirements:
+    _permission: 'access content'
+
+topicalboost.settings_form:
+  path: '/admin/config/content/topicalboost'
+  defaults:
+    _title: 'TopicalBoost Settings'
+    _form: 'Drupal\ttd_topics\Form\SettingsForm'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis:
+  path: '/admin/config/content/topicalboost/bulk-analysis'
+  defaults:
+    _title: 'TopicalBoost Bulk Analysis'
+    _form: 'Drupal\ttd_topics\Form\BulkAnalysisForm'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.get_topics:
+  path: '/admin/config/content/topicalboost/get-topics'
+  defaults:
+    _title: 'Get Topics'
+    _form: 'Drupal\ttd_topics\Form\GetTopicsForm'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.topic_count:
+  path: '/api/topicalboost/topic-count'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getTopicCount'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
+
+topicalboost.api.recommendations:
+  path: '/api/topicalboost/recommendations'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getRecommendations'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
+
+topicalboost.bulk_analysis.count:
+  path: '/api/topicalboost/bulk-analysis/count'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::getNodeCount'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis.initiate:
+  path: '/api/topicalboost/bulk-analysis/initiate'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::initiateAnalysis'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis.progress:
+  path: '/api/topicalboost/bulk-analysis/progress'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::getProgress'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis.reset:
+  path: '/api/topicalboost/bulk-analysis/reset'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::resetAnalysis'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis.poll:
+  path: '/api/topicalboost/bulk-analysis/poll'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::pollAnalysis'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.bulk_analysis.apply_results:
+  path: '/api/topicalboost/bulk-analysis/apply-results'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\BulkAnalysisController::applyResults'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.validate_key:
+  path: '/api/topicalboost/validate-api-key'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\ApiValidationController::validateApiKey'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'

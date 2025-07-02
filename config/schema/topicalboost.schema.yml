@@ -1,0 +1,61 @@
+ttd_topics.settings:
+  type: config_object
+  label: 'TopicalBoost Settings'
+  mapping:
+    enabled_content_types:
+      type: sequence
+      label: 'Enabled content types'
+      sequence:
+        type: string
+        label: 'Content type machine name'
+    enable_frontend:
+      type: boolean
+      label: 'Display topics on frontend'
+    enable_automatic_mentions:
+      type: boolean
+      label: 'Enable automatic mentions'
+    maximum_visible_post_topics:
+      type: integer
+      label: 'Maximum topics to display'
+    post_topic_minimum_display_count:
+      type: integer
+      label: 'Minimum post frequency'
+    topics_list_label:
+      type: string
+      label: 'Topics section label'
+    topic_url_path_prefix:
+      type: string
+      label: 'Topic URL path prefix'
+    debug_mode:
+      type: boolean
+      label: 'Debug mode'
+    topicalboost_api_key:
+      type: string
+      label: 'TopicalBoost API Key'
+    topicalboost_api_endpoint:
+      type: string
+      label: 'TopicalBoost API Endpoint'
+    organization_facebook_url:
+      type: string
+      label: 'Facebook Page URL'
+    organization_twitter_url:
+      type: string
+      label: 'Twitter/X Profile URL'
+    organization_linkedin_url:
+      type: string
+      label: 'LinkedIn Company Page URL'
+    organization_youtube_url:
+      type: string
+      label: 'YouTube Channel URL'
+    organization_wikipedia_url:
+      type: string
+      label: 'Wikipedia Page URL'
+    organization_logo_fid:
+      type: integer
+      label: 'Organization logo file ID'
+    organization_logo_method:
+      type: string
+      label: 'Logo detection method'
+    organization_logo_url:
+      type: string
+      label: 'Organization logo URL' 

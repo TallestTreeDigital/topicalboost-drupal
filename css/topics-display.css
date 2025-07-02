@@ -1,0 +1,66 @@
+/**
+ * TopicalBoost - Basic Display Defaults
+ * Provides sensible defaults without being overly opinionated
+ */
+
+.ttd-topics-section {
+  margin: 1rem 0;
+}
+
+.ttd-topics-list {
+  display: block;
+}
+
+.topic-items {
+  display: block;
+}
+
+.topic-type-label {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.ttd-topics-section .field--item {
+  display: inline-block;
+  margin-right: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.ttd-topics-section .field--item.hidden {
+  display: none;
+}
+
+.ttd-topics-section .field--item a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.ttd-topics-section .field--item a:hover {
+  text-decoration: underline;
+}
+
+.toggle-topics-btn {
+  background: none;
+  border: none;
+  color: #0066cc;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+  margin-left: 0.5rem;
+}
+
+.toggle-topics-btn:hover {
+  color: #004499;
+}
+
+/* Print styles - show all topics when printing */
+@media print {
+  .toggle-topics-btn {
+    display: none;
+  }
+
+  .topic-items .field--item.hidden {
+    display: inline-block !important;
+  }
+}
