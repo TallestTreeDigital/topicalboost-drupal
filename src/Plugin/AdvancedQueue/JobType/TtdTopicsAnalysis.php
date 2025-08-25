@@ -85,6 +85,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
     $client = new Client();
 
     try {
+      // Get analysis content using field collector
+      $field_collector = \Drupal::service('ttd_topics.field_collector');
+      $analysis_text = $field_collector->collect($node);
+
       // Step 1: Initiate analysis.
       $response = $client->post($api_base_url . '/analyze/single', [
         'headers' => [
@@ -95,7 +99,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
           'customer_id' => $node->id(),
           'url' => $node->toUrl()->setAbsolute()->toString(),
           'title' => $node->getTitle(),
-          'text' => $node->get('body')->value,
+          'text' => $analysis_text,
         ],
       ]);
 

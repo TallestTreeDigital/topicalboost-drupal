@@ -20,6 +20,12 @@ ttd_topics.settings:
     post_topic_minimum_display_count:
       type: integer
       label: 'Minimum post frequency'
+    analysis_custom_fields:
+      type: sequence
+      label: 'Custom fields for analysis'
+      sequence:
+        type: string
+        label: 'Field machine name'
     topics_list_label:
       type: string
       label: 'Topics section label'

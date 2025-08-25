@@ -232,6 +232,115 @@ class SettingsForm extends ConfigFormBase {
       // ],
     ];
 
+    // Custom Fields for Analysis Section
+    $form['tabs_container']['content']['settings']['custom_fields_section'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Custom Fields for Analysis'),
+      '#description' => $this->t('Select additional fields whose content should be included in topic analysis.'),
+      '#open' => FALSE,
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    // Get all field options for enabled content types
+    $field_options = $this->getCustomFieldOptions($config);
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['analysis_custom_fields'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Custom Fields'),
+      '#options' => $field_options,
+      '#default_value' => $config->get('analysis_custom_fields') ?: [],
+      '#description' => $this->t('Select additional fields whose content should be included in topic analysis.'),
+      '#multiple' => TRUE,
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group', 'ttd-topics-select2'],
+        'data-placeholder' => 'Select custom fields...',
+        'id' => 'edit-analysis-custom-fields',
+      ],
+    ];
+
+    // Field Inspector
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['field-inspector-container']],
+      '#attached' => [
+        'library' => ['ttd_topics/field_inspector'],
+      ],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['header'] = [
+      '#markup' => '<h3>
+        <span class="ttd-icon ttd-icon-search"></span>
+        Field Inspector
+        <span class="field-count-badge">0 selected</span>
+      </h3>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['messages'] = [
+      '#markup' => '<div class="field-inspector-messages"></div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['field-inspector-section']],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes']['title'] = [
+      '#markup' => '<h4>Recent Nodes with Custom Fields</h4>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes']['list'] = [
+      '#markup' => '<div class="recent-nodes-list">
+        <div class="loading-indicator">
+          <div class="loading-spinner"></div>
+          <span class="loading-text">Loading recent nodes...</span>
+        </div>
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['field-inspector-section']],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['title'] = [
+      '#markup' => '<h4>Inspect Specific Node</h4>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['manual-input-section']],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section']['node_id'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Node ID'),
+      '#title_display' => 'invisible',
+      '#attributes' => [
+        'class' => ['node-id-input'],
+        'placeholder' => 'Node ID',
+        'min' => 1,
+      ],
+      '#size' => 10,
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section']['button'] = [
+      '#type' => 'button',
+      '#value' => $this->t('Inspect Fields'),
+      '#attributes' => [
+        'class' => ['inspect-node-button'],
+        'type' => 'button',
+      ],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['field_list'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['field-inspector-section']],
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['field_list']['container'] = [
+      '#markup' => '<div class="field-list"></div>',
+    ];
+
     // URL Path Configuration
     $form['tabs_container']['content']['settings']['url_section'] = [
       '#markup' => '<div class="ttd-topics-section-title">
@@ -561,9 +670,12 @@ class SettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('organization_logo_fid') ? [$config->get('organization_logo_fid')] : NULL,
       '#description' => $this->t('Override the auto-detected logo. PNG/JPG recommended.'),
       '#upload_validators' => [
-        'file_validate_extensions' => ['png jpg jpeg svg gif'],
-    // 5MB max
-        'file_validate_size' => [5 * 1024 * 1024],
+        'FileExtension' => [
+          'extensions' => 'png jpg jpeg svg gif'
+        ],
+        'FileSizeLimit' => [
+          'fileLimit' => 5 * 1024 * 1024, // 5MB max
+        ],
       ],
       '#upload_location' => 'public://logos/',
     ];
@@ -1046,6 +1158,43 @@ class SettingsForm extends ConfigFormBase {
   }
 
   /**
+   * Get field options for custom field selection.
+   *
+   * @param object $config
+   *   The configuration object.
+   *
+   * @return array
+   *   Array of field options keyed by field machine name.
+   */
+  protected function getCustomFieldOptions($config) {
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+    $field_options = [];
+
+    if (empty($enabled_content_types)) {
+      return $field_options;
+    }
+
+    $field_collector = \Drupal::service('ttd_topics.field_collector');
+
+    foreach ($enabled_content_types as $content_type) {
+      $compatible_fields = $field_collector->getTextCompatibleFields('node', $content_type);
+      
+      foreach ($compatible_fields as $field_name => $field_definition) {
+        $label = $field_definition->getLabel() . ' (' . $content_type . ')';
+        $field_options[$field_name] = $label;
+      }
+    }
+
+    // Remove duplicates and sort
+    $field_options = array_unique($field_options);
+    asort($field_options);
+
+    return $field_options;
+  }
+
+
+
+  /**
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
@@ -1119,6 +1268,7 @@ class SettingsForm extends ConfigFormBase {
       ->set('enable_automatic_mentions', $form_state->getValue('enable_automatic_mentions'))
       ->set('maximum_visible_post_topics', $form_state->getValue('maximum_visible_post_topics'))
       ->set('post_topic_minimum_display_count', $form_state->getValue('post_topic_minimum_display_count'))
+      ->set('analysis_custom_fields', array_filter($form_state->getValue('analysis_custom_fields') ?: []))
       ->set('topics_list_label', $form_state->getValue('topics_list_label'))
       ->set('topic_url_path_prefix', $new_path_prefix)
       ->set('debug_mode', $form_state->getValue('debug_mode'))

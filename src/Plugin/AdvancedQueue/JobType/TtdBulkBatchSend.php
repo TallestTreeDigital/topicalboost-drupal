@@ -116,33 +116,14 @@ class TtdBulkBatchSend extends JobTypeBase {
    * Prepare node data for the API.
    */
   private function prepareNodeData(NodeInterface $node) {
-    // Get the body content.
-    $body_content = '';
-    if ($node->hasField('body') && !$node->get('body')->isEmpty()) {
-      $body_content = $node->get('body')->value;
-    }
-
-    // Get enabled custom fields if any.
-    $config = \Drupal::config('ttd_topics.settings');
-    $enabled_fields = $config->get('analysis_custom_fields') ?: [];
-
-    $custom_fields_content = '';
-    foreach ($enabled_fields as $field_name) {
-      if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
-        $field_value = $node->get($field_name)->value;
-        if (!empty($field_value)) {
-          $custom_fields_content .= ' ' . $field_value;
-        }
-      }
-    }
-
-    // Combine content.
-    $full_content = trim($body_content . ' ' . $custom_fields_content);
+    // Get analysis content using field collector
+    $field_collector = \Drupal::service('ttd_topics.field_collector');
+    $analysis_text = $field_collector->collect($node);
 
     return [
       'url' => $node->toUrl()->setAbsolute()->toString(),
       'title' => $node->getTitle(),
-      'text' => $full_content,
+      'text' => $analysis_text,
     ];
   }
 

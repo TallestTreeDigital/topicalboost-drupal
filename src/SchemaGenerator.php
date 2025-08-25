@@ -55,8 +55,8 @@ class SchemaGenerator {
 
     // Get site configuration - all dynamic.
     $site_config = \Drupal::config('system.site');
-    $site_name = $site_config->get('name') ?: 'The Thomas B. Fordham Institute';
-    $site_slogan = $site_config->get('slogan') ?: 'Advancing educational excellence for all';
+    $site_name = $site_config->get('name') ?: 'Your Organization';
+    $site_slogan = $site_config->get('slogan') ?: 'Your organization\'s mission';
 
     // Get base URL dynamically.
     $base_url = \Drupal::request()->getSchemeAndHttpHost();

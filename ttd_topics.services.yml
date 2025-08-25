@@ -8,3 +8,7 @@ services:
   ttd_topics.schema_generator:
     class: Drupal\ttd_topics\SchemaGenerator
     arguments: ['@database', '@path_alias.manager']
+
+  ttd_topics.field_collector:
+    class: Drupal\ttd_topics\Service\FieldCollectorService
+    arguments: ['@config.factory', '@entity_type.manager']

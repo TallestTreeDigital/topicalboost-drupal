@@ -130,6 +130,19 @@ url_preview:
   dependencies:
     - core/drupal
 
+field_inspector:
+  css:
+    theme:
+      css/field_inspector.css: {}
+  js:
+    js/field_inspector.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+    - ttd_topics/select2
+
 
 
 

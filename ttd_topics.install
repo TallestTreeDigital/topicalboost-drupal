@@ -776,6 +776,20 @@ function ttd_topics_uninstall() {
   \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->resetCache();
 }
 
+/**
+ * Add analysis_custom_fields config key with default empty value.
+ */
+function ttd_topics_update_8001() {
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  
+  // Only set the key if it doesn't exist to preserve any early-adopter custom overrides
+  if (!$config->get('analysis_custom_fields')) {
+    $config->set('analysis_custom_fields', [])->save();
+  }
+  
+  return t('Added analysis_custom_fields configuration key for custom field analysis feature.');
+}
+
 
 
 

@@ -101,3 +101,20 @@ topicalboost.api.validate_key:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+
+topicalboost.field_inspector:
+  path: '/admin/topicalboost/field-inspector/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::inspectFields'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+    node: \d+
+
+topicalboost.field_inspector.recent_nodes:
+  path: '/admin/topicalboost/field-inspector/recent-nodes'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::getRecentNodes'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
