@@ -1180,7 +1180,7 @@ class SettingsForm extends ConfigFormBase {
       $compatible_fields = $field_collector->getTextCompatibleFields('node', $content_type);
       
       foreach ($compatible_fields as $field_name => $field_definition) {
-        $label = $field_definition->getLabel() . ' (' . $content_type . ')';
+        $label = $field_definition->getLabel() . ' - ' . $field_name . ' (' . $content_type . ')';
         $field_options[$field_name] = $label;
       }
     }
