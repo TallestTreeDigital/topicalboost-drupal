@@ -147,6 +147,58 @@ class FieldInspectorController extends ControllerBase {
         }
         break;
 
+      case 'entity_reference_revisions':
+        // Handle paragraph fields - show all paragraphs, not just first
+        $all_paragraph_texts = [];
+        $total_paragraphs = $field->count();
+
+        foreach ($field as $delta => $item) {
+          if (isset($item->target_id) && $item->entity) {
+            $paragraph = $item->entity;
+            $paragraph_bundle = $paragraph->bundle();
+
+            // Get sample text from paragraph fields
+            $paragraph_texts = [];
+            $paragraph_field_definitions = $paragraph->getFieldDefinitions();
+
+            foreach ($paragraph_field_definitions as $para_field_name => $para_field_definition) {
+              $is_base_field = method_exists($para_field_definition, 'isBaseField') ? $para_field_definition->isBaseField() : false;
+              if (!$is_base_field && strpos($para_field_name, 'field_') === 0) {
+                if ($paragraph->hasField($para_field_name) && !$paragraph->get($para_field_name)->isEmpty()) {
+                  $para_field_type = $para_field_definition->getType();
+
+                  if (in_array($para_field_type, ['string', 'string_long', 'text', 'text_long', 'text_with_summary'])) {
+                    $para_first_item = $paragraph->get($para_field_name)->first();
+                    if ($para_first_item && isset($para_first_item->value)) {
+                      $para_text = strip_tags($para_first_item->value);
+                      if ($para_text) {
+                        $paragraph_texts[] = $para_text;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            if (!empty($paragraph_texts)) {
+              $all_paragraph_texts[] = implode(', ', $paragraph_texts);
+            }
+          }
+        }
+
+        if (!empty($all_paragraph_texts)) {
+          if (count($all_paragraph_texts) > 3) {
+            // Show first 3 and indicate there are more
+            $shown = array_slice($all_paragraph_texts, 0, 3);
+            $sample_text = implode(' | ', $shown) . ' | +' . (count($all_paragraph_texts) - 3) . ' more';
+          } else {
+            $sample_text = implode(' | ', $all_paragraph_texts);
+          }
+        } else {
+          $sample_text = $total_paragraphs . ' paragraph(s)';
+        }
+        break;
+
       default:
         // For other field types, try to get a string representation
         if (method_exists($first_item, '__toString')) {

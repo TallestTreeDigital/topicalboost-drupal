@@ -58,7 +58,14 @@ class FieldCollectorService {
   public function collect(NodeInterface $node): string {
     $config = $this->configFactory->get('ttd_topics.settings');
     $custom_fields = $config->get('analysis_custom_fields') ?: [];
-    
+
+    // Debug logging for collection start
+    \Drupal::logger('ttd_topics_debug')->debug('Starting content collection for node @nid (@title). Custom fields: @fields', [
+      '@nid' => $node->id(),
+      '@title' => $node->getTitle(),
+      '@fields' => implode(', ', $custom_fields),
+    ]);
+
     $content_parts = [];
     $current_length = 0;
 
@@ -85,15 +92,48 @@ class FieldCollectorService {
       }
 
       if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
+        $field_definition = $node->get($field_name)->getFieldDefinition();
+        $field_type = $field_definition->getType();
+
+        // Debug logging for custom field processing
+        \Drupal::logger('ttd_topics_debug')->debug('Processing custom field @field_name (@field_type)', [
+          '@field_name' => $field_name,
+          '@field_type' => $field_type,
+        ]);
+
         $field_text = $this->extractFieldText($node->get($field_name), [], 0);
         if ($field_text && $current_length + strlen($field_text) < self::MAX_TEXT_LENGTH) {
+          $field_text_length = strlen($field_text);
+          \Drupal::logger('ttd_topics_debug')->debug('Added @length chars from field @field_name: @preview', [
+            '@length' => $field_text_length,
+            '@field_name' => $field_name,
+            '@preview' => substr($field_text, 0, 100) . ($field_text_length > 100 ? '...' : ''),
+          ]);
           $content_parts[] = $field_text;
-          $current_length += strlen($field_text);
+          $current_length += $field_text_length;
+        } else {
+          \Drupal::logger('ttd_topics_debug')->debug('Field @field_name produced no text or would exceed length limit', [
+            '@field_name' => $field_name,
+          ]);
         }
+      } else {
+        \Drupal::logger('ttd_topics_debug')->debug('Field @field_name not found or empty on node', [
+          '@field_name' => $field_name,
+        ]);
       }
     }
 
-    return implode("\n\n", $content_parts);
+    $final_content = implode("\n\n", $content_parts);
+    $final_length = strlen($final_content);
+
+    // Debug logging for collection summary
+    \Drupal::logger('ttd_topics_debug')->debug('Collection complete for node @nid. Total length: @length chars from @parts parts', [
+      '@nid' => $node->id(),
+      '@length' => $final_length,
+      '@parts' => count($content_parts),
+    ]);
+
+    return $final_content;
   }
 
   /**
@@ -170,14 +210,28 @@ class FieldCollectorService {
           if (isset($item->target_id)) {
             $target_type = $field_definition->getSetting('target_type');
             $entity_key = $target_type . ':' . $item->target_id;
-            
+
+            // Debug logging for paragraph fields
+            $field_name = $field_definition->getName();
+            if ($target_type === 'paragraph') {
+              \Drupal::logger('ttd_topics_debug')->debug('Processing paragraph field @field (target_id: @target_id)', [
+                '@field' => $field_name,
+                '@target_id' => $item->target_id,
+              ]);
+            }
+
             // Prevent infinite loops
             if (in_array($entity_key, $processed_entities)) {
+              if ($target_type === 'paragraph') {
+                \Drupal::logger('ttd_topics_debug')->debug('Skipping paragraph @target_id to prevent infinite loop', [
+                  '@target_id' => $item->target_id,
+                ]);
+              }
               continue 2;
             }
 
             $processed_entities[] = $entity_key;
-            
+
             try {
               $referenced_entity = $this->entityTypeManager
                 ->getStorage($target_type)
@@ -185,9 +239,33 @@ class FieldCollectorService {
 
               if ($referenced_entity) {
                 $text = $this->extractEntityText($referenced_entity, $processed_entities, $depth + 1);
+
+                // Debug logging for paragraph content extraction
+                if ($target_type === 'paragraph') {
+                  $bundle = $referenced_entity->bundle();
+                  $text_length = strlen($text);
+                  \Drupal::logger('ttd_topics_debug')->debug('Extracted @length chars from paragraph @id (@bundle): @preview', [
+                    '@length' => $text_length,
+                    '@id' => $item->target_id,
+                    '@bundle' => $bundle,
+                    '@preview' => substr($text, 0, 100) . ($text_length > 100 ? '...' : ''),
+                  ]);
+                }
+              } else {
+                if ($target_type === 'paragraph') {
+                  \Drupal::logger('ttd_topics_debug')->warning('Paragraph entity @target_id could not be loaded', [
+                    '@target_id' => $item->target_id,
+                  ]);
+                }
               }
                          } catch (\Exception $e) {
-               // Silently skip entities that can't be loaded
+               // Log errors for paragraph fields specifically
+               if ($target_type === 'paragraph') {
+                 \Drupal::logger('ttd_topics_debug')->error('Error loading paragraph @target_id: @message', [
+                   '@target_id' => $item->target_id,
+                   '@message' => $e->getMessage(),
+                 ]);
+               }
                continue 2;
              }
           }
@@ -232,7 +310,8 @@ class FieldCollectorService {
 
     foreach ($field_definitions as $field_name => $field_definition) {
       // Skip base fields except for common ones
-      if ($field_definition->isBaseField() && !in_array($field_name, ['title', 'name', 'body'])) {
+      $is_base_field = method_exists($field_definition, 'isBaseField') ? $field_definition->isBaseField() : false;
+      if ($is_base_field && !in_array($field_name, ['title', 'name', 'body'])) {
         continue;
       }
 
