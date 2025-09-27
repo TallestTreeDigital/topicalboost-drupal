@@ -119,6 +119,14 @@ topicalboost.field_inspector.recent_nodes:
   requirements:
     _permission: 'administer nodes'
 
+topicalboost.field_inspector.search:
+  path: '/api/topicalboost/field-inspector/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::searchNodesByTitle'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
 topicalboost.api.check_analysis_status:
   path: '/ttd-topics/check-analysis-status/{node}'
   defaults:

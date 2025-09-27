@@ -265,4 +265,86 @@ class FieldInspectorController extends ControllerBase {
 
     return new JsonResponse(['nodes' => $recent_nodes]);
   }
+
+  /**
+   * Search nodes by title within enabled content types.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response containing matching nodes.
+   */
+  public function searchNodesByTitle(): JsonResponse {
+    $query = \Drupal::request()->query->get('q', '');
+
+    // Require minimum 2 characters for search
+    if (strlen(trim($query)) < 2) {
+      return new JsonResponse(['nodes' => []]);
+    }
+
+    $config = $this->config('ttd_topics.settings');
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+    if (empty($enabled_content_types)) {
+      return new JsonResponse(['nodes' => []]);
+    }
+
+    try {
+      // Search nodes by title
+      $node_query = $this->entityTypeManager()->getStorage('node')->getQuery()
+        ->condition('type', $enabled_content_types, 'IN')
+        ->condition('status', 1)
+        ->condition('title', '%' . \Drupal::database()->escapeLike(trim($query)) . '%', 'LIKE')
+        ->sort('changed', 'DESC')
+        ->range(0, 15) // Limit to 15 results for performance
+        ->accessCheck(TRUE);
+
+      $node_ids = $node_query->execute();
+
+      if (empty($node_ids)) {
+        return new JsonResponse(['nodes' => []]);
+      }
+
+      $nodes = $this->entityTypeManager()->getStorage('node')->loadMultiple($node_ids);
+
+      $search_results = [];
+      foreach ($nodes as $node) {
+        // Only include nodes with text-compatible fields
+        $compatible_fields = $this->fieldCollector->getTextCompatibleFields('node', $node->bundle());
+        $has_eligible_fields = FALSE;
+
+        foreach ($compatible_fields as $field_name => $field_definition) {
+          if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
+            $has_eligible_fields = TRUE;
+            break;
+          }
+        }
+
+        if ($has_eligible_fields) {
+          $search_results[] = [
+            'nid' => $node->id(),
+            'title' => $node->getTitle(),
+            'type' => $node->bundle(),
+            'type_label' => $node->type->entity->label(),
+            'changed' => $node->getChangedTime(),
+            'changed_formatted' => \Drupal::service('date.formatter')->format($node->getChangedTime(), 'custom', 'M j, Y'),
+          ];
+        }
+      }
+
+      return new JsonResponse([
+        'nodes' => $search_results,
+        'query' => $query,
+        'total' => count($search_results),
+      ]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error searching nodes by title: @error', [
+        '@error' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'nodes' => [],
+        'error' => 'An error occurred while searching.',
+      ], 500);
+    }
+  }
 } 

@@ -135,7 +135,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
               <div class="ttd-analysis-spinner" aria-hidden="true"></div>
               <div class="ttd-analysis-text">
                 <h4 class="ttd-analysis-title">' . t('Running TopicalBoost Analysis') . '</h4>
-                <p class="ttd-analysis-status">' . t('Analyzing content and extracting topics') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
+                <p class="ttd-analysis-status">' . t('Analysis in progress') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
               </div>
             </div>
           </div>',
@@ -146,7 +146,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
             'ttdTopics' => [
               'nodeId' => $node->id(),
               'enableStatusPolling' => TRUE,
-              'enableDynamicStatus' => TRUE,
+              'enableDynamicStatus' => FALSE,
             ],
           ],
         ],
@@ -230,7 +230,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
               <div class="ttd-analysis-spinner" aria-hidden="true"></div>
               <div class="ttd-analysis-text">
                 <h4 class="ttd-analysis-title">' . t('Analysis in Progress') . '</h4>
-                <p class="ttd-analysis-status">' . t('Processing content') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
+                <p class="ttd-analysis-status">' . t('Analysis in progress') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
               </div>
             </div>
           </div>',
@@ -240,7 +240,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
             'ttdTopics' => [
               'nodeId' => $node->id(),
               'enableStatusPolling' => TRUE,
-              'enableDynamicStatus' => TRUE,
+              'enableDynamicStatus' => FALSE,
             ],
           ],
         ],

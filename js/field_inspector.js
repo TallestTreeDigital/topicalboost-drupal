@@ -2,7 +2,7 @@
   'use strict';
 
   /**
-   * Field Inspector functionality for TopicalBoost custom fields.
+   * Field Inspector with Autocomplete Search functionality for TopicalBoost.
    */
   Drupal.behaviors.topicalBoostFieldInspector = {
     attach: function (context) {
@@ -11,35 +11,17 @@
         return;
       }
 
-      // Initialize field inspector
+      // Initialize field inspector with autocomplete search
       this.initFieldInspector($inspector);
     },
 
     initFieldInspector: function ($container) {
       const self = this;
-      
-      // Load recent nodes on initialization
-      this.loadRecentNodes($container);
 
-      // Handle recent node button clicks
-      $container.on('click', '.recent-node-button', function (e) {
-        e.preventDefault();
-        const nodeId = $(this).data('node-id');
-        self.inspectNode(nodeId, $container);
-      });
+      // Initialize autocomplete search
+      this.initAutocompleteSearch($container);
 
-      // Handle manual node ID input
-      $container.on('click', '.inspect-node-button', function (e) {
-        e.preventDefault();
-        const nodeId = $container.find('.node-id-input').val() || $container.find('input[class*="node-id-input"]').val();
-        if (nodeId && /^\d+$/.test(nodeId)) {
-          self.inspectNode(nodeId, $container);
-        } else {
-          self.showMessage($container, 'Please enter a valid node ID.', 'error');
-        }
-      });
-
-      // Handle field checkbox changes
+      // Handle field checkbox changes (keep existing functionality)
       $container.on('change', '.field-checkbox', function () {
         const fieldName = $(this).val();
         const isChecked = $(this).is(':checked');
@@ -55,50 +37,204 @@
       this.updateFieldCount($container);
     },
 
-    loadRecentNodes: function ($container) {
+    initAutocompleteSearch: function ($container) {
       const self = this;
-      
-      this.showLoading($container.find('.recent-nodes-list'), 'Loading recent nodes...');
+      const $searchInput = $container.find('.field-inspector-search');
+      const $resultsDropdown = $container.find('.search-results-dropdown');
 
-      $.ajax({
-        url: '/admin/topicalboost/field-inspector/recent-nodes',
-        method: 'GET',
-        dataType: 'json',
-        success: function (data) {
-          self.renderRecentNodes(data.nodes, $container);
-        },
-        error: function () {
-          self.showMessage($container, 'Error loading recent nodes.', 'error');
+      if ($searchInput.length === 0) {
+        return;
+      }
+
+      let searchTimeout;
+      let searchCache = {};
+      let currentRequest;
+
+      // Handle search input
+      $searchInput.on('input', function () {
+        const query = $(this).val().trim();
+
+        // Clear previous timeout
+        if (searchTimeout) {
+          clearTimeout(searchTimeout);
+        }
+
+        // Cancel previous request
+        if (currentRequest) {
+          currentRequest.abort();
+        }
+
+        // Hide dropdown if query is too short
+        if (query.length < 2) {
+          $resultsDropdown.hide().empty();
+          return;
+        }
+
+        // Check cache first
+        if (searchCache[query]) {
+          self.displaySearchResults(searchCache[query], $resultsDropdown, $container);
+          return;
+        }
+
+        // Debounce search
+        searchTimeout = setTimeout(function () {
+          self.performSearch(query, $searchInput, $resultsDropdown, $container, searchCache);
+        }, 300);
+      });
+
+      // Handle keyboard navigation
+      $searchInput.on('keydown', function (e) {
+        const $visibleResults = $resultsDropdown.find('.search-result-item:visible');
+        const $active = $visibleResults.filter('.active');
+
+        switch (e.which) {
+          case 40: // Down arrow
+            e.preventDefault();
+            if ($active.length === 0) {
+              $visibleResults.first().addClass('active');
+            } else {
+              $active.removeClass('active').next().addClass('active');
+              if ($visibleResults.filter('.active').length === 0) {
+                $visibleResults.first().addClass('active');
+              }
+            }
+            break;
+
+          case 38: // Up arrow
+            e.preventDefault();
+            if ($active.length === 0) {
+              $visibleResults.last().addClass('active');
+            } else {
+              $active.removeClass('active').prev().addClass('active');
+              if ($visibleResults.filter('.active').length === 0) {
+                $visibleResults.last().addClass('active');
+              }
+            }
+            break;
+
+          case 13: // Enter
+            e.preventDefault();
+            if ($active.length > 0) {
+              $active.click();
+            }
+            break;
+
+          case 27: // Escape
+            e.preventDefault();
+            $resultsDropdown.hide();
+            $(this).blur();
+            break;
+        }
+      });
+
+      // Handle clicks outside to close dropdown
+      $(document).on('click', function (e) {
+        if (!$container.find(e.target).length) {
+          $resultsDropdown.hide();
+        }
+      });
+
+      // Handle focus to show cached results
+      $searchInput.on('focus', function () {
+        const query = $(this).val().trim();
+        if (query.length >= 2 && searchCache[query]) {
+          self.displaySearchResults(searchCache[query], $resultsDropdown, $container);
         }
       });
     },
 
-    renderRecentNodes: function (nodes, $container) {
-      const $nodesList = $container.find('.recent-nodes-list');
-      
-      if (nodes.length === 0) {
-        $nodesList.html('<p class="no-nodes">No recent nodes with custom fields found.</p>');
+    performSearch: function (query, $searchInput, $resultsDropdown, $container, cache) {
+      const self = this;
+      const searchUrl = $searchInput.data('search-url') || '/api/topicalboost/field-inspector/search';
+
+      // Show loading state
+      $resultsDropdown.html('<div class="search-loading"><div class="loading-spinner"></div><span>Searching...</span></div>').show();
+
+      // Perform AJAX search
+      const currentRequest = $.ajax({
+        url: searchUrl,
+        method: 'GET',
+        data: { q: query },
+        dataType: 'json',
+        timeout: 10000,
+        success: function (data) {
+          // Cache the results
+          cache[query] = data;
+
+          // Display results
+          self.displaySearchResults(data, $resultsDropdown, $container);
+        },
+        error: function (xhr, status) {
+          if (status !== 'abort') {
+            $resultsDropdown.html('<div class="search-error">Error searching posts. Please try again.</div>').show();
+            setTimeout(function () {
+              $resultsDropdown.hide();
+            }, 3000);
+          }
+        }
+      });
+
+      // Store current request reference for potential cancellation
+      this.currentRequest = currentRequest;
+    },
+
+    displaySearchResults: function (data, $resultsDropdown, $container) {
+      const self = this;
+
+      if (!data.nodes || data.nodes.length === 0) {
+        $resultsDropdown.html('<div class="search-no-results">No posts found matching your search.</div>').show();
         return;
       }
 
-      let html = '<div class="recent-nodes-buttons">';
-      nodes.forEach(function (node) {
-        const date = new Date(node.changed * 1000).toLocaleDateString();
-        html += `<button type="button" class="recent-node-button button button--small" data-node-id="${node.nid}">
-          <span class="node-title">${Drupal.checkPlain(node.title)}</span>
-          <span class="node-meta">${Drupal.checkPlain(node.type)} - ${date}</span>
-        </button>`;
+      let html = '<div class="search-results-list">';
+
+      data.nodes.forEach(function (node) {
+        html += `<div class="search-result-item" data-node-id="${node.nid}">
+          <div class="result-title">${Drupal.checkPlain(node.title)}</div>
+          <div class="result-meta">
+            <span class="result-type">${Drupal.checkPlain(node.type_label)}</span>
+            <span class="result-date">${node.changed_formatted}</span>
+          </div>
+        </div>`;
       });
+
       html += '</div>';
 
-      $nodesList.html(html);
+      $resultsDropdown.html(html).show();
+
+      // Handle result selection
+      $resultsDropdown.off('click', '.search-result-item').on('click', '.search-result-item', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const nodeId = $(this).data('node-id');
+        const nodeTitle = $(this).find('.result-title').text();
+
+        // Update search input with selected title
+        $container.find('.field-inspector-search').val(nodeTitle);
+
+        // Hide dropdown
+        $resultsDropdown.hide();
+
+        // Inspect the selected node
+        self.inspectNode(nodeId, $container);
+      });
+
+      // Handle hover states
+      $resultsDropdown.off('mouseenter mouseleave', '.search-result-item')
+        .on('mouseenter', '.search-result-item', function () {
+          $(this).addClass('active').siblings().removeClass('active');
+        })
+        .on('mouseleave', '.search-result-item', function () {
+          $(this).removeClass('active');
+        });
     },
 
     inspectNode: function (nodeId, $container) {
       const self = this;
-      
+
       this.showLoading($container.find('.field-list'), 'Inspecting node fields...');
-      
+
       // Disable the main select during inspection
       $('#edit-analysis-custom-fields').prop('disabled', true);
 
@@ -132,11 +268,11 @@
 
       let html = '<div class="field-checkboxes">';
       html += `<h4>Available Fields for "${Drupal.checkPlain(data.node_title)}"</h4>`;
-      
+
       data.fields.forEach(function (field) {
         const isChecked = selectedFields.includes(field.machine_name) ? 'checked' : '';
         const sampleValue = field.sample_value ? Drupal.checkPlain(field.sample_value) : '<em>Empty</em>';
-        
+
         html += `<div class="field-item">
           <label class="field-checkbox-label">
             <input type="checkbox" class="field-checkbox" value="${field.machine_name}" ${isChecked}>
@@ -157,7 +293,7 @@
     updateMainSelect: function (fieldName, isChecked, $container) {
       const $mainSelect = $('#edit-analysis-custom-fields');
       const currentValues = $mainSelect.val() || [];
-      
+
       if (isChecked) {
         if (!currentValues.includes(fieldName)) {
           currentValues.push(fieldName);
@@ -182,7 +318,7 @@
     updateFieldCount: function ($container) {
       const selectedCount = this.getSelectedFields().length;
       const $counter = $container.find('.field-count-badge');
-      
+
       if ($counter.length > 0) {
         $counter.text(`${selectedCount} selected`);
         $counter.toggleClass('has-fields', selectedCount > 0);
@@ -198,16 +334,16 @@
 
     showMessage: function ($container, message, type = 'info') {
       const $messages = $container.find('.field-inspector-messages');
-      const alertClass = type === 'error' ? 'alert-danger' : 
+      const alertClass = type === 'error' ? 'alert-danger' :
                         type === 'success' ? 'alert-success' : 'alert-info';
-      
+
       const messageHtml = `<div class="alert ${alertClass}" role="alert">
         ${Drupal.checkPlain(message)}
         <button type="button" class="close" data-dismiss="alert">&times;</button>
       </div>`;
-      
+
       $messages.html(messageHtml);
-      
+
       // Auto-hide after 5 seconds
       setTimeout(function () {
         $messages.find('.alert').fadeOut();
@@ -220,4 +356,4 @@
     $(this).closest('.alert').fadeOut();
   });
 
-})(jQuery, Drupal); 
+})(jQuery, Drupal);

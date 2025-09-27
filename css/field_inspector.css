@@ -1,10 +1,158 @@
-/* Field Inspector Styles */
+/* Field Inspector Styles - Modern Search Interface */
 .field-inspector-container {
   margin-top: 0.75rem;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 1rem 1.5rem;
+}
+
+/* Search Section Styles */
+.field-inspector-container .search-section {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.field-inspector-search {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 16px 12px 44px !important;
+  font-size: 16px !important;
+  border: 2px solid #e9ecef !important;
+  border-radius: 8px !important;
+  background: white !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cpath d='m21 21-4.35-4.35'%3E%3C/path%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: 12px center !important;
+  background-size: 20px 20px !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+}
+
+.field-inspector-search:focus {
+  outline: none !important;
+  border-color: #007bff !important;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1) !important;
+  background-color: #fff !important;
+}
+
+.field-inspector-search::placeholder {
+  color: #6c757d !important;
+  font-style: italic !important;
+}
+
+/* Search Results Dropdown */
+.search-results-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: -1px;
+}
+
+.search-results-list {
+  padding: 0;
+  margin: 0;
+}
+
+.search-result-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f3f4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+  background: #f8f9fa;
+  color: #007bff;
+}
+
+.search-result-item .result-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  color: inherit;
+}
+
+.search-result-item .result-meta {
+  font-size: 12px;
+  color: #6c757d;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-result-item .result-type {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.search-result-item:hover .result-type,
+.search-result-item.active .result-type {
+  background: #007bff;
+  color: white;
+}
+
+.search-result-item .result-date {
+  color: #6c757d;
+  font-size: 11px;
+}
+
+/* Search Loading State */
+.search-loading {
+  padding: 16px;
+  text-align: center;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.search-loading .loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e9ecef;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Search No Results */
+.search-no-results {
+  padding: 16px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  background: #f8f9fa;
+}
+
+/* Search Error */
+.search-error {
+  padding: 16px;
+  text-align: center;
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
 }
 
 .field-inspector-container h3 {
@@ -261,9 +409,10 @@
 .field-inspector-container .field-checkbox:checked::after {
   content: '✓' !important;
   position: absolute !important;
-  top: -1px !important;
-  left: 1px !important;
-  font-size: 13px !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  font-size: 12px !important;
   font-weight: bold !important;
   color: white !important;
   line-height: 1 !important;

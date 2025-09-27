@@ -20,10 +20,7 @@
         // Initialize progress enhancement
         initializeProgressDisplay($progressContainer, $statusText, $title);
 
-        // Optional: Add dynamic status messages
-        if (settings.ttdTopics && settings.ttdTopics.enableDynamicStatus) {
-          startDynamicStatusUpdates($statusText);
-        }
+        // Dynamic status messages removed for authentic UX
 
         // Add fallback timeout to prevent stuck progress (60 seconds)
         setTimeout(function() {
@@ -74,37 +71,8 @@
   }
 
   /**
-   * Start dynamic status message updates
+   * Dynamic status updates have been removed for more authentic UX
    */
-  function startDynamicStatusUpdates($statusText) {
-    var statusMessages = [
-      Drupal.t('Analyzing content and extracting topics'),
-      Drupal.t('Processing text for semantic analysis'),
-      Drupal.t('Identifying key themes and concepts'),
-      Drupal.t('Organizing and ranking topics'),
-      Drupal.t('Finalizing analysis results')
-    ];
-
-    var currentIndex = 0;
-    var baseText = statusMessages[0];
-
-    // Update status every 3 seconds
-    var statusInterval = setInterval(function() {
-      currentIndex = (currentIndex + 1) % statusMessages.length;
-
-      // Get the current dots HTML to preserve it
-      var $dots = $statusText.find('.ttd-analysis-dots');
-      var dotsHtml = $dots.length ? $dots.prop('outerHTML') : '';
-
-      // Update text with animation
-      $statusText.fadeOut(200, function() {
-        $(this).html(statusMessages[currentIndex] + dotsHtml).fadeIn(200);
-      });
-    }, 3000);
-
-    // Store interval for cleanup
-    $statusText.data('status-interval', statusInterval);
-  }
 
   /**
    * Start elapsed time counter
@@ -257,11 +225,9 @@
    * Cleanup function for when analysis is complete or page unloads
    */
   function cleanupProgressTimers($container) {
-    var statusInterval = $container.find('.ttd-analysis-status').data('status-interval');
     var timeInterval = $container.data('time-interval');
     var pollInterval = $container.data('poll-interval');
 
-    if (statusInterval) clearInterval(statusInterval);
     if (timeInterval) clearInterval(timeInterval);
     if (pollInterval) clearInterval(pollInterval);
   }

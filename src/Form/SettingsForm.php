@@ -237,7 +237,7 @@ class SettingsForm extends ConfigFormBase {
       '#type' => 'details',
       '#title' => $this->t('Custom Fields for Analysis'),
       '#description' => $this->t('Select additional fields whose content should be included in topic analysis.'),
-      '#open' => FALSE,
+      '#open' => TRUE,
       '#attributes' => ['class' => ['ttd-topics-field-group']],
     ];
 
@@ -278,57 +278,26 @@ class SettingsForm extends ConfigFormBase {
       '#markup' => '<div class="field-inspector-messages"></div>',
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes'] = [
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['field-inspector-section']],
+      '#attributes' => ['class' => ['field-inspector-section', 'search-section']],
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes']['title'] = [
-      '#markup' => '<h4>Recent Nodes with Custom Fields</h4>',
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['recent_nodes']['list'] = [
-      '#markup' => '<div class="recent-nodes-list">
-        <div class="loading-indicator">
-          <div class="loading-spinner"></div>
-          <span class="loading-text">Loading recent nodes...</span>
-        </div>
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['field-inspector-section']],
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['title'] = [
-      '#markup' => '<h4>Inspect Specific Node</h4>',
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['manual-input-section']],
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section']['node_id'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Node ID'),
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section']['search_input'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Search posts by title'),
       '#title_display' => 'invisible',
       '#attributes' => [
-        'class' => ['node-id-input'],
-        'placeholder' => 'Node ID',
+        'class' => ['field-inspector-search'],
+        'placeholder' => $this->t('Search posts by title...'),
+        'autocomplete' => 'off',
+        'data-search-url' => '/api/topicalboost/field-inspector/search',
         'min' => 1,
       ],
-      '#size' => 10,
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['manual_input']['input_section']['button'] = [
-      '#type' => 'button',
-      '#value' => $this->t('Inspect Fields'),
-      '#attributes' => [
-        'class' => ['inspect-node-button'],
-        'type' => 'button',
-      ],
+    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section']['results'] = [
+      '#markup' => '<div class="search-results-dropdown" style="display: none;"></div>',
     ];
 
     $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['field_list'] = [
