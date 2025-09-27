@@ -269,8 +269,7 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['header'] = [
       '#markup' => '<h3>
-        <span class="ttd-icon ttd-icon-search"></span>
-        Field Inspector
+        <span class="ttd-icon ttd-icon-search"></span>Field Inspector
         <span class="field-count-badge">0 selected</span>
       </h3>',
     ];

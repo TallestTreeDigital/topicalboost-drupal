@@ -209,6 +209,12 @@ class TtdTopicsAnalysis extends JobTypeBase {
       }
     }
     else {
+      // Exclude fields that are not columns in ttd_entities table
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories'];
+      foreach ($exclude_fields as $field) {
+        unset($entity_data[$field]);
+      }
+
       $update_fields = [];
       foreach ($entity_data as $key => $value) {
         if ($existing_entity[$key] != $value) {

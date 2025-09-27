@@ -1,15 +1,15 @@
 /* Field Inspector Styles */
 .field-inspector-container {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 6px;
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
 }
 
 .field-inspector-container h3 {
   margin-top: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   color: #495057;
   font-size: 1.2rem;
   display: flex;
@@ -45,11 +45,11 @@
 }
 
 .field-inspector-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .field-inspector-section h4 {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   color: #495057;
   font-size: 1rem;
   font-weight: 600;
@@ -112,28 +112,64 @@
 /* Manual Input Section */
 .manual-input-section {
   display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
+  gap: 0.75rem;
+  align-items: center;
   margin-bottom: 1rem;
+  margin-top: 0.5rem;
 }
 
 .node-id-input {
   flex: 0 0 120px;
-  padding: 0.5rem;
+  padding: 0.625rem;
   border: 1px solid #ced4da;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.875rem;
+  height: 40px;
+  box-sizing: border-box;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Comprehensive removal of all Drupal form margins in manual input section */
+.manual-input-section .form-item,
+.manual-input-section .js-form-item,
+.manual-input-section .form-type-number,
+.manual-input-section .form-item--node-id,
+.manual-input-section .form-actions,
+.manual-input-section .form-submit,
+.manual-input-section .form-type-button,
+.manual-input-section .js-form-type-button,
+.manual-input-section > * {
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Ensure both input and button have exact same dimensions */
+.manual-input-section .node-id-input,
+.manual-input-section .inspect-node-button {
+  height: 40px !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+  vertical-align: top !important;
 }
 
 .inspect-node-button {
   background: #007bff;
   color: white;
   border: 1px solid #007bff;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  padding: 0.625rem 1.25rem;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: background-color 0.2s ease;
+  font-weight: 500;
+  height: 40px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .inspect-node-button:hover {
@@ -163,29 +199,85 @@
 
 .field-item {
   margin-bottom: 1rem;
-  padding: 0.75rem;
+  padding: 1rem;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
 .field-item:hover {
   background: #e9ecef;
+  border-color: #007bff;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+}
+
+.field-item.selected {
+  background: #e3f2fd;
+  border-color: #007bff;
 }
 
 .field-checkbox-label {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.75rem;
   cursor: pointer;
   margin-bottom: 0.5rem;
   font-weight: normal;
+  position: relative;
 }
 
-.field-checkbox {
-  margin: 0;
-  margin-top: 0.125rem;
+/* Clean, modern checkbox styling */
+.field-inspector-container .field-checkbox {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  margin-top: 1px !important;
+  padding: 0 !important;
+  border: 2px solid #dee2e6 !important;
+  border-radius: 3px !important;
+  background: white !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  display: inline-block !important;
+  vertical-align: top !important;
+  transition: all 0.15s ease !important;
+}
+
+.field-inspector-container .field-checkbox:hover {
+  border-color: #007bff !important;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1) !important;
+}
+
+.field-inspector-container .field-checkbox:checked {
+  background: #007bff !important;
+  border-color: #007bff !important;
+}
+
+.field-inspector-container .field-checkbox:checked::after {
+  content: '✓' !important;
+  position: absolute !important;
+  top: -1px !important;
+  left: 1px !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  color: white !important;
+  line-height: 1 !important;
+}
+
+.field-inspector-container .field-checkbox:focus {
+  outline: 2px solid rgba(0, 123, 255, 0.25) !important;
+  outline-offset: 2px !important;
+}
+
+/* Remove any interfering pseudo-elements */
+.field-inspector-container .field-checkbox::before {
+  display: none !important;
+  content: none !important;
 }
 
 .field-label {
@@ -306,11 +398,17 @@
   .manual-input-section {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
   }
-  
+
   .node-id-input {
     flex: 1;
-    margin-bottom: 0.5rem;
+    width: 100%;
+  }
+
+  .inspect-node-button {
+    width: 100%;
+    justify-content: center;
   }
 }
 

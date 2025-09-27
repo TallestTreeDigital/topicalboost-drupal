@@ -115,7 +115,7 @@ body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
 /* ==== FORM ITEM SPACING ==== */
 .ttd-topics-tabs-container .form-item,
 .ttd-topics-tabs-container .js-form-item {
-  margin-bottom: 24px !important;
+  margin-bottom: 0 !important;
   margin-left: 0 !important;
   padding-left: 0 !important;
 }
@@ -300,8 +300,8 @@ body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
 .ttd-topics-tabs-container .js-form-item:has(select.ttd-topics-select2),
 .ttd-topics-tabs-container .form-item:has(select.ttd-topics-select2) {
   position: relative !important;
-  min-height: 120px !important; /* Ensure enough space for select2 + description */
-  padding-bottom: 20px !important;
+  min-height: auto !important; /* Remove excessive min-height */
+  padding-bottom: 10px !important; /* Reduce bottom padding */
   overflow: visible !important;
 }
 
@@ -313,8 +313,8 @@ body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
 
 .ttd-topics-tabs-container .js-form-item:has(select[multiple]),
 .ttd-topics-tabs-container .form-item:has(select[multiple]) {
-  min-height: 120px !important;
-  padding-bottom: 20px !important;
+  min-height: auto !important; /* Remove excessive min-height */
+  padding-bottom: 10px !important; /* Reduce bottom padding */
   overflow: visible !important;
 }
 
@@ -389,8 +389,30 @@ body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
 
 /* Select2 multiple selection styling */
 .ttd-topics-tabs-container .select2-selection--multiple {
-  min-height: 48px !important;
+  min-height: auto !important; /* Remove fixed min-height */
   padding: 4px 8px !important;
+}
+
+/* Force compact sizing for custom fields select2 */
+.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-selection--multiple {
+  min-height: auto !important;
+  height: auto !important;
+  padding: 6px 8px !important;
+}
+
+/* Fix the inline search field height */
+.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-search--inline {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-search--inline .select2-search__field {
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 2px 4px !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+  font-size: 14px !important;
 }
 
 /* Select2 placeholder styling */
