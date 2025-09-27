@@ -205,6 +205,105 @@ class FieldCollectorService {
           }
           break;
 
+        case 'link':
+          // Extract title text from link fields
+          if (isset($item->title) && !empty($item->title)) {
+            $text = strip_tags($item->title);
+          }
+          // Fallback to URI if no title
+          elseif (isset($item->uri) && !empty($item->uri)) {
+            $text = $item->uri;
+          }
+          break;
+
+        case 'file':
+        case 'image':
+          // Extract description text from file fields
+          if (isset($item->description) && !empty($item->description)) {
+            $text = strip_tags($item->description);
+          }
+          // Also get alt text for images
+          elseif (isset($item->alt) && !empty($item->alt)) {
+            $text = strip_tags($item->alt);
+          }
+          // Fallback to filename if no description/alt
+          elseif (isset($item->target_id)) {
+            try {
+              $file = $this->entityTypeManager->getStorage('file')->load($item->target_id);
+              if ($file) {
+                $filename = $file->getFilename();
+                // Clean up filename - remove extension and replace underscores/dashes
+                $text = preg_replace('/\.[^.]*$/', '', $filename);
+                $text = str_replace(['_', '-'], ' ', $text);
+              }
+            } catch (\Exception $e) {
+              // Continue if file cannot be loaded
+            }
+          }
+          break;
+
+        case 'address':
+          // Extract all address components
+          $address_parts = [];
+          $address_fields = [
+            'organization', 'address_line1', 'address_line2',
+            'locality', 'administrative_area', 'postal_code', 'country_code'
+          ];
+
+          foreach ($address_fields as $field) {
+            if (isset($item->$field) && !empty($item->$field)) {
+              $address_parts[] = $item->$field;
+            }
+          }
+
+          $text = implode(' ', $address_parts);
+          break;
+
+        case 'email':
+        case 'telephone':
+          // Extract email/phone values
+          if (isset($item->value) && !empty($item->value)) {
+            $text = $item->value;
+          }
+          break;
+
+        case 'integer':
+        case 'decimal':
+        case 'float':
+        case 'number':
+          // Convert numbers to text
+          if (isset($item->value) && $item->value !== '') {
+            $text = (string) $item->value;
+          }
+          break;
+
+        case 'datetime':
+        case 'date':
+        case 'daterange':
+          // Extract date values as text
+          if (isset($item->value) && !empty($item->value)) {
+            $text = $item->value;
+          }
+          // Also handle end date for date ranges
+          if (isset($item->end_value) && !empty($item->end_value)) {
+            $text .= ' ' . $item->end_value;
+          }
+          break;
+
+        case 'boolean':
+          // Extract boolean labels if available
+          if (isset($item->value)) {
+            $on_label = $field_definition->getSetting('on_label');
+            $off_label = $field_definition->getSetting('off_label');
+
+            if ($item->value && $on_label) {
+              $text = $on_label;
+            } elseif (!$item->value && $off_label) {
+              $text = $off_label;
+            }
+          }
+          break;
+
         case 'entity_reference':
         case 'entity_reference_revisions':
           if (isset($item->target_id)) {
@@ -320,7 +419,9 @@ class FieldCollectorService {
       // Only process text-compatible field types
       $allowed_types = [
         'string', 'string_long', 'text', 'text_long', 'text_with_summary',
-        'list_string', 'entity_reference', 'entity_reference_revisions'
+        'list_string', 'link', 'file', 'image', 'address', 'email', 'telephone',
+        'integer', 'decimal', 'float', 'number', 'datetime', 'date', 'daterange',
+        'boolean', 'entity_reference', 'entity_reference_revisions'
       ];
 
       if (!in_array($field_type, $allowed_types)) {
@@ -400,9 +501,7 @@ class FieldCollectorService {
       'field_metatag',
       'field_meta_',
       'comment',
-      // Media/file fields without text content
-      'field_image',
-      'field_file',
+      // Media fields without text content
       'field_media',
       'field_video',
       'field_audio',
@@ -412,11 +511,9 @@ class FieldCollectorService {
       'field_published',
       'field_featured',
       'field_sticky',
-      // Date/time fields (not useful for topic analysis)
-      'field_date',
+      // System date/time fields (not custom date content)
       'field_created',
       'field_updated',
-      'field_event_date',
       // Layout/display fields
       'field_layout',
       'field_display',
@@ -433,11 +530,31 @@ class FieldCollectorService {
     $useful_field_types = [
       // Direct text fields
       'string',
-      'string_long', 
+      'string_long',
       'text',
       'text_long',
       'text_with_summary',
       'list_string',
+      // Link fields
+      'link',
+      // File and media fields
+      'file',
+      'image',
+      // Contact fields
+      'address',
+      'email',
+      'telephone',
+      // Number fields
+      'integer',
+      'decimal',
+      'float',
+      'number',
+      // Date fields
+      'datetime',
+      'date',
+      'daterange',
+      // Boolean fields
+      'boolean',
       // Reference fields that might contain text
       'entity_reference',
       'entity_reference_revisions',

@@ -67,12 +67,29 @@ class FieldInspectorController extends ControllerBase {
     foreach ($compatible_fields as $field_name => $field_definition) {
       if ($node_entity->hasField($field_name) && !$node_entity->get($field_name)->isEmpty()) {
         $sample_value = $this->getSampleFieldValue($node_entity, $field_name);
-        
+        $field_type = $field_definition->getType();
+        $enhanced_label = $field_definition->getLabel();
+
+        // For paragraph fields, show subfield count
+        if ($field_type === 'entity_reference_revisions') {
+          $subfield_count = $this->countParagraphSubfields($node_entity, $field_name);
+          if ($subfield_count > 0) {
+            $enhanced_label .= ' (' . $subfield_count . ' subfield' . ($subfield_count !== 1 ? 's' : '') . ')';
+          }
+
+          // Debug logging
+          \Drupal::logger('ttd_topics')->info('Field @field_name: type=@type, subfield_count=@count', [
+            '@field_name' => $field_name,
+            '@type' => $field_type,
+            '@count' => $subfield_count,
+          ]);
+        }
+
         $fields_data[] = [
           'machine_name' => $field_name,
-          'label' => $field_definition->getLabel(),
+          'label' => $enhanced_label,
           'sample_value' => $sample_value,
-          'type' => $field_definition->getType(),
+          'type' => $field_type,
         ];
       }
     }
@@ -264,6 +281,49 @@ class FieldInspectorController extends ControllerBase {
     }
 
     return new JsonResponse(['nodes' => $recent_nodes]);
+  }
+
+  /**
+   * Count text-compatible subfields in paragraph fields.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node entity.
+   * @param string $field_name
+   *   The paragraph field name.
+   *
+   * @return int
+   *   Number of text-compatible subfields.
+   */
+  protected function countParagraphSubfields(NodeInterface $node, string $field_name): int {
+    $subfield_count = 0;
+
+    if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+      return 0;
+    }
+
+    // Get unique paragraph bundles used in this field
+    $paragraph_bundles = [];
+    foreach ($node->get($field_name) as $item) {
+      if ($item->entity) {
+        $bundle = $item->entity->bundle();
+        $paragraph_bundles[$bundle] = $bundle;
+      }
+    }
+
+    // Count text-compatible fields across all paragraph bundles
+    foreach ($paragraph_bundles as $bundle) {
+      $compatible_fields = $this->fieldCollector->getTextCompatibleFields('paragraph', $bundle);
+
+      foreach ($compatible_fields as $para_field_name => $para_field_definition) {
+        // Skip base fields and only count custom fields
+        $is_base_field = method_exists($para_field_definition, 'isBaseField') ? $para_field_definition->isBaseField() : false;
+        if (!$is_base_field && strpos($para_field_name, 'field_') === 0) {
+          $subfield_count++;
+        }
+      }
+    }
+
+    return $subfield_count;
   }
 
   /**

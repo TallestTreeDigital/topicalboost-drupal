@@ -166,7 +166,7 @@ class SettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('enable_frontend'),
       '#description' => $this->t('Show identified topics to visitors on article pages.'),
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
-      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#prefix' => '<div class="ttd-topics-toggle-field ttd-topics-section-spaced">',
       '#suffix' => '</div>',
     ];
 
@@ -234,17 +234,21 @@ class SettingsForm extends ConfigFormBase {
 
     // Custom Fields for Analysis Section
     $form['tabs_container']['content']['settings']['custom_fields_section'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Custom Fields for Analysis'),
-      '#description' => $this->t('Select additional fields whose content should be included in topic analysis.'),
-      '#open' => TRUE,
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
+        <span class="ttd-icon ttd-icon-large ttd-icon-display"></span>Custom Fields for Analysis
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_fields_section_help'] = [
+      '#markup' => '<div class="ttd-topics-help-text">
+        Select additional fields whose content should be included in topic analysis.
+      </div>',
     ];
 
     // Get all field options for enabled content types
     $field_options = $this->getCustomFieldOptions($config);
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['analysis_custom_fields'] = [
+    $form['tabs_container']['content']['settings']['analysis_custom_fields'] = [
       '#type' => 'select',
       '#title' => $this->t('Custom Fields'),
       '#options' => $field_options,
@@ -259,7 +263,7 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     // Field Inspector
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector'] = [
+    $form['tabs_container']['content']['settings']['field_inspector'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['field-inspector-container']],
       '#attached' => [
@@ -267,23 +271,23 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['header'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['header'] = [
       '#markup' => '<h3>
         <span class="ttd-icon ttd-icon-search"></span>Field Inspector
         <span class="field-count-badge">0 selected</span>
       </h3>',
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['messages'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['messages'] = [
       '#markup' => '<div class="field-inspector-messages"></div>',
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['search_section'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['field-inspector-section', 'search-section']],
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section']['search_input'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['search_section']['search_input'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Search posts by title'),
       '#title_display' => 'invisible',
@@ -296,22 +300,22 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['search_section']['results'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['search_section']['results'] = [
       '#markup' => '<div class="search-results-dropdown" style="display: none;"></div>',
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['field_list'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['field_list'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['field-inspector-section']],
     ];
 
-    $form['tabs_container']['content']['settings']['custom_fields_section']['field_inspector']['field_list']['container'] = [
+    $form['tabs_container']['content']['settings']['field_inspector']['field_list']['container'] = [
       '#markup' => '<div class="field-list"></div>',
     ];
 
     // URL Path Configuration
     $form['tabs_container']['content']['settings']['url_section'] = [
-      '#markup' => '<div class="ttd-topics-section-title">
+      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
         <span class="ttd-icon ttd-icon-large ttd-icon-settings"></span>URL Configuration
       </div>',
     ];
@@ -1146,9 +1150,20 @@ class SettingsForm extends ConfigFormBase {
 
     foreach ($enabled_content_types as $content_type) {
       $compatible_fields = $field_collector->getTextCompatibleFields('node', $content_type);
-      
+
       foreach ($compatible_fields as $field_name => $field_definition) {
-        $label = $field_definition->getLabel() . ' - ' . $field_name . ' (' . $content_type . ')';
+        $base_label = $field_definition->getLabel();
+        $field_type = $field_definition->getType();
+
+        // For paragraph fields, show subfield count
+        if ($field_type === 'entity_reference_revisions') {
+          $subfield_count = $this->countParagraphSubfieldsForContentType($field_definition, $content_type);
+          if ($subfield_count > 0) {
+            $base_label .= ' (' . $subfield_count . ' subfield' . ($subfield_count !== 1 ? 's' : '') . ')';
+          }
+        }
+
+        $label = $base_label . ' - ' . $field_name . ' (' . $content_type . ')';
         $field_options[$field_name] = $label;
       }
     }
@@ -1160,7 +1175,48 @@ class SettingsForm extends ConfigFormBase {
     return $field_options;
   }
 
+  /**
+   * Count text-compatible subfields in paragraph fields for a content type.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
+   *   The field definition.
+   * @param string $content_type
+   *   The content type machine name.
+   *
+   * @return int
+   *   Number of text-compatible subfields.
+   */
+  protected function countParagraphSubfieldsForContentType($field_definition, string $content_type): int {
+    $subfield_count = 0;
 
+    // Get allowed paragraph bundles for this field
+    $handler_settings = $field_definition->getSetting('handler_settings');
+    $target_bundles = $handler_settings['target_bundles'] ?? [];
+
+    if (empty($target_bundles)) {
+      // If no specific bundles are set, get all paragraph bundles
+      $paragraph_storage = \Drupal::entityTypeManager()->getStorage('paragraphs_type');
+      $paragraph_types = $paragraph_storage->loadMultiple();
+      $target_bundles = array_keys($paragraph_types);
+    }
+
+    $field_collector = \Drupal::service('ttd_topics.field_collector');
+
+    // Count text-compatible fields across all allowed paragraph bundles
+    foreach ($target_bundles as $bundle) {
+      $compatible_fields = $field_collector->getTextCompatibleFields('paragraph', $bundle);
+
+      foreach ($compatible_fields as $para_field_name => $para_field_definition) {
+        // Skip base fields and only count custom fields
+        $is_base_field = method_exists($para_field_definition, 'isBaseField') ? $para_field_definition->isBaseField() : false;
+        if (!$is_base_field && strpos($para_field_name, 'field_') === 0) {
+          $subfield_count++;
+        }
+      }
+    }
+
+    return $subfield_count;
+  }
 
   /**
    * {@inheritdoc}
