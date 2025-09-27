@@ -620,4 +620,74 @@ class TtdTopicsController extends ControllerBase {
     ]);
   }
 
+  /**
+   * Check analysis status for a node.
+   *
+   * @param int $node
+   *   The node ID to check.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with analysis status.
+   */
+  public function checkAnalysisStatus($node) {
+    try {
+      // Load the node.
+      $node_entity = \Drupal::entityTypeManager()->getStorage('node')->load($node);
+
+      if (!$node_entity) {
+        return new JsonResponse([
+          'error' => TRUE,
+          'message' => $this->t('Node not found.'),
+        ], 404);
+      }
+
+      // Check if user has access to view this node.
+      if (!$node_entity->access('view')) {
+        return new JsonResponse([
+          'error' => TRUE,
+          'message' => $this->t('Access denied.'),
+        ], 403);
+      }
+
+      // Check analysis status.
+      $analysis_in_progress = $node_entity->get('field_ttd_analysis_in_progress')->value;
+      $has_topics = !$node_entity->get('field_ttd_topics')->isEmpty();
+
+      // Determine completion status.
+      $completed = !$analysis_in_progress && $has_topics;
+      $error = FALSE;
+      $message = '';
+
+      if ($completed) {
+        $message = $this->t('Analysis completed successfully.');
+      } elseif (!$analysis_in_progress && !$has_topics) {
+        // Not in progress but no topics - might be an error or very new
+        $error = TRUE;
+        $message = $this->t('Analysis completed but no topics were found.');
+      } else {
+        $message = $this->t('Analysis still in progress...');
+      }
+
+      return new JsonResponse([
+        'completed' => $completed,
+        'in_progress' => $analysis_in_progress,
+        'has_topics' => $has_topics,
+        'error' => $error,
+        'message' => $message,
+        'reload' => $completed, // Suggest page reload when complete
+      ]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error checking analysis status for node @nid: @error', [
+        '@nid' => $node,
+        '@error' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'error' => TRUE,
+        'message' => $this->t('An error occurred while checking analysis status.'),
+      ], 500);
+    }
+  }
+
 }

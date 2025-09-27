@@ -118,3 +118,12 @@ topicalboost.field_inspector.recent_nodes:
   methods: [GET]
   requirements:
     _permission: 'administer nodes'
+
+topicalboost.api.check_analysis_status:
+  path: '/ttd-topics/check-analysis-status/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::checkAnalysisStatus'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+    node: \d+

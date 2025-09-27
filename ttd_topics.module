@@ -129,8 +129,27 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     }
     elseif ($analysis_in_progress) {
       $form['ttd_topics']['analysis_in_progress'] = [
-        '#markup' => '<p>' . t('TopicalBoost analysis is currently in progress...') . '</p>',
+        '#markup' => '
+          <div class="ttd-analysis-progress" role="status" aria-live="polite" aria-label="' . t('Analysis in progress') . '">
+            <div class="ttd-analysis-progress-content">
+              <div class="ttd-analysis-spinner" aria-hidden="true"></div>
+              <div class="ttd-analysis-text">
+                <h4 class="ttd-analysis-title">' . t('Running TopicalBoost Analysis') . '</h4>
+                <p class="ttd-analysis-status">' . t('Analyzing content and extracting topics') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
+              </div>
+            </div>
+          </div>',
         '#weight' => -10,
+        '#attached' => [
+          'library' => ['ttd_topics/analysis_progress'],
+          'drupalSettings' => [
+            'ttdTopics' => [
+              'nodeId' => $node->id(),
+              'enableStatusPolling' => TRUE,
+              'enableDynamicStatus' => TRUE,
+            ],
+          ],
+        ],
       ];
     }
     elseif (!$is_saved) {
@@ -205,7 +224,26 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
     if ($node->get('field_ttd_analysis_in_progress')->value) {
       $form['ttd_topics']['analysis_in_progress'] = [
-        '#markup' => t('<p>Analysis is in progress...</p>'),
+        '#markup' => '
+          <div class="ttd-analysis-progress compact" role="status" aria-live="polite" aria-label="' . t('Analysis in progress') . '">
+            <div class="ttd-analysis-progress-content">
+              <div class="ttd-analysis-spinner" aria-hidden="true"></div>
+              <div class="ttd-analysis-text">
+                <h4 class="ttd-analysis-title">' . t('Analysis in Progress') . '</h4>
+                <p class="ttd-analysis-status">' . t('Processing content') . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
+              </div>
+            </div>
+          </div>',
+        '#attached' => [
+          'library' => ['ttd_topics/analysis_progress'],
+          'drupalSettings' => [
+            'ttdTopics' => [
+              'nodeId' => $node->id(),
+              'enableStatusPolling' => TRUE,
+              'enableDynamicStatus' => TRUE,
+            ],
+          ],
+        ],
       ];
     }
     else {

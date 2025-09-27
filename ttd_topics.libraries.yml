@@ -143,6 +143,19 @@ field_inspector:
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/select2
 
+analysis_progress:
+  css:
+    theme:
+      css/analysis-progress.css: {}
+  js:
+    js/analysis-progress.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+    - ttd_topics/debug_stub
+
 
 
 
