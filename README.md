@@ -37,6 +37,10 @@ composer require tallesttree/topicalboost-drupal
 2. Configure your API settings
 3. Select content types to analyze
 4. Customize display options
+5. **Important**: Set up cron to run every minute for optimal queue processing: `* * * * * /path/to/drush cron`
+   - This ensures timely processing of both single content analysis and bulk operations
+   - Running cron every minute is safe and normal for Drupal queue-based modules
+   - Without frequent cron runs, content analysis may be delayed significantly
 
 ## Usage
 
