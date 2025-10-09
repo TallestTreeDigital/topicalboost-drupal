@@ -67,12 +67,21 @@
           return;
         }
 
-        // Handle toggle click
-        $button.on('click', function (e) {
+        // Handle toggle click - use stopPropagation to prevent conflicts with
+        // event delegation handlers (like BeyondWords) without breaking them
+        $button.on('click.topicsDisplay', function (e) {
           e.preventDefault();
+          e.stopPropagation(); // CRITICAL: Stops event from bubbling to parent delegated handlers
+          e.stopImmediatePropagation(); // Extra protection for handlers on this element
+
+          // Return early if already processing to prevent race conditions
+          if ($button.data('processing')) {
+            return false;
+          }
+          $button.data('processing', true);
 
           const buttonText = $button.text();
-          
+
           if (buttonText.includes('more')) {
             // Show all mentions
             $mentionsContainer.find('.mention-tag.hidden').removeClass('hidden');
@@ -87,6 +96,10 @@
             const newHiddenCount = $mentions.filter('.hidden').length;
             $button.text('+' + newHiddenCount + ' more');
           }
+
+          // Reset processing flag
+          $button.data('processing', false);
+          return false; // Extra safety to prevent default
         });
       });
     }

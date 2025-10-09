@@ -284,21 +284,28 @@ fieldset .form-radios > div > div {
   font-size: 14px;
 }
 
-/* Inline mentions display */
-.ttd-topics-inline-mentions {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+/* Inline mentions display - defensive against grid constraints */
+.topicalboost-section {
+  /* Break out of any narrow parent containers */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0; /* Allow flexbox to shrink */
+  box-sizing: border-box;
+}
+
+.topicalboost-inline-mentions {
+  display: block;
   margin: 16px 0;
-  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
 }
 
 .mentions-label {
+  display: block;
   font-weight: 600;
   color: #374151;
   font-size: 14px;
-  white-space: nowrap;
-  margin-top: 2px;
+  margin-bottom: 8px;
 }
 
 .mentions-list {
@@ -306,6 +313,8 @@ fieldset .form-radios > div > div {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 .mention-tag {
@@ -368,15 +377,4 @@ fieldset .form-radios > div > div {
   border-color: #3b82f6;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .ttd-topics-inline-mentions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  
-  .mentions-label {
-    margin-bottom: 4px;
-  }
-}
+/* No responsive adjustments needed - layout is vertical by default */
