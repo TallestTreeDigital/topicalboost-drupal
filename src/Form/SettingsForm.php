@@ -200,6 +200,78 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
+    // Custom Implementation Guide Section
+    $form['tabs_container']['content']['settings']['custom_implementation_section'] = [
+      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
+        <span class="ttd-icon ttd-icon-large ttd-icon-api"></span>Custom Implementation Guide
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['custom_implementation_guide'] = [
+      '#markup' => '<p class="description"><strong>Custom implementation:</strong> Use these Twig functions in your templates to build custom topic displays.</p>
+        <ul style="margin-left: 20px; margin-top: 5px;">
+          <li><strong>Twig function - topicalboost_display():</strong> Use <code>{{ topicalboost_display() }}</code> in your theme templates to render topics with built-in styling<br>
+            <em>Renders the complete HTML for topic display with show more/less functionality. Results are filtered by visibility settings, rejection status, and threshold count.</em><br>
+            <div style="background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 4px; padding: 10px; margin: 8px 0; font-size: 12px;">
+              <strong>Function signature:</strong><br>
+              <code style="color: #0066cc;">{{ topicalboost_display(node, options) }}</code><br><br>
+              <strong>Usage examples:</strong><br>
+              <code style="display: block; margin: 5px 0; color: #333;">
+              {# Display topics for the current node #}<br>
+              {{ topicalboost_display() }}<br><br>
+              {# Display topics for a specific node #}<br>
+              {{ topicalboost_display(node) }}<br><br>
+              {# Force display even if frontend is disabled #}<br>
+              {{ topicalboost_display(node, { force_display: true }) }}<br>
+              </code><br>
+              <strong>Return format:</strong><br>
+              <code style="display: block; margin: 5px 0; color: #666;">
+              Rendered HTML string (safe markup)
+              </code>
+            </div>
+          </li>
+          <li><strong>Twig function - topicalboost_data():</strong> Use <code>{{ topicalboost_data() }}</code> in your theme templates to get topic data as an array<br>
+            <em>Returns topic data as a structured array for building completely custom displays. Results are filtered by visibility settings, rejection status, and threshold count.</em><br>
+            <div style="background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 4px; padding: 10px; margin: 8px 0; font-size: 12px;">
+              <strong>Function signature:</strong><br>
+              <code style="color: #0066cc;">{% set topics = topicalboost_data(node, options) %}</code><br><br>
+              <strong>Usage examples:</strong><br>
+              <code style="display: block; margin: 5px 0; color: #333;">
+              {# Get topics for current node #}<br>
+              {% set topics = topicalboost_data() %}<br><br>
+              {# Build a custom topic list #}<br>
+              {% set topics = topicalboost_data() %}<br>
+              {% if topics.topics|length > 0 %}<br>
+              &nbsp;&nbsp;&lt;div class="my-custom-topics"&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&lt;h3&gt;{{ topics.label }}&lt;/h3&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;{% for topic in topics.topics %}<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;a href="{{ topic.url }}"&gt;{{ topic.name }}&lt;/a&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;{% endfor %}<br>
+              &nbsp;&nbsp;&lt;/div&gt;<br>
+              {% endif %}<br>
+              </code><br>
+              <strong>Return format:</strong><br>
+              <code style="display: block; margin: 5px 0; color: #666;">
+              [<br>
+              &nbsp;&nbsp;label: "Mentions",<br>
+              &nbsp;&nbsp;max_visible: 5,<br>
+              &nbsp;&nbsp;total_count: 8,<br>
+              &nbsp;&nbsp;topics: [<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;{<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;id: 123,<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: "Artificial Intelligence",<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url: "/topics/artificial-intelligence",<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entity: { ... }<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;},<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;...<br>
+              &nbsp;&nbsp;]<br>
+              ]
+              </code>
+            </div>
+          </li>
+        </ul>',
+    ];
+
     $form['tabs_container']['content']['settings']['topics_list_label'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Topics section label'),
