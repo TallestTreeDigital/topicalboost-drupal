@@ -108,11 +108,20 @@ class TtdBulkApplyEntities extends JobTypeBase {
   private function processEntities($entities) {
     $node_storage = \Drupal::entityTypeManager()->getStorage('node');
 
+    \Drupal::logger('ttd_topics')->info('processEntities: Starting with @count entities', [
+      '@count' => count($entities),
+    ]);
+
     // Group entities by customer_id (node ID)
     $entities_by_node = [];
+    $total_relationships = 0;
+
     foreach ($entities as $entity) {
       // Extract customer_ids from Contents array.
       if (isset($entity['Contents']) && is_array($entity['Contents'])) {
+        $contents_count = count($entity['Contents']);
+        $total_relationships += $contents_count;
+
         foreach ($entity['Contents'] as $content) {
           $customer_id = $content['customer_id'] ?? NULL;
           if ($customer_id) {
@@ -125,8 +134,15 @@ class TtdBulkApplyEntities extends JobTypeBase {
       }
     }
 
+    \Drupal::logger('ttd_topics')->info('processEntities: Grouped into @nodes nodes with @total_relationships total relationships', [
+      '@nodes' => count($entities_by_node),
+      '@total_relationships' => $total_relationships,
+    ]);
+
     // Process each node.
     $failed_nodes = [];
+    $total_assignments = 0;
+
     foreach ($entities_by_node as $node_id => $node_entities) {
       $node = $node_storage->load($node_id);
 
@@ -141,7 +157,16 @@ class TtdBulkApplyEntities extends JobTypeBase {
           continue;
         }
 
+        $assignments_before = $node->field_ttd_topics->count();
         $this->applyEntitiesToNode($node, $node_entities);
+        $assignments_after = $node->field_ttd_topics->count();
+        $total_assignments += $assignments_after;
+
+        \Drupal::logger('ttd_topics')->info('Applied entities to node @nid: @before -> @after assignments', [
+          '@nid' => $node_id,
+          '@before' => $assignments_before,
+          '@after' => $assignments_after,
+        ]);
 
         // Note: field_ttd_last_analyzed is now set in the customer IDs phase
         // so we don't need to set it here again.
@@ -172,6 +197,11 @@ class TtdBulkApplyEntities extends JobTypeBase {
         ['@count' => count($failed_nodes), '@nodes' => implode(', ', array_slice($failed_nodes, 0, 10))]
       );
     }
+
+    \Drupal::logger('ttd_topics')->info('processEntities SUMMARY: @relationships relationships -> @assignments assignments', [
+      '@relationships' => $total_relationships,
+      '@assignments' => $total_assignments,
+    ]);
 
     // Return the actual count of unique entities processed, not entity-node associations.
     return count($entities);
@@ -224,7 +254,11 @@ class TtdBulkApplyEntities extends JobTypeBase {
     }
 
     if (!empty($topicalboost)) {
-      $node->set('field_ttd_topics', $topicalboost);
+      // Append to existing topics instead of replacing
+      // This ensures topics from multiple pages aren't overwritten
+      foreach ($topicalboost as $topic) {
+        $node->field_ttd_topics->appendItem($topic);
+      }
     }
   }
 
