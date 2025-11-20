@@ -367,7 +367,7 @@ class BulkAnalysisController extends ControllerBase {
   }
 
   /**
-   * Apply analysis results (Step 3).
+   * Apply analysis results (Step 3) - using optimized /v2/result/posts endpoint.
    */
   public function applyResults(Request $request) {
     $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
@@ -386,8 +386,14 @@ class BulkAnalysisController extends ControllerBase {
     // Clear any existing apply jobs.
     $this->clearApplyJobs($queue, $request_id);
 
-    // Schedule customer IDs retrieval job.
-    $job = Job::create('ttd_bulk_apply_customer_ids', [
+    // Initialize apply progress for posts-based processing
+    \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', [
+      'stage' => 'posts',
+      'posts' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
+    ]);
+
+    // Schedule optimized posts retrieval job (single call gets posts + entities).
+    $job = Job::create('ttd_bulk_apply_posts_optimized', [
       'request_id' => $request_id,
       'page' => 1,
     ]);
@@ -395,7 +401,7 @@ class BulkAnalysisController extends ControllerBase {
 
     return new JsonResponse([
       'success' => TRUE,
-      'message' => 'Started applying analysis results',
+      'message' => 'Started applying analysis results (optimized)',
     ]);
   }
 
@@ -593,31 +599,30 @@ class BulkAnalysisController extends ControllerBase {
   }
 
   /**
-   * Automatically start applying results when analysis is complete.
+   * Automatically start applying results when analysis is complete (using optimized posts endpoint).
    */
   private function autoStartApplyResults($request_id) {
     try {
-      // Schedule customer IDs retrieval job.
+      // Schedule optimized posts retrieval job.
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
       $queue = $queue_storage->load('ttd_topics_analysis');
 
       // Clear any existing apply jobs first.
       $this->clearApplyJobs($queue, $request_id);
 
-      // Initialize apply progress.
+      // Initialize apply progress for posts-based processing.
       \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', [
-        'stage' => 'starting',
-        'customer_ids' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
-        'entities' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
+        'stage' => 'posts',
+        'posts' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
       ]);
 
-      $job = Job::create('ttd_bulk_apply_customer_ids', [
+      $job = Job::create('ttd_bulk_apply_posts_optimized', [
         'request_id' => $request_id,
         'page' => 1,
       ]);
       $queue->enqueueJob($job);
 
-      \Drupal::logger('ttd_topics')->info('Auto-started applying results for request @request_id', [
+      \Drupal::logger('ttd_topics')->info('Auto-started applying results (optimized) for request @request_id', [
         '@request_id' => $request_id,
       ]);
 

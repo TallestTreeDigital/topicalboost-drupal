@@ -1,41 +1,22 @@
-/* TopicalBoost Settings Page CSS Reset - Targeted Theme Isolation */
+/* TopicalBoost Settings Page Tab Styling - Clean Tailwind */
+
 .ttd-topics-tabs-container {
-  /* Reset only problematic inherited properties */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.5 !important;
-  color: #1f2937 !important;
-
-  /* Layout isolation */
-  margin: 0 !important;
-  padding: 0 !important;
-
-  /* Apply our intended styles */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   overflow: visible;
 }
 
-/* Reset focus styles that admin themes apply */
-.ttd-topics-tabs-container *:focus {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Reset admin theme button/link focus styles specifically */
-.ttd-topics-tabs-container a:focus,
-.ttd-topics-tabs-container button:focus {
-  border-color: transparent !important;
-  background-color: inherit !important;
-}
-
+/* Tab navigation */
 .ttd-topics-tabs-nav {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
   margin: 0;
   padding: 0;
   gap: 2px;
@@ -45,55 +26,50 @@
   display: flex;
   gap: 2px;
   flex: 1;
-  border-bottom: none;
 }
 
+/* Tab buttons */
 .ttd-topics-tab-button {
   flex: 1;
-  padding: 1rem 1.5rem;
-  background: transparent !important;
-  border: 3px solid transparent !important;
-  border-bottom-color: transparent !important;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 500;
-  color: #64748b !important;
-  transition: all 0.2s ease;
-  position: relative;
+  color: #6b7280;
+  transition: all 0.15s ease;
   text-align: center;
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px 8px 0 0;
-  gap: 0.5rem;
+  gap: 8px;
+  border-radius: 6px 6px 0 0;
   line-height: 1;
-  box-sizing: border-box;
 }
 
 .ttd-topics-tab-button .ttd-icon {
-  display: inline-block;
-  vertical-align: middle;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
 }
 
 .ttd-topics-tab-button:hover {
-  background: #f1f5f9 !important;
-  color: #475569 !important;
-  border-bottom-color: transparent !important;
+  background: #f3f4f6;
+  color: #475569;
 }
 
 .ttd-topics-tab-button.active {
-  background: white !important;
-  color: #3b82f6 !important;
-  border-bottom-color: #3b82f6 !important;
-  z-index: 10 !important;
+  background: white;
+  color: #2563eb;
+  border-bottom: 3px solid #2563eb;
+  font-weight: 600;
 }
 
-
-
+/* Tab content */
 .ttd-topics-tab-content {
-  padding: 2rem;
+  padding: 24px;
   min-height: 400px;
   overflow: visible;
 }
@@ -105,17 +81,20 @@
 
 .ttd-topics-tab-panel.active {
   display: block;
-  overflow: visible;
 }
 
+/* Help text boxes */
 .ttd-topics-help-text {
   background: #eff6ff;
-  border-left: 4px solid #3b82f6;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+  border-left: 4px solid #2563eb;
+  padding: 16px;
+  margin-bottom: 24px;
   border-radius: 0 6px 6px 0;
+  font-size: 14px;
+  color: #1d4ed8;
 }
 
+/* Status indicators */
 .ttd-topics-status-good {
   color: #059669;
   font-weight: 500;
@@ -126,6 +105,7 @@
   font-weight: 500;
 }
 
+/* Field group styling */
 .ttd-topics-field-group {
   margin-bottom: 0;
 }
@@ -136,216 +116,134 @@
 }
 
 .ttd-topics-field-group .description {
-  margin-top: 0.5rem;
-  margin-bottom: 0;
+  margin-top: 4px;
   color: #6b7280;
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-.ttd-topics-field-group input[type="checkbox"] {
-  margin-right: 0.5rem;
+  font-size: 13px;
 }
 
 /* Select2 styling */
-.ttd-topics-field-group .ttd-topics-select2 {
-  margin-top: 0.5rem;
-  margin-left: 0;
-}
-
 .ttd-topics-field-group .select2-container {
-  width: 100% !important;
+  width: 100%;
   margin-left: 0;
 }
 
-.ttd-topics-field-group .select2-container .select2-selection--multiple {
-  border: 2px solid #e5e7eb;
+.ttd-topics-field-group .select2-selection--multiple {
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  padding: 0.5rem;
-  min-height: 2.75rem;
+  padding: 8px;
+  min-height: 44px;
   background: white;
-  transition: border-color 0.2s ease;
-  margin-left: 0 !important;
-  line-height: 1.5;
+  transition: all 0.15s ease;
   font-size: 14px;
 }
 
+.ttd-topics-field-group .select2-selection--multiple:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 .ttd-topics-field-group .select2-selection__rendered {
-  margin: 0 !important;
-  padding: 0 !important;
-  list-style: none !important;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* Reset any inherited form styling */
-.ttd-topics-field-group .form-item,
-.ttd-topics-field-group .js-form-item {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-}
-
-.ttd-topics-field-group .select2-container .select2-selection--multiple:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.ttd-topics-field-group .select2-container .select2-selection__choice {
-  background: #3b82f6 !important;
-  border: 1px solid #2563eb !important;
-  border-radius: 4px !important;
-  color: white !important;
-  font-size: 0.875rem;
-  padding: 0.25rem 0.5rem;
-  margin: 0.125rem !important;
-}
-
-.ttd-topics-field-group .select2-container .select2-selection__choice__remove {
-  color: white !important;
-  margin-right: 0.25rem;
-  float: none !important;
-}
-
-.ttd-topics-field-group .select2-container .select2-selection__choice__remove:hover {
-  color: #fecaca !important;
-}
-
-
-
-/* Fix placeholder text positioning and visibility */
+/* Select2 search field */
 .ttd-topics-field-group .select2-search__field {
-  color: #374151 !important;
-  line-height: 1.5 !important;
-  font-size: 14px !important;
-  min-height: 1.5rem !important;
-  padding: 0.25rem 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  outline: none !important;
+  color: #1f2937;
+  font-size: 14px;
+  border: none;
+  outline: none;
+  padding: 4px 0;
 }
 
-/* Style the placeholder text specifically */
 .ttd-topics-field-group .select2-search__field::placeholder {
-  color: #9ca3af !important;
-  opacity: 1 !important;
+  color: #9ca3af;
 }
 
-/* Fix initial state placeholder positioning */
-.ttd-topics-field-group .select2-selection--multiple {
-  display: flex !important;
-  align-items: center !important;
-  min-height: 2.75rem !important;
+/* Select2 tags/choices */
+.ttd-topics-field-group .select2-selection__choice {
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  padding: 4px 8px;
+  margin: 2px;
 }
 
-/* Ensure the search field container takes proper space initially */
-.ttd-topics-field-group .select2-search--inline {
-  display: flex !important;
-  align-items: center !important;
-  flex: 1 !important;
-  min-height: 1.75rem !important;
+.ttd-topics-field-group .select2-selection__choice__remove {
+  color: white;
+  margin-right: 4px;
+  cursor: pointer;
+  font-weight: bold;
 }
 
-/* Make sure the textarea is properly sized initially */
-.ttd-topics-field-group .select2-search--inline .select2-search__field {
-  min-height: 1.5rem !important;
-  height: auto !important;
-  padding: 0.375rem 0 !important;
-  line-height: 1.4 !important;
+.ttd-topics-field-group .select2-selection__choice__remove:hover {
+  color: #fca5a5;
 }
 
+/* Select2 dropdown */
 .ttd-topics-field-group .select2-dropdown {
-  border: 2px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   border-top: none;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
 
-.ttd-topics-field-group .select2-container--open .select2-selection--multiple {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
+/* Section titles */
 .ttd-topics-section-title {
-  font-size: 1.25rem;
+  font-size: 18px;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 1rem;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.ttd-topics-section-title.ttd-topics-section-spaced {
-  margin-top: 2rem;
+  gap: 12px;
 }
 
 .ttd-topics-section-title .ttd-icon-large {
   flex-shrink: 0;
 }
 
-/* Enhanced section headers with icons */
-h4 .ttd-icon {
-  margin-right: 0.5rem;
+/* Form actions */
+.ttd-topics-tabs-container .form-actions {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
 }
 
-/* Fieldset title icon styling */
-legend .ttd-icon {
-  margin-right: 0.5rem;
+.form-actions .ttd-topics-submit-button {
+  display: inline-block;
 }
 
-/* --- Fix left indent on Select2 containers -------------------------------- */
-.ttd-topics-field-group .select2-selection--multiple,
-.ttd-topics-field-group .select2-selection--single {
-  padding-left: 0 !important; /* remove default 8px padding */
+/* Hide submit when analytics tab is active */
+.ttd-topics-hide-submit .form-actions .ttd-topics-submit-button,
+.ttd-topics-hide-submit .form-actions input[name="op"],
+form.ttd-topics-hide-submit .form-actions input[type="submit"] {
+  display: none;
 }
 
-/* Ensure rendered list inside multiple selection has no extra padding/margin */
-.ttd-topics-field-group .select2-selection__rendered {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-}
-
-/* Target the specific UL element directly */
-ul.select2-selection__rendered {
-  margin-left: 0 !important;
-}
-
-/* Responsive design for smaller screens */
+/* Responsive */
 @media (max-width: 768px) {
   .ttd-topics-tabs-nav {
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.5rem;
+    gap: 8px;
+    padding: 8px;
   }
 
   .ttd-topics-tabs-buttons {
-    justify-content: center;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .ttd-topics-tab-button {
     flex: none;
-    min-width: auto;
-    padding: 0.75rem 1rem;
-    font-size: 0.8rem;
+    padding: 12px 16px;
+    font-size: 13px;
     flex-direction: column;
-    gap: 0.25rem;
   }
-
-  .ttd-topics-tab-button .ttd-icon {
-    margin-right: 0;
-  }
-
-
-}
-
-/* Show submit button by default */
-.form-actions .ttd-topics-submit-button {
-  display: inline-block !important;
-}
-
-/* Hide submit button when analytics tab is active - controlled by JavaScript */
-.ttd-topics-hide-submit .form-actions .ttd-topics-submit-button,
-.ttd-topics-hide-submit .form-actions input[name="op"],
-form.ttd-topics-hide-submit .form-actions input[type="submit"] {
-  display: none !important;
 }

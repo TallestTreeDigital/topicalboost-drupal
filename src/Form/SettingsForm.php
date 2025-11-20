@@ -1612,15 +1612,6 @@ class SettingsForm extends ConfigFormBase {
               </td>
               <td class="ttd-status-cell" id="status-relationships">-</td>
             </tr>
-            <tr data-metric="coverage">
-              <td class="ttd-metric-name">Coverage %</td>
-              <td class="ttd-comparison-values">
-                <span class="ttd-local-val" data-value="' . $analytics['coverage_percentage'] . '">' . number_format($analytics['coverage_percentage'], 1) . '%</span>
-                <span class="ttd-sep"> / </span>
-                <span class="ttd-api-val" id="api-coverage-val">-</span>
-              </td>
-              <td class="ttd-status-cell" id="status-coverage">-</td>
-            </tr>
             <tr data-metric="avg_relationships">
               <td class="ttd-metric-name">Avg Topics/Post</td>
               <td class="ttd-comparison-values">

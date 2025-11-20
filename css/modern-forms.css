@@ -1,662 +1,314 @@
-/* Modern Form Elements for TopicalBoost Settings */
-/* Using aggressive selectors to override Drupal defaults */
+/* TopicalBoost Settings Forms - Clean Tailwind Styling */
 
-/* Container for all our form improvements */
 .ttd-topics-tabs-container {
   --primary-color: #2563eb;
   --primary-hover: #1d4ed8;
-  --border-color: #d1d5db;
-  --border-radius: 8px;
-  --input-padding: 12px 16px;
-  --focus-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  --border-color: #e5e7eb;
+  --text-dark: #1f2937;
+  --text-light: #6b7280;
 }
 
-/* High-specificity base reset */
-body.path-admin .ttd-topics-tabs-container *,
-.ttd-topics-tabs-container * {
-  box-sizing: border-box !important;
-}
-
-/* ==== LARGER, BETTER CHECKBOXES ==== */
-/* Multiple high-specificity selectors to ensure override */
-body.path-admin .ttd-topics-tabs-container input[type="checkbox"],
-.ttd-topics-tabs-container input[type="checkbox"],
-.ttd-topics-tabs-container .form-type-checkbox input[type="checkbox"],
-.ttd-topics-tabs-container .js-form-type-checkbox input[type="checkbox"],
-.region-content .ttd-topics-tabs-container input[type="checkbox"] {
-  width: 20px !important;
-  height: 20px !important;
-  margin-right: 12px !important;
-  margin-left: 0 !important;
-  accent-color: var(--primary-color) !important;
-  cursor: pointer !important;
-  border-radius: 4px !important;
-  transform: scale(1.3) !important;
-  vertical-align: middle !important;
-}
-
-/* Make checkbox labels clickable and better spaced */
-.ttd-topics-tabs-container .form-type-checkbox label {
-  display: flex !important;
-  align-items: center !important;
-  cursor: pointer !important;
-  font-weight: 500 !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-  margin-bottom: 8px !important;
-}
-
-/* ==== LARGER, BETTER INPUT FIELDS ==== */
-/* Multiple high-specificity selectors for text inputs */
-/* EXCLUDING Select2 elements to prevent conflicts */
-body.path-admin .ttd-topics-tabs-container input[type="text"]:not(.select2-search__field),
-body.path-admin .ttd-topics-tabs-container input[type="number"]:not(.select2-search__field),
-body.path-admin .ttd-topics-tabs-container input[type="email"]:not(.select2-search__field),
-body.path-admin .ttd-topics-tabs-container input[type="url"]:not(.select2-search__field),
-body.path-admin .ttd-topics-tabs-container textarea:not(.select2-search__field),
-body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
-.region-content .ttd-topics-tabs-container input[type="text"]:not(.select2-search__field),
-.region-content .ttd-topics-tabs-container input[type="number"]:not(.select2-search__field),
-.region-content .ttd-topics-tabs-container input[type="email"]:not(.select2-search__field),
-.region-content .ttd-topics-tabs-container input[type="url"]:not(.select2-search__field),
-.region-content .ttd-topics-tabs-container textarea:not(.select2-search__field),
-.region-content .ttd-topics-tabs-container select:not(.ttd-topics-select2),
-.ttd-topics-tabs-container input[type="text"]:not(.select2-search__field),
-.ttd-topics-tabs-container input[type="number"]:not(.select2-search__field),
-.ttd-topics-tabs-container input[type="email"]:not(.select2-search__field),
-.ttd-topics-tabs-container input[type="url"]:not(.select2-search__field),
-.ttd-topics-tabs-container textarea:not(.select2-search__field),
-.ttd-topics-tabs-container select:not(.ttd-topics-select2) {
-  padding: var(--input-padding) !important;
-  font-size: 16px !important;
-  border: 2px solid var(--border-color) !important;
-  border-radius: var(--border-radius) !important;
-  background: white !important;
-  transition: all 0.2s ease !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  min-height: 48px !important;
-  line-height: 1.5 !important;
-}
-
-/* Input focus states - excluding Select2 elements */
-.ttd-topics-tabs-container input[type="text"]:not(.select2-search__field):focus,
-.ttd-topics-tabs-container input[type="number"]:not(.select2-search__field):focus,
-.ttd-topics-tabs-container input[type="email"]:not(.select2-search__field):focus,
-.ttd-topics-tabs-container input[type="url"]:not(.select2-search__field):focus,
-.ttd-topics-tabs-container textarea:not(.select2-search__field):focus,
-.ttd-topics-tabs-container select:not(.ttd-topics-select2):focus {
-  border-color: var(--primary-color) !important;
-  box-shadow: var(--focus-shadow) !important;
-  outline: none !important;
-}
-
-/* ==== BETTER LABELS ==== */
-.ttd-topics-tabs-container .form-item label,
-.ttd-topics-tabs-container .fieldset-legend {
-  font-weight: 600 !important;
-  font-size: 16px !important;
-  color: #374151 !important;
-  margin-bottom: 8px !important;
-  display: block !important;
-}
-
-/* ==== BETTER DESCRIPTIONS ==== */
-.ttd-topics-tabs-container .description,
-.ttd-topics-tabs-container .form-item-description {
-  font-size: 14px !important;
-  color: #6b7280 !important;
-  margin-top: 4px !important;
-  margin-bottom: 4px !important;
-  padding-bottom: 2px !important;
-  line-height: 1.5 !important;
-}
-
-/* ==== FORM ITEM SPACING ==== */
+/* Form items */
 .ttd-topics-tabs-container .form-item,
 .ttd-topics-tabs-container .js-form-item {
-  margin-bottom: 0 !important;
-  margin-left: 0 !important;
-  padding-left: 0 !important;
+  margin-bottom: 20px;
 }
 
-/* ==== TOGGLE SWITCH STYLING ==== */
-.ttd-topics-toggle {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-  margin-right: 12px;
-  vertical-align: middle;
+/* Labels */
+.ttd-topics-tabs-container label {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 6px;
 }
 
-.ttd-topics-toggle input[type="checkbox"] {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
+/* Descriptions */
+.ttd-topics-tabs-container .description {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+  line-height: 1.5;
 }
 
-.ttd-topics-toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #cbd5e1;
-  transition: 0.3s ease;
-  border-radius: 24px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+/* Text inputs, email, URL, textarea, select */
+.ttd-topics-tabs-container input[type="text"],
+.ttd-topics-tabs-container input[type="number"],
+.ttd-topics-tabs-container input[type="email"],
+.ttd-topics-tabs-container input[type="url"],
+.ttd-topics-tabs-container textarea,
+.ttd-topics-tabs-container select {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #1f2937;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+  font-family: inherit;
 }
 
-.ttd-topics-toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s ease;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.ttd-topics-tabs-container textarea {
+  min-height: 100px;
+  resize: vertical;
 }
 
-.ttd-topics-toggle-slider.active {
-  background-color: #3b82f6;
+/* Input focus states */
+.ttd-topics-tabs-container input[type="text"]:focus,
+.ttd-topics-tabs-container input[type="number"]:focus,
+.ttd-topics-tabs-container input[type="email"]:focus,
+.ttd-topics-tabs-container input[type="url"]:focus,
+.ttd-topics-tabs-container textarea:focus,
+.ttd-topics-tabs-container select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #eff6ff;
 }
 
-.ttd-topics-toggle-slider.active:before {
-  transform: translateX(26px);
-}
-
-.ttd-topics-toggle input:focus + .ttd-topics-toggle-slider {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* Toggle field wrapper */
-.ttd-topics-toggle-field {
-  margin: 1.5rem 0;
-}
-
-.ttd-topics-toggle-field .form-item {
-  margin-bottom: 0;
-}
-
-.ttd-topics-toggle-field label {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  font-weight: 500 !important;
-  color: #374151 !important;
-  margin-bottom: 0.5rem !important;
-  cursor: pointer !important;
-}
-
-/* Ensure toggle container integrates with Drupal form structure */
-.ttd-topics-toggle-field .ttd-topics-toggle {
-  order: -1; /* Put toggle before label text */
-}
-
-.ttd-topics-toggle-field .description {
-  color: #6b7280 !important;
-  font-size: 0.875rem !important;
-  margin-top: 0.5rem !important;
-  margin-left: 0 !important;
-}
-
-/* ==== PURE CSS TOGGLE SWITCHES FOR CHECKBOXES ==== */
-/* Style checkboxes as toggle switches without JavaScript */
+/* Checkboxes */
 .ttd-topics-tabs-container input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  width: 50px !important;
-  height: 24px !important;
-  background-color: #cbd5e1 !important;
-  border-radius: 24px !important;
-  position: relative !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease !important;
-  margin: 0 !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-}
-
-.ttd-topics-tabs-container input[type="checkbox"]:before {
-  content: "" !important;
-  position: absolute !important;
-  width: 18px !important;
-  height: 18px !important;
-  border-radius: 50% !important;
-  background-color: white !important;
-  top: 3px !important;
-  left: 3px !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-}
-
-.ttd-topics-tabs-container input[type="checkbox"]:checked {
-  background-color: #3b82f6 !important;
-}
-
-.ttd-topics-tabs-container input[type="checkbox"]:checked:before {
-  transform: translateX(26px) !important;
-}
-
-.ttd-topics-tabs-container input[type="checkbox"]:focus {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.15s ease;
 }
 
 .ttd-topics-tabs-container input[type="checkbox"]:hover {
-  background-color: #94a3b8 !important;
+  border-color: #9ca3af;
 }
 
-.ttd-topics-tabs-container input[type="checkbox"]:checked:hover {
-  background-color: #2563eb !important;
+.ttd-topics-tabs-container input[type="checkbox"]:checked {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  position: relative;
 }
 
-/* ==== BETTER SELECT DROPDOWNS (Non-Select2 only) ==== */
-.ttd-topics-tabs-container select:not(.ttd-topics-select2) {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
-  background-position: right 12px center !important;
-  background-repeat: no-repeat !important;
-  background-size: 16px 16px !important;
-  padding-right: 40px !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
+.ttd-topics-tabs-container input[type="checkbox"]:checked::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
 }
 
-/* ==== SELECT2 SPECIFIC STYLING ==== */
-/* Hide the original select element when Select2 is applied */
+.ttd-topics-tabs-container input[type="checkbox"]:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Checkbox labels */
+.ttd-topics-tabs-container .form-type-checkbox label {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+/* Radio buttons */
+.ttd-topics-tabs-container input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ttd-topics-tabs-container .form-type-radio label {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+/* Fieldsets */
+.ttd-topics-tabs-container fieldset {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.ttd-topics-tabs-container fieldset legend {
+  font-weight: 600;
+  font-size: 15px;
+  color: #1f2937;
+  padding: 0 12px;
+}
+
+/* Select dropdowns */
+.ttd-topics-tabs-container select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 32px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Hide Select2 original select */
 .ttd-topics-tabs-container select.ttd-topics-select2 {
-  display: none !important;
+  display: none;
 }
 
-/* Select2 container styling */
+/* Select2 styling */
 .ttd-topics-tabs-container .select2-container {
-  width: 100% !important;
-  margin-bottom: 0 !important;
+  width: 100%;
 }
 
-/* Ensure Select2 form items have proper spacing for descriptions */
-.ttd-topics-tabs-container .form-item:has(.select2-container) {
-  padding-bottom: 8px !important;
-  min-height: auto !important;
-  overflow: visible !important;
-}
-
-/* Alternative selector for browsers that don't support :has() */
-.ttd-topics-tabs-container .form-item .select2-container {
-  margin-bottom: 8px !important;
-}
-
-/* Ensure form items containing Select2 have proper layout - target the original select element */
-.ttd-topics-tabs-container .js-form-item:has(.ttd-topics-select2),
-.ttd-topics-tabs-container .form-item:has(.ttd-topics-select2),
-.ttd-topics-tabs-container .js-form-item:has(select.ttd-topics-select2),
-.ttd-topics-tabs-container .form-item:has(select.ttd-topics-select2) {
-  position: relative !important;
-  min-height: auto !important; /* Remove excessive min-height */
-  padding-bottom: 10px !important; /* Reduce bottom padding */
-  overflow: visible !important;
-}
-
-/* Fallback for browsers that don't support :has() - target any form item with a multi-select */
-.ttd-topics-tabs-container .js-form-item select[multiple],
-.ttd-topics-tabs-container .form-item select[multiple] {
-  margin-bottom: 8px !important;
-}
-
-.ttd-topics-tabs-container .js-form-item:has(select[multiple]),
-.ttd-topics-tabs-container .form-item:has(select[multiple]) {
-  min-height: auto !important; /* Remove excessive min-height */
-  padding-bottom: 10px !important; /* Reduce bottom padding */
-  overflow: visible !important;
-}
-
-/* Ensure description text after Select2 is properly spaced and visible */
-.ttd-topics-tabs-container .select2-container + .description,
-.ttd-topics-tabs-container .select2-container ~ .description {
-  margin-top: 8px !important;
-  margin-bottom: 16px !important;
-  clear: both !important;
-  display: block !important;
-  overflow: visible !important;
-  position: relative !important;
-  z-index: 1 !important;
-}
-
-/* Additional fallback for description positioning */
-.ttd-topics-tabs-container .form-item .description {
-  position: relative !important;
-  z-index: 1 !important;
-  overflow: visible !important;
-  white-space: normal !important;
-}
-
-/* Specific targeting for the content types field that's having issues */
-.ttd-topics-tabs-container .js-form-item:has(select[name="enabled_content_types[]"]),
-.ttd-topics-tabs-container .form-item:has(select[name="enabled_content_types[]"]) {
-  min-height: 140px !important;
-  padding-bottom: 30px !important;
-  overflow: visible !important;
-  position: relative !important;
-}
-
-.ttd-topics-tabs-container select[name="enabled_content_types[]"] + .description,
-.ttd-topics-tabs-container .select2-container + .description {
-  margin-top: 12px !important;
-  margin-bottom: 20px !important;
-  padding-top: 8px !important;
-  clear: both !important;
-  display: block !important;
-  overflow: visible !important;
-  position: relative !important;
-  z-index: 10 !important;
-  line-height: 1.5 !important;
-}
-
-/* Select2 selection styling */
 .ttd-topics-tabs-container .select2-selection {
-  border: 2px solid var(--border-color) !important;
-  border-radius: var(--border-radius) !important;
-  background: white !important;
-  min-height: 48px !important;
-  padding: 8px 12px !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-  transition: all 0.2s ease !important;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  padding: 8px 12px;
+  font-size: 14px;
+  min-height: 40px;
+  transition: all 0.15s ease;
 }
 
-/* Select2 selection focus state */
 .ttd-topics-tabs-container .select2-container--focus .select2-selection,
 .ttd-topics-tabs-container .select2-container--open .select2-selection {
-  border-color: var(--primary-color) !important;
-  box-shadow: var(--focus-shadow) !important;
-  outline: none !important;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
 }
 
-/* Select2 single selection styling */
-.ttd-topics-tabs-container .select2-selection--single {
-  height: 48px !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-/* Select2 multiple selection styling */
-.ttd-topics-tabs-container .select2-selection--multiple {
-  min-height: auto !important; /* Remove fixed min-height */
-  padding: 4px 8px !important;
-}
-
-/* Force compact sizing for custom fields select2 */
-.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-selection--multiple {
-  min-height: auto !important;
-  height: auto !important;
-  padding: 6px 8px !important;
-}
-
-/* Fix the inline search field height */
-.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-search--inline {
-  height: auto !important;
-  min-height: auto !important;
-}
-
-.ttd-topics-tabs-container #edit-analysis-custom-fields + .select2-container .select2-search--inline .select2-search__field {
-  height: 24px !important;
-  min-height: 24px !important;
-  padding: 2px 4px !important;
-  margin: 0 !important;
-  line-height: 1.2 !important;
-  font-size: 14px !important;
-}
-
-/* Select2 placeholder styling */
-.ttd-topics-tabs-container .select2-selection__placeholder {
-  color: #9ca3af !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-}
-
-/* Select2 rendered selection styling */
-.ttd-topics-tabs-container .select2-selection__rendered {
-  color: #374151 !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-  padding: 0 !important;
-}
-
-/* Select2 arrow styling */
-.ttd-topics-tabs-container .select2-selection__arrow {
-  height: 44px !important;
-  right: 8px !important;
-  top: 2px !important;
-}
-
-/* Select2 arrow icon */
-.ttd-topics-tabs-container .select2-selection__arrow b {
-  border-color: #6b7280 transparent transparent transparent !important;
-  border-style: solid !important;
-  border-width: 6px 6px 0 6px !important;
-  height: 0 !important;
-  left: 50% !important;
-  margin-left: -6px !important;
-  margin-top: -3px !important;
-  position: absolute !important;
-  top: 50% !important;
-  width: 0 !important;
-}
-
-/* Select2 open state arrow */
-.ttd-topics-tabs-container .select2-container--open .select2-selection__arrow b {
-  border-color: transparent transparent #6b7280 transparent !important;
-  border-width: 0 6px 6px 6px !important;
-}
-
-/* Select2 search field styling */
-.ttd-topics-tabs-container .select2-search__field {
-  border: none !important;
-  outline: none !important;
-  background: transparent !important;
-  font-size: 16px !important;
-}
-
-/* Higher specificity for padding override */
-.ttd-topics-tabs-container .select2-container .select2-search--inline .select2-search__field {
-  padding: 4px 8px 1.5rem 8px !important;
-  margin: 0 !important;
-}
-
-/* Select2 dropdown styling */
 .ttd-topics-tabs-container .select2-dropdown {
-  border: 2px solid var(--border-color) !important;
-  border-radius: var(--border-radius) !important;
-  background: white !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
 }
 
-/* Select2 dropdown results styling */
 .ttd-topics-tabs-container .select2-results__option {
-  padding: 12px 16px !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-  color: #374151 !important;
-  cursor: pointer !important;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #1f2937;
+  cursor: pointer;
 }
 
-/* Select2 dropdown results hover/highlight */
 .ttd-topics-tabs-container .select2-results__option--highlighted {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+  background: #f3f4f6;
+  color: #1f2937;
 }
 
-/* Select2 dropdown results selected */
 .ttd-topics-tabs-container .select2-results__option[aria-selected="true"] {
-  background: var(--primary-color) !important;
-  color: white !important;
+  background: #2563eb;
+  color: white;
 }
 
-/* Select2 multiple choice styling */
+/* Select2 search field */
+.ttd-topics-tabs-container .select2-search__field {
+  border: none;
+  padding: 4px 8px;
+  font-size: 14px;
+  background: white;
+}
+
+/* Select2 tags */
 .ttd-topics-tabs-container .select2-selection__choice {
-  background: #e5e7eb !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 4px !important;
-  padding: 4px 6px 4px 4px !important;
-  margin: 2px !important;
-  font-size: 14px !important;
-  line-height: 1.2 !important;
-  color: #374151 !important;
-  position: relative !important;
-  height: auto !important;
-  max-height: none !important;
-  min-height: auto !important;
-  vertical-align: middle !important;
-  display: inline-block !important;
+  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 2px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* Select2 multiple choice remove button */
 .ttd-topics-tabs-container .select2-selection__choice__remove {
-  color: #6b7280 !important;
-  font-size: 12px !important;
-  font-weight: normal !important;
-  margin-right: 4px !important;
-  margin-left: 0 !important;
-  cursor: pointer !important;
-  float: left !important;
-  line-height: 1.2 !important;
-  text-decoration: none !important;
-  position: relative !important;
-  top: 1px !important;
-  left: 0 !important;
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  height: auto !important;
-  vertical-align: baseline !important;
+  color: #6b7280;
+  cursor: pointer;
+  font-weight: bold;
 }
 
 .ttd-topics-tabs-container .select2-selection__choice__remove:hover {
-  color: #dc2626 !important;
+  color: #ef4444;
 }
 
-/* Select2 multiple choice display text */
-.ttd-topics-tabs-container .select2-selection__choice__display {
-  line-height: 1.2 !important;
-  vertical-align: baseline !important;
-  display: inline-block !important;
-}
-
-/* ==== BETTER BUTTONS ==== */
-.ttd-topics-tabs-container button:not(.select2-selection__choice__remove),
+/* Buttons */
+.ttd-topics-tabs-container button,
 .ttd-topics-tabs-container input[type="submit"],
 .ttd-topics-tabs-container .button {
-  padding: 12px 24px !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  border-radius: var(--border-radius) !important;
-  border: none !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  min-height: 44px !important;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ttd-topics-tabs-container .button--primary,
 .ttd-topics-tabs-container input[type="submit"] {
-  background: var(--primary-color) !important;
-  color: white !important;
+  background: #2563eb;
+  color: white;
 }
 
 .ttd-topics-tabs-container .button--primary:hover,
 .ttd-topics-tabs-container input[type="submit"]:hover {
-  background: var(--primary-hover) !important;
-  transform: translateY(-1px) !important;
+  background: #1d4ed8;
 }
 
-/* ==== FIELDSETS ==== */
-.ttd-topics-tabs-container fieldset {
-  border: 2px solid var(--border-color) !important;
-  border-radius: var(--border-radius) !important;
-  padding: 20px !important;
-  margin-bottom: 24px !important;
+.ttd-topics-tabs-container .button--primary:disabled,
+.ttd-topics-tabs-container input[type="submit"]:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
-.ttd-topics-tabs-container fieldset legend {
-  font-weight: 600 !important;
-  font-size: 18px !important;
-  color: #374151 !important;
-  padding: 0 12px !important;
+.ttd-topics-tabs-container .button--secondary {
+  background: #f3f4f6;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
 }
 
-/* ==== RADIOS ==== */
-.ttd-topics-tabs-container input[type="radio"] {
-  width: 20px !important;
-  height: 20px !important;
-  margin-right: 12px !important;
-  accent-color: var(--primary-color) !important;
-  cursor: pointer !important;
+.ttd-topics-tabs-container .button--secondary:hover {
+  background: #e5e7eb;
 }
 
-.ttd-topics-tabs-container .form-type-radio label {
-  display: flex !important;
-  align-items: center !important;
-  cursor: pointer !important;
-  font-weight: 500 !important;
-  font-size: 16px !important;
-  margin-bottom: 12px !important;
-}
-
-/* ==== BETTER ERROR STATES ==== */
-.ttd-topics-tabs-container .form-item--error input:not(.select2-search__field),
-.ttd-topics-tabs-container .form-item--error select:not(.ttd-topics-select2),
-.ttd-topics-tabs-container .form-item--error textarea:not(.select2-search__field) {
-  border-color: #dc2626 !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
-}
-
-/* Select2 error states */
-.ttd-topics-tabs-container .form-item--error .select2-selection {
-  border-color: #dc2626 !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+/* Error states */
+.ttd-topics-tabs-container .form-item--error input,
+.ttd-topics-tabs-container .form-item--error select,
+.ttd-topics-tabs-container .form-item--error textarea {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .ttd-topics-tabs-container .form-item--error .form-item-description {
-  color: #dc2626 !important;
-  font-weight: 500 !important;
+  color: #dc2626;
+  font-weight: 500;
 }
 
-/* ==== REMOVE UGLY DRUPAL DEFAULTS ==== */
-.ttd-topics-tabs-container .form-item {
-  border: none !important;
-  background: transparent !important;
-}
-
-/* Remove weird Drupal indentations */
-.ttd-topics-tabs-container .form-checkboxes,
-.ttd-topics-tabs-container .form-radios {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-}
-
-/* ==== RESPONSIVE ==== */
+/* Responsive */
 @media (max-width: 768px) {
-  .ttd-topics-tabs-container input[type="text"]:not(.select2-search__field),
-  .ttd-topics-tabs-container input[type="number"]:not(.select2-search__field),
-  .ttd-topics-tabs-container input[type="email"]:not(.select2-search__field),
-  .ttd-topics-tabs-container input[type="url"]:not(.select2-search__field),
-  .ttd-topics-tabs-container textarea:not(.select2-search__field),
-  .ttd-topics-tabs-container select:not(.ttd-topics-select2) {
-    font-size: 16px !important; /* Prevents zoom on iOS */
-  }
-
-  .ttd-topics-tabs-container .select2-selection {
-    font-size: 16px !important; /* Prevents zoom on iOS */
-  }
-
-  .ttd-topics-tabs-container .select2-search__field {
-    font-size: 16px !important; /* Prevents zoom on iOS */
+  .ttd-topics-tabs-container input[type="text"],
+  .ttd-topics-tabs-container input[type="number"],
+  .ttd-topics-tabs-container input[type="email"],
+  .ttd-topics-tabs-container input[type="url"],
+  .ttd-topics-tabs-container textarea,
+  .ttd-topics-tabs-container select {
+    font-size: 16px;
   }
 }

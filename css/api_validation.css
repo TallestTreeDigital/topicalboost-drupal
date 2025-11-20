@@ -70,10 +70,9 @@
 /* Style the API key field */
 #ttd-topics-api-key-field {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 0.875rem;
-  padding: 0.75rem;
-  padding-right: 50px !important; /* Make room for the indicator */
-  border: 2px solid #e5e7eb;
+  font-size: 14px;
+  padding: 10px 50px 10px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   transition: all 0.3s ease;
   height: auto;
@@ -92,7 +91,6 @@
   transition: all 0.3s ease;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 14px;
-  padding-right: 50px !important; /* Make room for the indicator */
 }
 
 /* Ensure the form item container can contain positioned elements */
@@ -260,59 +258,54 @@
 }
 
 .ttd-topics-field-group .description {
-  margin-top: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
-/* Fix Drupal form field descriptions */
 .form-item .description {
-  margin-top: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
-/* Fix specific description margin-left */
 #edit-enable-frontend--description {
-  margin-left: 0 !important;
+  margin-left: 0;
 }
 
 /* Field Glow Effects */
 .field-glow-success {
-  border-color: #10b981 !important;
+  border-color: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15),
-  0 0 8px rgba(16, 185, 129, 0.4),
-  0 0 16px rgba(16, 185, 129, 0.2) !important;
-  background-color: rgba(16, 185, 129, 0.03) !important;
-  transition: all 0.3s ease !important;
-  animation: successPulse 0.6s ease-out !important;
-  outline: none !important;
+    0 0 8px rgba(16, 185, 129, 0.4),
+    0 0 16px rgba(16, 185, 129, 0.2);
+  background-color: rgba(16, 185, 129, 0.03);
+  transition: all 0.3s ease;
+  animation: successPulse 0.6s ease-out;
 }
 
 .field-glow-error {
-  border-color: #ef4444 !important;
+  border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15),
-  0 0 8px rgba(239, 68, 68, 0.4),
-  0 0 16px rgba(239, 68, 68, 0.2) !important;
-  background-color: rgba(239, 68, 68, 0.03) !important;
-  transition: all 0.3s ease !important;
-  animation: errorPulse 0.6s ease-out !important;
-  outline: none !important;
+    0 0 8px rgba(239, 68, 68, 0.4),
+    0 0 16px rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.03);
+  transition: all 0.3s ease;
+  animation: errorPulse 0.6s ease-out;
 }
 
-/* More aggressive focus override to ensure our styles show */
 #ttd-topics-api-key-field.field-glow-success:focus {
-  border-color: #10b981 !important;
+  border-color: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2),
-  0 0 10px rgba(16, 185, 129, 0.5),
-  0 0 18px rgba(16, 185, 129, 0.25) !important;
-  outline: none !important;
+    0 0 10px rgba(16, 185, 129, 0.5),
+    0 0 18px rgba(16, 185, 129, 0.25);
+  outline: none;
 }
 
 #ttd-topics-api-key-field.field-glow-error:focus {
-  border-color: #ef4444 !important;
+  border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2),
-  0 0 10px rgba(239, 68, 68, 0.5),
-  0 0 18px rgba(239, 68, 68, 0.25) !important;
-  outline: none !important;
+    0 0 10px rgba(239, 68, 68, 0.5),
+    0 0 18px rgba(239, 68, 68, 0.25);
+  outline: none;
 }
 
 /* Subtle pulse animations */

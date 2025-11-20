@@ -1,380 +1,83 @@
-/* Enhanced base styles for TopicalBoost */
+/* TopicalBoost Base Styles - Clean and Simple */
 
+/* Form wrapper */
 .form-item-wrapper {
   overflow: visible;
 }
 
-/* Fix fieldset legend alignment to match other headings */
-body.path-admin fieldset.ttd-topics-field-group > legend {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-  margin-bottom: 0.5em !important;
+/* Fieldset legends - remove aggressive admin theme indentation */
+fieldset legend {
+  margin-left: 0;
+  padding-left: 0;
+  text-indent: 0;
+  font-weight: 600;
+  font-size: 15px;
+  color: #1f2937;
 }
 
-/* More specific targeting for the branding fieldset */
-body.path-admin fieldset[class*="logo"] > legend,
-body.path-admin fieldset[class*="branding"] > legend {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
+/* Fieldset wrapper */
+.fieldset-wrapper {
+  margin-left: 0;
+  padding-left: 0;
 }
 
+/* List reset */
 ul[data-drupal-selector="edit-terms"] {
   padding: 0;
-  margin: 0 !important;
+  margin: 0;
+  list-style: none;
 }
 
 ul[data-drupal-selector="edit-terms"] li {
-  list-style: none !important;
-  margin: 0 !important;
+  list-style: none;
+  margin: 0;
 }
 
+/* Topic display styles */
 .ttd-topic-below-threshold {
   color: #6b7280;
   opacity: 0.8;
-  font-size: 14px;
+  font-size: 13px;
 }
 
+/* Explanation boxes */
 .ttd-topics-explanation {
-  font-size: 14px;
+  font-size: 13px;
   color: #6b7280;
   margin-top: 8px;
   line-height: 1.5;
   padding: 12px 16px;
-  background: #f8fafc;
-  border-left: 4px solid #3b82f6;
+  background: #f9fafb;
+  border-left: 4px solid #2563eb;
   border-radius: 0 6px 6px 0;
 }
 
-/* Ensure TopicalBoost admin pages look modern */
-.page-title:contains("TopicalBoost") + .region-content .ttd-topics-tabs-container {
-  margin-top: 20px;
-}
-
-/* Better spacing for form actions */
+/* Form actions spacing */
 .ttd-topics-tabs-container .form-actions {
-  margin-top: 32px !important;
-  padding-top: 24px !important;
-  border-top: 2px solid #e5e7eb !important;
-}
-
-/* Make the save button more prominent */
-.ttd-topics-tabs-container .form-actions .button--primary {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
-}
-
-/* Fix fieldset heading alignment */
-fieldset legend,
-fieldset > .fieldset-legend,
-.fieldset-wrapper > .fieldset-legend,
-fieldset[data-drupal-selector="edit-branding"] > .fieldset-legend,
-fieldset[data-drupal-selector="edit-branding"] legend {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-  text-indent: 0 !important;
-}
-
-/* Fix nested fieldset headings */
-fieldset fieldset legend,
-fieldset fieldset > .fieldset-legend {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-  text-indent: 0 !important;
-}
-
-/* Ensure fieldset wrapper doesn't add extra margin */
-.fieldset-wrapper {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-}
-
-/* AGGRESSIVE radio button fix - override everything */
-body.path-admin fieldset .form-radios > div,
-body.path-admin .form-radios > div,
-body.path-admin .form-radios .form-item,
-.page-node-type-admin-config fieldset .form-radios > div,
-.page-node-type-admin-config .form-radios > div,
-.page-node-type-admin-config .form-radios .form-item {
-  display: flex !important;
-  align-items: center !important;
-  margin: 0 0 8px 0 !important;
-  padding: 0 !important;
-  gap: 8px !important;
-  flex-direction: row !important;
-}
-
-body.path-admin .form-radios input[type="radio"],
-body.path-admin .form-radio,
-.page-node-type-admin-config .form-radios input[type="radio"],
-.page-node-type-admin-config .form-radio {
-  margin: 0 !important;
-  padding: 0 !important;
-  flex-shrink: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  position: relative !important;
-  top: auto !important;
-  left: auto !important;
-}
-
-body.path-admin .form-radios label,
-body.path-admin .form-radios label.option,
-.page-node-type-admin-config .form-radios label,
-.page-node-type-admin-config .form-radios label.option {
-  margin: 0 !important;
-  padding: 0 !important;
-  display: inline-block !important;
-  font-weight: normal !important;
-  line-height: 1.4 !important;
-  cursor: pointer !important;
-}
-
-/* Specific radio button fix for TopicalBoost forms */
-form#ttd-topics-settings-form .form-radios > div,
-form#ttd-topics-settings-form .form-radios .form-item,
-fieldset[data-drupal-selector="edit-branding"] .form-radios > div,
-fieldset[data-drupal-selector="edit-branding"] .form-radios .form-item {
-  display: flex !important;
-  align-items: center !important;
-  margin-bottom: 8px !important;
-  gap: 8px !important;
-}
-
-form#ttd-topics-settings-form .form-radios input[type="radio"],
-form#ttd-topics-settings-form .form-radio,
-fieldset[data-drupal-selector="edit-branding"] .form-radios input[type="radio"],
-fieldset[data-drupal-selector="edit-branding"] .form-radio {
-  margin: 0 !important;
-  flex-shrink: 0 !important;
-}
-
-form#ttd-topics-settings-form .form-radios label,
-form#ttd-topics-settings-form .form-radios label.option,
-fieldset[data-drupal-selector="edit-branding"] .form-radios label,
-fieldset[data-drupal-selector="edit-branding"] .form-radios label.option {
-  margin: 0 !important;
-  display: inline !important;
-  font-weight: normal !important;
-}
-
-/* Universal radio button alignment fix */
-.form-radios > div,
-.form-radios .form-item {
-  display: flex !important;
-  align-items: center !important;
-  margin-bottom: 8px !important;
-  gap: 8px !important;
-}
-
-.form-radios input[type="radio"],
-.form-radio {
-  margin: 0 !important;
-  flex-shrink: 0 !important;
-}
-
-.form-radios label,
-.form-radios label.option {
-  margin: 0 !important;
-  display: inline !important;
-  font-weight: normal !important;
-}
-
-/* Specific targeting for nested radio structures */
-fieldset .form-radios > div > div {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-bottom: 8px !important;
-}
-
-/* Ensure radio buttons are properly aligned in TopicalBoost forms */
-.ttd-topics-field-group .form-radios .form-item {
-  margin-bottom: 8px !important;
-}
-
-.ttd-topics-field-group .form-radios {
-  margin-bottom: 16px !important;
-}
-
-/* Info box styling */
-.ttd-topics-info-box {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 20px;
-  text-align: center;
-  margin: 20px 0;
-}
-
-.ttd-topics-info-box h4 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  color: #374151;
-  font-size: 18px;
-}
-
-.ttd-topics-info-box p {
-  margin-bottom: 16px;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.ttd-topics-info-box .button {
-  margin-top: 8px;
-}
-
-/* Empty state styling */
-.ttd-topics-empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  margin: 40px auto;
-  max-width: 500px;
-  background: #f8f9fa;
-  border: 2px dashed #dee2e6;
-  border-radius: 12px;
-}
-
-.ttd-topics-empty-state .empty-state-icon {
-  margin-bottom: 20px;
-}
-
-.ttd-topics-empty-state .empty-state-icon .ttd-icon {
-  font-size: 48px;
-  color: #6c757d;
-  opacity: 0.6;
-}
-
-.ttd-topics-empty-state h3 {
-  margin: 0 0 12px 0;
-  color: #495057;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.ttd-topics-empty-state p {
-  margin: 0 0 24px 0;
-  color: #6c757d;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.ttd-topics-empty-state .empty-state-action .ttd-topics-button-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-}
-
-.ttd-topics-empty-state .empty-state-action .ttd-topics-button-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
-  text-decoration: none;
-  color: white;
-}
-
-.ttd-topics-empty-state .empty-state-action .ttd-topics-button-primary .ttd-icon {
-  font-size: 14px;
-}
-
-/* Inline mentions display - defensive against grid constraints */
-.topicalboost-section {
-  /* Break out of any narrow parent containers */
-  width: 100%;
-  max-width: 100%;
-  min-width: 0; /* Allow flexbox to shrink */
-  box-sizing: border-box;
-}
-
-.topicalboost-inline-mentions {
-  display: block;
-  margin: 16px 0;
-  width: 100%;
-  max-width: 100%;
-}
-
-.mentions-label {
-  display: block;
-  font-weight: 600;
-  color: #374151;
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.mentions-list {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  width: 100%;
-  max-width: 100%;
+  gap: 12px;
 }
 
-.mention-tag {
-  display: inline-block;
-  background: #f3f4f6;
-  color: #374151;
-  text-decoration: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  line-height: 1.2;
-  transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
-}
-
-.mention-tag:hover {
+/* Primary button styling */
+.ttd-topics-tabs-container .form-actions .button--primary {
   background: #2563eb;
   color: white;
-  text-decoration: none;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
-.mention-tag.hidden {
-  display: none;
+.ttd-topics-tabs-container .form-actions .button--primary:hover {
+  background: #1d4ed8;
 }
 
-/* Also handle topic-hidden class used in actual HTML */
-.field--item.topic-hidden {
-  display: none;
-}
-
-/* Override any !important rules when topics are being shown */
-.field--item.topic-hidden[style*="display: inline"] {
-  display: inline !important;
-}
-
-.toggle-mentions-btn {
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  color: #6b7280;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  line-height: 1.2;
-}
-
-.toggle-mentions-btn:hover {
+/* Secondary button */
+.ttd-topics-tabs-container .form-actions .button:not(.button--primary) {
   background: #f3f4f6;
-  border-color: #9ca3af;
-  color: #374151;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
 }
 
-.toggle-mentions-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  border-color: #3b82f6;
+.ttd-topics-tabs-container .form-actions .button:not(.button--primary):hover {
+  background: #e5e7eb;
 }
-
-/* No responsive adjustments needed - layout is vertical by default */

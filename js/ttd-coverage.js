@@ -172,7 +172,6 @@ const siteMetrics = {
         'api-topics-val': 'topics',
         'api-relationships-val': 'relationships',
         'api-avg-val': 'avg_relationships_per_post',
-        'api-coverage-val': 'avg_relationships_per_post', // Approximate for display
       };
 
       for (const [elementId, dataKey] of Object.entries(mapping)) {
@@ -181,12 +180,6 @@ const siteMetrics = {
           const value = data[dataKey];
           if (value === undefined || value === '-') {
             element.textContent = '-';
-          } else if (elementId === 'api-coverage-val') {
-            // Calculate coverage percentage from API.
-            const coverage = data.posts > 0 ?
-              Math.round((data.relationships / data.posts) * 100) :
-              0;
-            element.textContent = coverage + '%';
           } else {
             element.textContent = value;
           }
@@ -198,7 +191,7 @@ const siteMetrics = {
      * Update table status indicators by comparing local vs API.
      */
     updateTableStatus: function() {
-      const metrics = ['posts', 'topics', 'relationships', 'coverage', 'avg_relationships'];
+      const metrics = ['posts', 'topics', 'relationships', 'avg_relationships'];
 
       metrics.forEach(metric => {
         const row = document.querySelector(`[data-metric="${metric}"]`);
@@ -229,14 +222,6 @@ const siteMetrics = {
       if (apiValue === undefined || apiValue === null || apiValue === '-') {
         statusCell.innerHTML = '<span>-</span>';
         return;
-      }
-
-      // For coverage, calculate from relationships.
-      if (metric === 'coverage') {
-        localValue = this.localData.coverage_percentage || 0;
-        apiValue = this.apiData.posts > 0 ?
-          (this.apiData.relationships / this.apiData.posts) * 100 :
-          0;
       }
 
       // For avg_relationships.

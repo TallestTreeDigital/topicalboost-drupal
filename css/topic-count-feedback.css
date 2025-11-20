@@ -1,30 +1,30 @@
-/* Integrated Topic Count Feedback - Modern UX approach */
+/* Topic Count Feedback Styles */
 .ttd-topics-tabs-container .description {
-  line-height: 1.5 !important;
+  line-height: 1.5;
 }
 
-/* Only color the feedback elements, not the entire description */
 .ttd-topics-tabs-container .description.loading em {
-  color: #6b7280 !important;
+  color: #6b7280;
   font-style: italic;
   opacity: 0.8;
 }
 
 .ttd-topics-tabs-container .description.success strong {
-  color: #059669 !important;
+  color: #059669;
+  font-weight: 600;
 }
 
 .ttd-topics-tabs-container .description.warning strong {
-  color: #d97706 !important;
+  color: #d97706;
+  font-weight: 600;
 }
 
 .ttd-topics-tabs-container .description.error strong {
-  color: #dc2626 !important;
+  color: #dc2626;
+  font-weight: 600;
 }
 
-/* Style the result line specifically */
 .ttd-topics-tabs-container .description strong {
-  font-weight: 600 !important;
   margin-right: 4px;
 }
 
@@ -258,7 +258,7 @@
 
 /* Hide the original number input when slider is active */
 .frequency-slider-container ~ input[type="number"] {
-  display: none !important;
+  display: none;
 }
 
 /* Enhanced description styling */
