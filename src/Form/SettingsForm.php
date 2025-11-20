@@ -1557,7 +1557,7 @@ class SettingsForm extends ConfigFormBase {
 
     $build['type_breakdown'] = [
       '#markup' => '<div class="ttd-type-coverage-wrapper">
-        <h3>Coverage by Content Type</h3>
+        <h3><span class="ttd-icon ttd-icon-large ttd-icon-analytics"></span>Coverage by Content Type</h3>
         <table class="ttd-type-coverage-table">
           <thead>
             <tr>
@@ -1575,7 +1575,7 @@ class SettingsForm extends ConfigFormBase {
     // Comparison table
     $build['comparison_table'] = [
       '#markup' => '<div class="ttd-comparison-table-wrapper">
-        <h3>API Coverage Comparison</h3>
+        <h3><span class="ttd-icon ttd-icon-large ttd-icon-api"></span>API Coverage Comparison</h3>
         <table class="ttd-comparison-table">
           <thead>
             <tr>

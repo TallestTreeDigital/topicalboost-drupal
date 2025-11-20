@@ -418,14 +418,36 @@ class TtdBulkApplyEntities extends JobTypeBase {
     }
 
     // Create a new term.
-    $term = Term::create([
-      'vid' => 'ttd_topics',
-      'name' => $name,
-      'field_ttd_id' => $ttd_id,
-    ]);
-    $term->save();
-
-    return $term->id();
+    try {
+      $term = Term::create([
+        'vid' => 'ttd_topics',
+        'name' => $name,
+        'field_ttd_id' => $ttd_id,
+      ]);
+      $term->save();
+      return $term->id();
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error(
+        'Failed to create taxonomy term for TTD ID @ttd_id (name: @name): @error',
+        ['@ttd_id' => $ttd_id, '@name' => $name, '@error' => $e->getMessage()]
+      );
+      // Clean up orphaned ttd_entities record
+      try {
+        $database = \Drupal::database();
+        $database->delete('ttd_entities')
+          ->condition('ttd_id', $ttd_id)
+          ->execute();
+        \Drupal::logger('ttd_topics')->info('Cleaned up orphaned entity @ttd_id', ['@ttd_id' => $ttd_id]);
+      }
+      catch (\Exception $cleanup_error) {
+        \Drupal::logger('ttd_topics')->error(
+          'Failed to clean up orphaned entity @ttd_id: @error',
+          ['@ttd_id' => $ttd_id, '@error' => $cleanup_error->getMessage()]
+        );
+      }
+      return NULL;
+    }
   }
 
   /**

@@ -272,19 +272,17 @@
 }
 
 .ttd-topics-section-title .ttd-icon-large {
-  color: #3b82f6;
+  flex-shrink: 0;
 }
 
 /* Enhanced section headers with icons */
 h4 .ttd-icon {
   margin-right: 0.5rem;
-  color: #6b7280;
 }
 
 /* Fieldset title icon styling */
 legend .ttd-icon {
   margin-right: 0.5rem;
-  color: #6b7280;
 }
 
 /* --- Fix left indent on Select2 containers -------------------------------- */
@@ -355,8 +353,10 @@ form.ttd-topics-hide-submit .form-actions input[type="submit"] {
   height: 16px;
   margin-right: 0.5rem;
   vertical-align: -2px;
-  fill: currentColor;
   flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .ttd-icon-large {
