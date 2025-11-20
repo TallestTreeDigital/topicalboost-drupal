@@ -22,3 +22,6 @@ npm-debug.log
 
 # Logs
 *.log
+
+# Local configuration (development overrides - not for version control)
+local-config.php

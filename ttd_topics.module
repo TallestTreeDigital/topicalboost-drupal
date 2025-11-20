@@ -5,8 +5,16 @@
  * Primary module hooks for TopicalBoost module.
  */
 
-// Define the API endpoint as a constant.
-define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+// Load local configuration if it exists (for local development overrides)
+$local_config = dirname(__FILE__) . '/local-config.php';
+if (file_exists($local_config) && filesize($local_config) > 0) {
+  require_once $local_config;
+}
+
+// Define the API endpoint as a constant (only if not already defined by local-config.php)
+if (!defined('TOPICALBOOST_API_ENDPOINT')) {
+  define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+}
 
 use Drupal\advancedqueue\Job;
 use Drupal\Core\Access\AccessResult;

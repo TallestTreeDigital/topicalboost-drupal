@@ -72,9 +72,8 @@ class ApiValidationController extends ControllerBase {
       ], 400);
     }
 
-    // Get the API endpoint from configuration.
-    $config = $this->config('ttd_topics.settings');
-    $api_endpoint = $config->get('topicalboost_api_endpoint') ?: 'https://topics-api.tallesttree.digital';
+    // Get the API endpoint from the constant (which respects local-config.php overrides).
+    $api_endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
 
     // Prepare the external API endpoint.
     $endpoint = rtrim($api_endpoint, '/') . '/validate-api-key';
