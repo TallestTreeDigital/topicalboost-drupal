@@ -68,11 +68,12 @@ class SettingsForm extends ConfigFormBase {
 
     // Attach the necessary libraries.
     $form['#attached']['library'][] = 'core/drupal.progress';
-          $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
-      $form['#attached']['library'][] = 'ttd_topics/tabs';
-      $form['#attached']['library'][] = 'ttd_topics/tabs_css';
-      $form['#attached']['library'][] = 'ttd_topics/modern_forms';
-      $form['#attached']['library'][] = 'ttd_topics/progress_bars';
+    $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
+    $form['#attached']['library'][] = 'ttd_topics/tabs';
+    $form['#attached']['library'][] = 'ttd_topics/tabs_css';
+    $form['#attached']['library'][] = 'ttd_topics/modern_forms';
+    $form['#attached']['library'][] = 'ttd_topics/progress_bars';
+    $form['#attached']['library'][] = 'ttd_topics/coverage';
 
     // Create tabbed interface container.
     $form['tabs_container'] = [
@@ -440,22 +441,10 @@ class SettingsForm extends ConfigFormBase {
       '#suffix' => '</div>',
     ];
 
-    // Analytics Tab
+    // Analytics Tab - API Coverage Comparison
     $form['tabs_container']['content']['analytics'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-analytics'],
-    ];
-
-    $form['tabs_container']['content']['analytics']['title'] = [
-      '#markup' => '<div class="ttd-topics-section-title">
-        <span class="ttd-icon ttd-icon-large ttd-icon-coverage"></span>Topic Coverage Analytics
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['analytics']['help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        Comprehensive analysis of TopicalBoost content processing and topic identification across your website.
-      </div>',
     ];
 
     // Get analytics data.
@@ -471,7 +460,7 @@ class SettingsForm extends ConfigFormBase {
             <span class="ttd-icon ttd-icon-large ttd-icon-settings"></span>
           </div>
           <h3>No Content Types Enabled</h3>
-          <p>To start viewing analytics, you need to enable TopicalBoost for one or more content types. Once enabled, you\'ll see comprehensive topic coverage data, content type breakdowns, and performance metrics.</p>
+          <p>To start viewing analytics, you need to enable TopicalBoost for one or more content types. Once enabled, you\'ll see comprehensive topic coverage data, content type breakdowns, and API comparison metrics.</p>
           <div class="empty-state-action">
             <a href="#settings" class="ttd-topics-tab-button ttd-topics-button-primary" data-tab="tab-settings">
               <span class="ttd-icon ttd-icon-settings"></span>
@@ -482,67 +471,13 @@ class SettingsForm extends ConfigFormBase {
       ];
     }
     else {
-      // Add analytics-specific CSS
-      // Analytics styles are now loaded via the progress_bars library.
-      // Summary cards.
-      $form['tabs_container']['content']['analytics']['summary'] = [
-        '#markup' => '<div class="analytics-summary">
-          <div class="analytics-card">
-            <div class="analytics-number">' . number_format($analytics['total_topics']) . '</div>
-            <div class="analytics-label">Total Topics</div>
-          </div>
-          <div class="analytics-card">
-            <div class="analytics-number">' . number_format($analytics['avg_topics_per_post'], 1) . '</div>
-            <div class="analytics-label">Avg Topics/Post</div>
-          </div>
-          <div class="analytics-card">
-            <div class="analytics-number">' . number_format($analytics['coverage_percentage'], 1) . '%</div>
-            <div class="analytics-label">' . number_format($analytics['posts_with_topics']) . ' / ' . number_format($analytics['total_posts']) . ' posts have topics</div>
-          </div>
-        </div>',
-      ];
+      // Add consolidated API Coverage Comparison Section
+      $form['tabs_container']['content']['analytics']['coverage_section'] = $this->buildCoverageComparison($analytics);
 
-      // Detailed breakdown table.
-      $table_rows = '';
-      foreach ($analytics['by_content_type'] as $type => $data) {
-        $coverage_class = $data['coverage_percentage'] >= 80 ? 'status-good' :
-                         ($data['coverage_percentage'] >= 50 ? 'status-warning' : 'status-poor');
-
-        // Determine progress bar color class.
-        $bar_class = $data['coverage_percentage'] >= 70 ? 'high-coverage' :
-                    ($data['coverage_percentage'] >= 40 ? 'medium-coverage' : 'low-coverage');
-
-        $table_rows .= '<tr>
-          <td><strong>' . ucfirst($type) . '</strong></td>
-          <td>' . number_format($data['total_posts']) . '</td>
-          <td>' . number_format($data['posts_with_topics']) . '</td>
-          <td>
-            <div class="coverage-bar">
-              <div class="coverage-fill ' . $bar_class . '" style="width: ' . $data['coverage_percentage'] . '%;">
-                ' . number_format($data['coverage_percentage'], 1) . '%
-              </div>
-            </div>
-          </td>
-          <td>' . number_format($data['avg_topics_per_post'], 1) . '</td>
-        </tr>';
-      }
-
-      $form['tabs_container']['content']['analytics']['breakdown'] = [
-        '#markup' => '<div style="margin-top: 1.5rem;">
-          <h4>Content Type Breakdown</h4>
-          <table class="analytics-table">
-            <thead>
-              <tr>
-                <th>Content Type</th>
-                <th>Total Posts</th>
-                <th>With Topics</th>
-                <th>Coverage</th>
-                <th>Avg Topics</th>
-              </tr>
-            </thead>
-            <tbody>' . $table_rows . '</tbody>
-          </table>
-        </div>',
+      // Attach drupalSettings for coverage metrics
+      $form['#attached']['drupalSettings']['ttdCoverage'] = [
+        'ajaxUrl' => '/api/topicalboost/coverage/metrics',
+        'nonce' => \Drupal::csrfToken()->get('ttd-coverage-metrics'),
       ];
     }
 
@@ -755,18 +690,20 @@ class SettingsForm extends ConfigFormBase {
         'total_topics' => 0,
         'posts_with_topics' => 0,
         'total_posts' => 0,
+        'total_relationships' => 0,
         'coverage_percentage' => 0,
         'avg_topics_per_post' => 0,
         'by_content_type' => [],
       ];
     }
-    
+
     // If no content types are enabled, return empty data
     if (empty($enabled_content_types)) {
       return [
         'total_topics' => 0,
         'posts_with_topics' => 0,
         'total_posts' => 0,
+        'total_relationships' => 0,
         'coverage_percentage' => 0,
         'avg_topics_per_post' => 0,
         'by_content_type' => [],
@@ -800,11 +737,19 @@ class SettingsForm extends ConfigFormBase {
     // Get average topics per post (only for posts that have topics, filtered by enabled content types)
     $avg_topics_per_post = $posts_with_topics > 0 ?
       $this->database->query("
-        SELECT COUNT(*) / COUNT(DISTINCT t.entity_id) 
+        SELECT COUNT(*) / COUNT(DISTINCT t.entity_id)
         FROM {node__field_ttd_topics} t
         INNER JOIN {node_field_data} n ON t.entity_id = n.nid
         WHERE n.status = 1 AND n.type IN (:types[])
       ", [':types[]' => $enabled_content_types])->fetchField() : 0;
+
+    // Get total relationships (topic assignments)
+    $total_relationships = $this->database->query("
+      SELECT COUNT(*)
+      FROM {node__field_ttd_topics} t
+      INNER JOIN {node_field_data} n ON t.entity_id = n.nid
+      WHERE n.status = 1 AND n.type IN (:types[])
+    ", [':types[]' => $enabled_content_types])->fetchField();
 
     // Get breakdown by content type (only enabled content types)
     $content_type_data = [];
@@ -846,6 +791,7 @@ class SettingsForm extends ConfigFormBase {
       'total_topics' => (int) $total_topics,
       'posts_with_topics' => (int) $posts_with_topics,
       'total_posts' => (int) $total_posts,
+      'total_relationships' => (int) $total_relationships,
       'coverage_percentage' => (float) $coverage_percentage,
       'avg_topics_per_post' => (float) $avg_topics_per_post,
       'by_content_type' => $content_type_data,
@@ -1514,6 +1460,196 @@ class SettingsForm extends ConfigFormBase {
       '#rows' => $rows,
       '#empty' => $this->t('No topics found.'),
       '#attributes' => ['style' => 'margin-top: 20px;'],
+    ];
+
+    return $build;
+  }
+
+  /**
+   * Build the API coverage comparison section.
+   *
+   * @param array $analytics
+   *   Analytics data from getAnalyticsData().
+   *
+   * @return array
+   *   Render array for the coverage comparison section.
+   */
+  protected function buildCoverageComparison(array $analytics) {
+    $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-coverage-section']],
+    ];
+
+    $build['title'] = [
+      '#markup' => '<div class="ttd-topics-section-title">
+        <span class="ttd-icon ttd-icon-large ttd-icon-coverage"></span>Topic Coverage Analytics
+      </div>',
+    ];
+
+    $build['help'] = [
+      '#markup' => '<div class="ttd-topics-help-text">
+        Comprehensive analysis of TopicalBoost content processing and topic identification across your website.
+      </div>',
+    ];
+
+    $build['notice'] = [
+      '#markup' => '<div class="ttd-filter-notice">
+        <span class="ttd-filter-notice-icon">ℹ</span>
+        <span>Compare your local topic data with TopicalBoost API metrics. Values should stay in sync. Large differences may indicate synchronization issues.</span>
+      </div>',
+    ];
+
+    // API error message container
+    $build['api_error'] = [
+      '#markup' => '<div id="ttd-api-error" class="ttd-api-error-message" style="display: none;"></div>',
+    ];
+
+    // Cache info and refresh button
+    $build['cache_info'] = [
+      '#markup' => '<div class="ttd-cache-info-section">
+        <div id="ttd-cache-info" class="ttd-cache-info">Loading API data...</div>
+        <button id="ttd-refresh-metrics" class="ttd-refresh-button" type="button">
+          <span class="ttd-refresh-icon">⟳</span> Refresh Metrics
+        </button>
+      </div>',
+    ];
+
+    // Stats overview boxes
+    $build['stats'] = [
+      '#markup' => '<div class="ttd-stats-overview">
+        <div class="ttd-stats-box">
+          <span class="ttd-stats-value">' . number_format($analytics['total_posts']) . '</span>
+          <span class="ttd-stats-label">Posts Analyzed</span>
+        </div>
+        <div class="ttd-stats-box">
+          <span class="ttd-stats-value">' . number_format($analytics['total_topics']) . '</span>
+          <span class="ttd-stats-label">Unique Topics</span>
+        </div>
+        <div class="ttd-stats-box">
+          <span class="ttd-stats-value">' . number_format($analytics['avg_topics_per_post'], 1) . '</span>
+          <span class="ttd-stats-label">Avg Topics/Post</span>
+        </div>
+        <div class="ttd-stats-box">
+          <span class="ttd-stats-value">' . number_format($analytics['coverage_percentage'], 1) . '%</span>
+          <span class="ttd-stats-label">Coverage Rate</span>
+        </div>
+      </div>',
+    ];
+
+    // Content Type Coverage Breakdown
+    $table_rows = '';
+    foreach ($analytics['by_content_type'] as $type => $data) {
+      $bar_class = $data['coverage_percentage'] >= 70 ? 'ttd-coverage-high' :
+                  ($data['coverage_percentage'] >= 40 ? 'ttd-coverage-medium' : 'ttd-coverage-low');
+
+      $table_rows .= '<tr class="ttd-type-row">
+        <td class="ttd-type-name">' . ucfirst($type) . '</td>
+        <td class="ttd-type-total">' . number_format($data['total_posts']) . '</td>
+        <td class="ttd-type-with-topics">' . number_format($data['posts_with_topics']) . '</td>
+        <td class="ttd-type-coverage">
+          <div class="ttd-coverage-bar-container">
+            <div class="ttd-coverage-bar ' . $bar_class . '" style="width: ' . $data['coverage_percentage'] . '%"></div>
+          </div>
+          <span class="ttd-coverage-text">' . number_format($data['coverage_percentage'], 1) . '%</span>
+        </td>
+      </tr>';
+    }
+
+    $build['type_breakdown'] = [
+      '#markup' => '<div class="ttd-type-coverage-wrapper">
+        <h3>Coverage by Content Type</h3>
+        <table class="ttd-type-coverage-table">
+          <thead>
+            <tr>
+              <th>Content Type</th>
+              <th>Total Posts</th>
+              <th>With Topics</th>
+              <th>Coverage</th>
+            </tr>
+          </thead>
+          <tbody>' . $table_rows . '</tbody>
+        </table>
+      </div>',
+    ];
+
+    // Comparison table
+    $build['comparison_table'] = [
+      '#markup' => '<div class="ttd-comparison-table-wrapper">
+        <h3>API Coverage Comparison</h3>
+        <table class="ttd-comparison-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Local vs API</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-metric="posts">
+              <td class="ttd-metric-name">Posts</td>
+              <td class="ttd-comparison-values">
+                <span class="ttd-local-val" data-value="' . $analytics['total_posts'] . '">' . number_format($analytics['total_posts']) . '</span>
+                <span class="ttd-sep"> / </span>
+                <span class="ttd-api-val" id="api-posts-val">-</span>
+              </td>
+              <td class="ttd-status-cell" id="status-posts">-</td>
+            </tr>
+            <tr data-metric="topics">
+              <td class="ttd-metric-name">Topics</td>
+              <td class="ttd-comparison-values">
+                <span class="ttd-local-val" data-value="' . $analytics['total_topics'] . '">' . number_format($analytics['total_topics']) . '</span>
+                <span class="ttd-sep"> / </span>
+                <span class="ttd-api-val" id="api-topics-val">-</span>
+              </td>
+              <td class="ttd-status-cell" id="status-topics">-</td>
+            </tr>
+            <tr data-metric="relationships">
+              <td class="ttd-metric-name">Relationships</td>
+              <td class="ttd-comparison-values">
+                <span class="ttd-local-val" data-value="' . $analytics['total_relationships'] . '">' . number_format($analytics['total_relationships']) . '</span>
+                <span class="ttd-sep"> / </span>
+                <span class="ttd-api-val" id="api-relationships-val">-</span>
+              </td>
+              <td class="ttd-status-cell" id="status-relationships">-</td>
+            </tr>
+            <tr data-metric="coverage">
+              <td class="ttd-metric-name">Coverage %</td>
+              <td class="ttd-comparison-values">
+                <span class="ttd-local-val" data-value="' . $analytics['coverage_percentage'] . '">' . number_format($analytics['coverage_percentage'], 1) . '%</span>
+                <span class="ttd-sep"> / </span>
+                <span class="ttd-api-val" id="api-coverage-val">-</span>
+              </td>
+              <td class="ttd-status-cell" id="status-coverage">-</td>
+            </tr>
+            <tr data-metric="avg_relationships">
+              <td class="ttd-metric-name">Avg Topics/Post</td>
+              <td class="ttd-comparison-values">
+                <span class="ttd-local-val" data-value="' . $analytics['avg_topics_per_post'] . '">' . number_format($analytics['avg_topics_per_post'], 2) . '</span>
+                <span class="ttd-sep"> / </span>
+                <span class="ttd-api-val" id="api-avg-val">-</span>
+              </td>
+              <td class="ttd-status-cell" id="status-avg">-</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="ttd-table-legend">
+          <span class="ttd-legend-local">Local</span> = Your site | <span class="ttd-legend-api">API</span> = TopicalBoost API
+        </div>
+      </div>',
+    ];
+
+    // Legend
+    $build['legend'] = [
+      '#markup' => '<div class="ttd-legend">
+        <p>Status Indicators:</p>
+        <ul>
+          <li><span style="color: #00a32a; font-weight: 500;">In sync</span> – Values match (< 0.1% difference)</li>
+          <li><span style="color: #d63638; font-weight: 500;">API higher</span> – API value is 1-10% higher</li>
+          <li><span style="color: #0073aa; font-weight: 500;">Local higher</span> – Local value is 1-10% higher</li>
+          <li><span style="color: #d63638; font-weight: 500;">⚠ API much higher</span> – API value > 10% higher</li>
+          <li><span style="color: #0073aa; font-weight: 500;">⚠ Local much higher</span> – Local value > 10% higher</li>
+        </ul>
+      </div>',
     ];
 
     return $build;

@@ -156,8 +156,14 @@ analysis_progress:
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/debug_stub
 
-
-
-
+coverage:
+  css:
+    theme:
+      css/ttd-coverage.css: {}
+  js:
+    js/ttd-coverage.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
 
 

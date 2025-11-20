@@ -59,9 +59,27 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
         // Analysis not complete yet - check if we should continue polling.
         $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
         if ($current_request_id === $request_id) {
-          // Use failure with requeue to wait and retry.
-          $status_message = $analysis_status['message'] ?? 'In progress';
-          return JobResult::failure('Analysis status: ' . $status_message . ' - will retry in 3 minutes', 0, TRUE);
+          // Schedule a new polling job for 3 minutes in the future.
+          // AdvancedQueue doesn't properly handle JobResult::failure() with requeue,
+          // so we schedule a new job instead.
+          try {
+            $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+            $queue = $queue_storage->load('ttd_topics_analysis');
+
+            $next_job = Job::create('ttd_bulk_analysis_poller', [
+              'request_id' => $request_id,
+            ]);
+            $queue->enqueueJob($next_job, 180); // 180 second delay = 3 minutes
+
+            $status_message = $analysis_status['message'] ?? 'In progress';
+            return JobResult::success('Analysis status: ' . $status_message . ' - scheduled next poll in 3 minutes');
+          } catch (\Exception $e) {
+            \Drupal::logger('ttd_topics')->error('Failed to schedule next poller job: @error', [
+              '@error' => $e->getMessage(),
+            ]);
+            $status_message = $analysis_status['message'] ?? 'In progress';
+            return JobResult::failure('Failed to schedule next poll: ' . $e->getMessage());
+          }
         }
         else {
           // Request ID changed - stop polling this old request.
@@ -85,7 +103,23 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
           '@error' => $e->getMessage(),
         ]);
 
-        return JobResult::failure('API error: ' . $e->getMessage() . ' - will retry in 3 minutes', 0, TRUE);
+        // Schedule a new polling job for 3 minutes in the future instead of using failure with requeue.
+        try {
+          $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+          $queue = $queue_storage->load('ttd_topics_analysis');
+
+          $next_job = Job::create('ttd_bulk_analysis_poller', [
+            'request_id' => $request_id,
+          ]);
+          $queue->enqueueJob($next_job, 180); // 180 second delay = 3 minutes
+
+          return JobResult::success('API error occurred, scheduled next poll in 3 minutes: ' . $e->getMessage());
+        } catch (\Exception $schedule_error) {
+          \Drupal::logger('ttd_topics')->error('Failed to schedule next poller job after API error: @error', [
+            '@error' => $schedule_error->getMessage(),
+          ]);
+          return JobResult::failure('API error with failed retry scheduling: ' . $e->getMessage());
+        }
       }
       else {
         // Request ID changed - stop polling.

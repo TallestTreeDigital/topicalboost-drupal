@@ -47,6 +47,12 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
       ],
       'template' => 'topicalboost-display',
     ],
+    'ttd_coverage_page' => [
+      'variables' => [
+        'local_data' => [],
+      ],
+      'template' => 'ttd-coverage-page',
+    ],
   ];
 }
 

@@ -317,31 +317,32 @@ class BulkAnalysisController extends ControllerBase {
           $this->autoStartApplyResults($request_id);
           $apply_progress = $this->getApplyProgress($request_id);
         }
-
-        // If apply is complete, clean up after a delay.
-        if ($apply_progress && isset($apply_progress['stage']) && $apply_progress['stage'] === 'complete') {
-          $completed_at = \Drupal::state()->get('topicalboost.bulk_analysis.completed_at');
-          $current_time = time();
-
-          // Clean up state after 30 seconds of being complete.
-          if ($completed_at && ($current_time - $completed_at) > 30) {
-            $this->cleanupCompletedAnalysis();
-            // Return clean state.
-            return new JsonResponse([
-              'success' => TRUE,
-              'data' => [
-                'request_id' => NULL,
-                'batch_progress' => ['completed' => 0, 'total' => 0],
-                'analysis_status' => NULL,
-                'apply_progress' => NULL,
-                'content_count' => 0,
-              ],
-            ]);
-          }
-        }
       }
       else {
         $apply_progress = $this->getApplyProgress($request_id);
+      }
+
+      // Only clean up when apply is actually complete (not during apply processing).
+      // This prevents early cleanup if user refreshes page during apply phase.
+      if ($apply_progress && isset($apply_progress['stage']) && $apply_progress['stage'] === 'complete') {
+        $completed_at = \Drupal::state()->get('topicalboost.bulk_analysis.completed_at');
+        $current_time = time();
+
+        // Clean up state after 30 seconds of apply being complete.
+        if ($completed_at && ($current_time - $completed_at) > 30) {
+          $this->cleanupCompletedAnalysis();
+          // Return clean state.
+          return new JsonResponse([
+            'success' => TRUE,
+            'data' => [
+              'request_id' => NULL,
+              'batch_progress' => ['completed' => 0, 'total' => 0],
+              'analysis_status' => NULL,
+              'apply_progress' => NULL,
+              'content_count' => 0,
+            ],
+          ]);
+        }
       }
 
       return new JsonResponse([

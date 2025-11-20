@@ -481,7 +481,7 @@ function ttd_topics_schema() {
     'description' => 'Maps entities to Wikibase categories',
     'fields' => [
       'id' => [
-        'type' => 'int',
+        'type' => 'serial',
         'size' => 'big',
         'unsigned' => TRUE,
         'not null' => TRUE,

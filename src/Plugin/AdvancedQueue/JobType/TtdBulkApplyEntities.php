@@ -126,16 +126,51 @@ class TtdBulkApplyEntities extends JobTypeBase {
     }
 
     // Process each node.
+    $failed_nodes = [];
     foreach ($entities_by_node as $node_id => $node_entities) {
       $node = $node_storage->load($node_id);
 
       if ($node && $node instanceof NodeInterface) {
+        // Check if field exists before applying entities
+        if (!$node->hasField('field_ttd_topics')) {
+          \Drupal::logger('ttd_topics')->error(
+            'Field field_ttd_topics not found on node @nid (type: @type)',
+            ['@nid' => $node_id, '@type' => $node->getType()]
+          );
+          $failed_nodes[] = $node_id;
+          continue;
+        }
+
         $this->applyEntitiesToNode($node, $node_entities);
 
         // Note: field_ttd_last_analyzed is now set in the customer IDs phase
         // so we don't need to set it here again.
-        $node->save();
+        try {
+          $node->save();
+        }
+        catch (\Exception $e) {
+          \Drupal::logger('ttd_topics')->error(
+            'Failed to save node @nid: @error',
+            ['@nid' => $node_id, '@error' => $e->getMessage()]
+          );
+          $failed_nodes[] = $node_id;
+        }
       }
+      else {
+        \Drupal::logger('ttd_topics')->warning(
+          'Node @nid not found or not a valid node',
+          ['@nid' => $node_id]
+        );
+        $failed_nodes[] = $node_id;
+      }
+    }
+
+    // Log summary of failed nodes
+    if (!empty($failed_nodes)) {
+      \Drupal::logger('ttd_topics')->warning(
+        'Failed to apply entities to @count nodes: @nodes',
+        ['@count' => count($failed_nodes), '@nodes' => implode(', ', array_slice($failed_nodes, 0, 10))]
+      );
     }
 
     // Return the actual count of unique entities processed, not entity-node associations.
@@ -147,17 +182,45 @@ class TtdBulkApplyEntities extends JobTypeBase {
    */
   private function applyEntitiesToNode(NodeInterface $node, $entities) {
     $topicalboost = [];
+    $failed_entities = [];
 
     foreach ($entities as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
       $ttd_id = $entity['id'] ?? NULL;
 
-      if (!empty($name) && !empty($ttd_id)) {
+      if (empty($name) || empty($ttd_id)) {
+        $failed_entities[] = $ttd_id ?? 'unknown';
+        continue;
+      }
+
+      try {
         $term_id = $this->getOrCreateTerm($name, $ttd_id, $entity);
         if ($term_id) {
           $topicalboost[] = ['target_id' => $term_id];
         }
+        else {
+          \Drupal::logger('ttd_topics')->warning(
+            'Failed to create/find term for entity @ttd_id: @name',
+            ['@ttd_id' => $ttd_id, '@name' => $name]
+          );
+          $failed_entities[] = $ttd_id;
+        }
       }
+      catch (\Exception $e) {
+        \Drupal::logger('ttd_topics')->error(
+          'Error processing entity @ttd_id (@name): @error',
+          ['@ttd_id' => $ttd_id, '@name' => $name, '@error' => $e->getMessage()]
+        );
+        $failed_entities[] = $ttd_id;
+      }
+    }
+
+    // Log failed entities for this node
+    if (!empty($failed_entities)) {
+      \Drupal::logger('ttd_topics')->warning(
+        'Failed to process @count entities for node @nid: @entities',
+        ['@count' => count($failed_entities), '@nid' => $node->id(), '@entities' => implode(', ', array_slice($failed_entities, 0, 5))]
+      );
     }
 
     if (!empty($topicalboost)) {

@@ -135,3 +135,11 @@ topicalboost.api.check_analysis_status:
   requirements:
     _permission: 'access content'
     node: \d+
+
+topicalboost.api.coverage_metrics:
+  path: '/api/topicalboost/coverage/metrics'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\CoverageController::getMetrics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
