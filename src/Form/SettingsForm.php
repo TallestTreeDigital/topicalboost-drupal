@@ -1519,7 +1519,7 @@ class SettingsForm extends ConfigFormBase {
       '#markup' => '<div class="ttd-stats-overview">
         <div class="ttd-stats-box">
           <span class="ttd-stats-value">' . number_format($analytics['total_posts']) . '</span>
-          <span class="ttd-stats-label">Posts Analyzed</span>
+          <span class="ttd-stats-label">Total Posts</span>
         </div>
         <div class="ttd-stats-box">
           <span class="ttd-stats-value">' . number_format($analytics['total_topics']) . '</span>
@@ -1632,25 +1632,9 @@ class SettingsForm extends ConfigFormBase {
             </tr>
           </tbody>
         </table>
-        <div class="ttd-table-legend">
-          <span class="ttd-legend-local">Local</span> = Your site | <span class="ttd-legend-api">API</span> = TopicalBoost API
-        </div>
       </div>',
     ];
 
-    // Legend
-    $build['legend'] = [
-      '#markup' => '<div class="ttd-legend">
-        <p>Status Indicators:</p>
-        <ul>
-          <li><span style="color: #00a32a; font-weight: 500;">In sync</span> – Values match (< 0.1% difference)</li>
-          <li><span style="color: #d63638; font-weight: 500;">API higher</span> – API value is 1-10% higher</li>
-          <li><span style="color: #0073aa; font-weight: 500;">Local higher</span> – Local value is 1-10% higher</li>
-          <li><span style="color: #d63638; font-weight: 500;">⚠ API much higher</span> – API value > 10% higher</li>
-          <li><span style="color: #0073aa; font-weight: 500;">⚠ Local much higher</span> – Local value > 10% higher</li>
-        </ul>
-      </div>',
-    ];
 
     return $build;
   }

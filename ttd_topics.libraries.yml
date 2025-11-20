@@ -14,6 +14,7 @@ tabs:
   css:
     theme:
       css/tabs.css: {}
+      css/ttd-coverage.css: {}
   js:
     js/tabs.js: {}
   dependencies:
@@ -22,11 +23,7 @@ tabs:
     - core/once
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/debug_stub
-
-tabs_css:
-  css:
-    theme:
-      css/tabs.css: {}
+    - ttd_topics/coverage
 
 progress_bars:
   css:
