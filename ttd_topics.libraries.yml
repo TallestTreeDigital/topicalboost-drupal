@@ -163,4 +163,14 @@ coverage:
     - core/drupal
     - core/once
 
+code_examples:
+  css:
+    theme:
+      css/code-examples.css: {}
+  js:
+    js/code-examples.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
 

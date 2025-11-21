@@ -1,25 +1,56 @@
-/* TopicalBoost Settings Page Tab Styling - Clean Tailwind */
-
+/* TopicalBoost Settings Page CSS Reset - Targeted Theme Isolation */
 .ttd-topics-tabs-container {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #1f2937;
-  background: white;
+  /* Reset only problematic inherited properties */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: #1f2937 !important;
+
+  /* Layout isolation */
+  margin: 0 !important;
+  padding: 0 !important;
+
+  /* Apply our intended styles */
+  background: white !important;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   overflow: visible;
 }
 
-/* Tab navigation */
+/* Dark mode support for Gin theme */
+.gin--dark-mode .ttd-topics-tabs-container {
+  color: var(--gin-color-text) !important;
+  background: var(--gin-bg-layer) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Reset focus styles that admin themes apply */
+.ttd-topics-tabs-container *:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Reset admin theme button/link focus styles specifically */
+.ttd-topics-tabs-container a:focus,
+.ttd-topics-tabs-container button:focus {
+  border-color: transparent !important;
+  background-color: inherit !important;
+}
+
 .ttd-topics-tabs-nav {
   display: flex;
-  align-items: flex-end;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
   margin: 0;
   padding: 0;
   gap: 2px;
+}
+
+.gin--dark-mode .ttd-topics-tabs-nav {
+  background: var(--gin-bg-app);
+  border-bottom-color: var(--gin-border-color);
 }
 
 .ttd-topics-tabs-buttons {
@@ -28,50 +59,71 @@
   flex: 1;
 }
 
-/* Tab buttons */
 .ttd-topics-tab-button {
   flex: 1;
-  padding: 16px 20px;
+  padding: 1rem 1.5rem;
   background: transparent;
   border: none;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: #6b7280;
-  transition: all 0.15s ease;
+  color: #64748b;
+  transition: all 0.2s ease;
+  position: relative;
   text-align: center;
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border-radius: 6px 6px 0 0;
-  line-height: 1;
-}
-
-.ttd-topics-tab-button .ttd-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+  border-radius: 8px 8px 0 0;
+  gap: 0.5rem;
 }
 
 .ttd-topics-tab-button:hover {
-  background: #f3f4f6;
+  background: #f1f5f9;
   color: #475569;
+}
+
+.gin--dark-mode .ttd-topics-tab-button {
+  color: #8b92a8;
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+.gin--dark-mode .ttd-topics-tab-button:hover {
+  background: rgba(107, 114, 128, 0.2);
+  color: var(--gin-color-text);
 }
 
 .ttd-topics-tab-button.active {
   background: white;
-  color: #2563eb;
-  border-bottom: 3px solid #2563eb;
+  color: #3b82f6;
+  border-bottom: 3px solid #3b82f6;
+  margin-bottom: -1px;
+  z-index: 1;
+  position: relative;
+}
+
+.gin--dark-mode .ttd-topics-tab-button.active {
+  background: transparent;
+  color: rgb(var(--gin-color-primary-rgb));
+  border-bottom: 3px solid rgb(var(--gin-color-primary-rgb)) !important;
+  margin-bottom: -1px;
   font-weight: 600;
 }
 
-/* Tab content */
+
+
 .ttd-topics-tab-content {
-  padding: 24px;
+  padding: 2rem;
   min-height: 400px;
   overflow: visible;
+  background: white !important;
+}
+
+.gin--dark-mode .ttd-topics-tab-content {
+  background: var(--gin-bg-layer) !important;
 }
 
 .ttd-topics-tab-panel {
@@ -81,20 +133,23 @@
 
 .ttd-topics-tab-panel.active {
   display: block;
+  overflow: visible;
 }
 
-/* Help text boxes */
 .ttd-topics-help-text {
   background: #eff6ff;
-  border-left: 4px solid #2563eb;
-  padding: 16px;
-  margin-bottom: 24px;
+  border-left: 4px solid #3b82f6;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
   border-radius: 0 6px 6px 0;
-  font-size: 14px;
-  color: #1d4ed8;
 }
 
-/* Status indicators */
+.gin--dark-mode .ttd-topics-help-text {
+  background: rgba(59, 130, 246, 0.15);
+  border-left-color: rgb(var(--gin-color-primary-rgb));
+  color: var(--gin-color-text);
+}
+
 .ttd-topics-status-good {
   color: #059669;
   font-weight: 500;
@@ -105,7 +160,6 @@
   font-weight: 500;
 }
 
-/* Field group styling */
 .ttd-topics-field-group {
   margin-bottom: 0;
 }
@@ -115,135 +169,433 @@
   color: #374151;
 }
 
+.gin--dark-mode .ttd-topics-field-group label {
+  color: var(--gin-color-text);
+}
+
 .ttd-topics-field-group .description {
-  margin-top: 4px;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
   color: #6b7280;
-  font-size: 13px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.gin--dark-mode .ttd-topics-field-group .description {
+  color: var(--gin-color-text-light);
+}
+
+.ttd-topics-field-group input[type="checkbox"] {
+  margin-right: 0.5rem;
 }
 
 /* Select2 styling */
-.ttd-topics-field-group .select2-container {
-  width: 100%;
+.ttd-topics-field-group .ttd-topics-select2 {
+  margin-top: 0.5rem;
   margin-left: 0;
 }
 
-.ttd-topics-field-group .select2-selection--multiple {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 8px;
-  min-height: 44px;
-  background: white;
-  transition: all 0.15s ease;
-  font-size: 14px;
+.ttd-topics-field-group .select2-container {
+  width: 100% !important;
+  margin-left: 0;
 }
 
-.ttd-topics-field-group .select2-selection--multiple:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+.ttd-topics-field-group .select2-container .select2-selection--multiple {
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem;
+  min-height: 2.75rem;
+  background: white;
+  transition: border-color 0.2s ease;
+  margin-left: 0 !important;
+  line-height: 1.5;
+  font-size: 14px;
+  color: #374151;
+}
+
+.gin--dark-mode .ttd-topics-field-group .select2-container .select2-selection--multiple {
+  border-color: var(--gin-border-color);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--gin-color-text);
 }
 
 .ttd-topics-field-group .select2-selection__rendered {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
 }
 
-/* Select2 search field */
+/* Reset any inherited form styling */
+.ttd-topics-field-group .form-item,
+.ttd-topics-field-group .js-form-item {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.ttd-topics-field-group .select2-container .select2-selection--multiple:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.gin--dark-mode .ttd-topics-field-group .select2-container .select2-selection--multiple:focus-within {
+  border-color: rgb(var(--gin-color-primary-rgb));
+  box-shadow: 0 0 0 3px rgba(var(--gin-color-primary-rgb), 0.2);
+}
+
+.ttd-topics-field-group .select2-container .select2-selection__choice {
+  background: #3b82f6 !important;
+  border: 1px solid #2563eb !important;
+  border-radius: 4px !important;
+  color: white !important;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  margin: 0.125rem !important;
+}
+
+.ttd-topics-field-group .select2-container .select2-selection__choice__remove {
+  color: white !important;
+  margin-right: 0.25rem;
+  float: none !important;
+}
+
+.ttd-topics-field-group .select2-container .select2-selection__choice__remove:hover {
+  color: #fecaca !important;
+}
+
+
+
+/* Fix placeholder text positioning and visibility */
 .ttd-topics-field-group .select2-search__field {
-  color: #1f2937;
-  font-size: 14px;
-  border: none;
-  outline: none;
-  padding: 4px 0;
+  color: #374151 !important;
+  line-height: 1.5 !important;
+  font-size: 14px !important;
+  min-height: 1.5rem !important;
+  padding: 0.25rem 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  outline: none !important;
 }
 
+/* Style the placeholder text specifically */
 .ttd-topics-field-group .select2-search__field::placeholder {
-  color: #9ca3af;
+  color: #9ca3af !important;
+  opacity: 1 !important;
 }
 
-/* Select2 tags/choices */
-.ttd-topics-field-group .select2-selection__choice {
-  background: #2563eb;
-  border: 1px solid #1d4ed8;
-  border-radius: 4px;
-  color: white;
-  font-size: 13px;
-  padding: 4px 8px;
-  margin: 2px;
+/* Fix initial state placeholder positioning */
+.ttd-topics-field-group .select2-selection--multiple {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 2.75rem !important;
 }
 
-.ttd-topics-field-group .select2-selection__choice__remove {
-  color: white;
-  margin-right: 4px;
-  cursor: pointer;
-  font-weight: bold;
+/* Ensure the search field container takes proper space initially */
+.ttd-topics-field-group .select2-search--inline {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 !important;
+  min-height: 1.75rem !important;
 }
 
-.ttd-topics-field-group .select2-selection__choice__remove:hover {
-  color: #fca5a5;
+/* Make sure the textarea is properly sized initially */
+.ttd-topics-field-group .select2-search--inline .select2-search__field {
+  min-height: 1.5rem !important;
+  height: auto !important;
+  padding: 0.375rem 0 !important;
+  line-height: 1.4 !important;
 }
 
-/* Select2 dropdown */
 .ttd-topics-field-group .select2-dropdown {
-  border: 1px solid #d1d5db;
+  border: 2px solid #e5e7eb;
   border-radius: 6px;
   border-top: none;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
 
-/* Section titles */
+.gin--dark-mode .ttd-topics-field-group .select2-dropdown {
+  border-color: var(--gin-border-color);
+  background: var(--gin-bg-app);
+}
+
+.ttd-topics-field-group .select2-container--open .select2-selection--multiple {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
 .ttd-topics-section-title {
-  font-size: 18px;
+  font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
+}
+
+.gin--dark-mode .ttd-topics-section-title {
+  color: var(--gin-color-text);
+}
+
+.ttd-topics-section-title.ttd-topics-section-spaced {
+  margin-top: 2rem;
 }
 
 .ttd-topics-section-title .ttd-icon-large {
-  flex-shrink: 0;
+  color: #3b82f6;
 }
 
-/* Form actions */
-.ttd-topics-tabs-container .form-actions {
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  gap: 12px;
+/* Enhanced section headers with icons */
+h4 .ttd-icon {
+  margin-right: 0.5rem;
+  color: #6b7280;
 }
 
-.form-actions .ttd-topics-submit-button {
-  display: inline-block;
+/* Fieldset title icon styling */
+legend .ttd-icon {
+  margin-right: 0.5rem;
+  color: #6b7280;
 }
 
-/* Hide submit when analytics tab is active */
-.ttd-topics-hide-submit .form-actions .ttd-topics-submit-button,
-.ttd-topics-hide-submit .form-actions input[name="op"],
-form.ttd-topics-hide-submit .form-actions input[type="submit"] {
-  display: none;
+/* --- Fix left indent on Select2 containers -------------------------------- */
+.ttd-topics-field-group .select2-selection--multiple,
+.ttd-topics-field-group .select2-selection--single {
+  padding-left: 0 !important; /* remove default 8px padding */
 }
 
-/* Responsive */
+/* Ensure rendered list inside multiple selection has no extra padding/margin */
+.ttd-topics-field-group .select2-selection__rendered {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Target the specific UL element directly */
+ul.select2-selection__rendered {
+  margin-left: 0 !important;
+}
+
+/* Responsive design for smaller screens */
 @media (max-width: 768px) {
   .ttd-topics-tabs-nav {
     flex-direction: column;
-    gap: 8px;
-    padding: 8px;
+    gap: 0.5rem;
+    padding: 0.5rem;
   }
 
   .ttd-topics-tabs-buttons {
-    flex-wrap: wrap;
     justify-content: center;
+    flex-wrap: wrap;
   }
 
   .ttd-topics-tab-button {
     flex: none;
-    padding: 12px 16px;
-    font-size: 13px;
+    min-width: auto;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
     flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .ttd-topics-tab-button .ttd-icon {
+    margin-right: 0;
+  }
+
+
+}
+
+/* Show submit button by default */
+.form-actions .ttd-topics-submit-button {
+  display: inline-block !important;
+}
+
+/* Hide submit button when analytics tab is active - controlled by JavaScript */
+.ttd-topics-hide-submit .form-actions .ttd-topics-submit-button,
+.ttd-topics-hide-submit .form-actions input[name="op"],
+form.ttd-topics-hide-submit .form-actions input[type="submit"] {
+  display: none !important;
+}
+/* -------------------------------------------------------------------------- */
+
+/* TopicalBoost Icons - Inline SVG Font Awesome Icons for better UX */
+
+/* Icon base styles */
+.ttd-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 0.5rem;
+  vertical-align: -2px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.ttd-icon-large {
+  width: 20px;
+  height: 20px;
+  margin-right: 0.75rem;
+  vertical-align: -3px;
+}
+
+/* Tab-specific icon styles */
+.ttd-topics-tab-button .ttd-icon {
+  margin-right: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.ttd-topics-tab-button:hover .ttd-icon,
+.ttd-topics-tab-button:focus .ttd-icon,
+.ttd-topics-tab-button.active .ttd-icon {
+  transform: scale(1.1);
+}
+
+/* Analytics icon - chart-line */
+.ttd-icon-analytics {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23374151" d="M64 400C64 408.8 71.16 416 80 416H480C488.8 416 496 408.8 496 400C496 391.2 488.8 384 480 384H80C71.16 384 64 391.2 64 400zM342.6 278.6C337.1 284.1 337.1 292.9 342.6 298.3C348.1 303.8 356.9 303.8 362.3 298.3L458.3 202.3C463.8 196.9 463.8 188.1 458.3 182.6C452.9 177.1 444.1 177.1 438.6 182.6L352 269.3L293.7 211C288.3 205.7 279.7 205.7 274.3 211L186.3 299C180.9 304.4 180.9 313.1 186.3 318.6C191.7 324 200.3 324 205.7 318.6L284 240.4L342.6 278.6z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+/* Settings icon - cog/gear */
+.ttd-icon-settings {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23374151" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+/* API icon - plug/connection */
+.ttd-icon-api {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path fill="%23374151" d="M96 0C78.3 0 64 14.3 64 32v96h64V32c0-17.7-14.3-32-32-32zM288 0c-17.7 0-32 14.3-32 32v96h64V32c0-17.7-14.3-32-32-32zM32 160c-17.7 0-32 14.3-32 32s14.3 32 32 32v32c0 77.4 55 142 128 156.8V480c0 17.7 14.3 32 32 32s32-14.3 32-32V412.8C297 398 352 333.4 352 256V224c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zm0 64H320v32c0 61.9-50.1 112-112 112s-112-50.1-112-112V224z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+/* Schema icon - sitemap/structure */
+.ttd-icon-schema {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path fill="%23374151" d="M208 80c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM504 176c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM112 256c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM208 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM464 256c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM464 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM312 304V208h104c4.4 0 8-3.6 8-8v-16c0-4.4-3.6-8-8-8H312V128c0-4.4-3.6-8-8-8h-16c-4.4 0-8 3.6-8 8v48H176c-4.4 0-8 3.6-8 8v16c0 4.4 3.6 8 8 8h104v96H176c-4.4 0-8 3.6-8 8v16c0 4.4 3.6 8 8 8h104v48c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-48h104c4.4 0 8-3.6 8-8v-16c0-4.4-3.6-8-8-8H312z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+/* Section title icons */
+.ttd-icon-display {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path fill="%233b82f6" d="M64 0C28.7 0 0 28.7 0 64V352c0 35.3 28.7 64 64 64H240l-10.7 32H160c-17.7 0-32 14.3-32 32s14.3 32 32 32H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H346.7L336 416H512c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H64zM512 64V288H64V64H512z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 20px;
+  height: 20px;
+}
+
+.ttd-icon-coverage {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%233b82f6" d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 20px;
+  height: 20px;
+}
+
+.ttd-icon-social {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path fill="%236b7280" d="M208 352c114.9 0 208-78.8 208-176S322.9 0 208 0S0 78.8 0 176c0 38.6 14.7 74.3 39.6 103.4c-3.5 9.4-8.7 17.7-14.2 24.7c-4.8 6.2-9.7 11-13.3 14.3c-1.8 1.6-3.3 2.9-4.3 3.7c-.5 .4-.9 .7-1.1 .8l-.2 .2 0 0 0 0C1.2 327.2-1.4 334.4 .8 340.9S9.1 352 16 352c21.8 0 43.8-5.6 62.1-16.5c8.4-5 15.7-10.9 21.9-17.4c19.6 5.2 41.1 8 64 8zM448 176c0 112.3-99.1 196.9-216.5 207C255.8 441.8 336.4 512 432 512c38.2 0 73.9-8.7 104.7-23.9c7.5 4 15.8 7.9 24.9 11.4C579.9 507.2 602.2 512 624 512c6.9 0 13.1-4.5 15.2-11.1c2.1-6.6-.6-13.9-6.9-17.4c0 0 0 0-.1-.1l-.2-.1c-.2-.1-.5-.3-.9-.5c-.8-.5-2-.1-3.6-1.7c-3.6-3.3-8.5-8.1-13.3-14.3c-5.5-7-10.7-15.4-14.2-24.7c24.9-29 39.6-64.7 39.6-103.4c0-92.8-84.9-168.9-192.6-175.5c.4 5.1 .6 10.3 .6 15.5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 20px;
+  height: 20px;
+}
+
+.ttd-icon-key {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%233b82f6" d="M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 20px;
+  height: 20px;
+}
+
+/* Form field icons */
+.ttd-icon-link {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path fill="%236b7280" d="M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6c-31.5-31.5-31.5-82.5 0-114L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.8l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+.ttd-icon-logo {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%236b7280" d="M448 80c8.8 0 16 7.2 16 16V415.8l-5-6.5-136-176c-4.5-5.9-11.6-9.3-19-9.3s-14.4 3.4-19 9.3L202.5 342.1l-30.5-42.7C167.1 293.7 160.9 290 154.1 290s-13 3.7-17.8 9.4l-73 102.1c-2.2 3.1-3.3 6.8-3.3 10.5V496c0 8.8 7.2 16 16 16H432c8.8 0 16-7.2 16-16V96c0-8.8-7.2-16-16-16H64C28.7 80 0 108.7 0 144V368c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM112 192a48 48 0 1 1 96 0 48 48 0 1 1 -96 0z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 16px;
+  height: 16px;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .ttd-topics-tab-button .ttd-icon {
+    transition: none;
+  }
+
+  .ttd-topics-tab-button:hover .ttd-icon,
+  .ttd-topics-tab-button:focus .ttd-icon,
+  .ttd-topics-tab-button.active .ttd-icon {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ttd-icon {
+    filter: contrast(1.5);
+  }
+}
+
+/* Dark mode support - Gin theme */
+.gin--dark-mode .ttd-icon-analytics,
+.gin--dark-mode .ttd-icon-settings,
+.gin--dark-mode .ttd-icon-api,
+.gin--dark-mode .ttd-icon-schema {
+  filter: invert(1) brightness(1.1);
+}
+
+.gin--dark-mode .ttd-icon-display,
+.gin--dark-mode .ttd-icon-coverage {
+  filter: invert(1) brightness(1.1) saturate(1.1);
+}
+
+.gin--dark-mode .ttd-icon-social,
+.gin--dark-mode .ttd-icon-key,
+.gin--dark-mode .ttd-icon-link,
+.gin--dark-mode .ttd-icon-logo {
+  filter: invert(1);
+}
+
+/* Fallback for browser prefers-color-scheme (non-Gin environments) */
+@media (prefers-color-scheme: dark) {
+  .ttd-icon-analytics,
+  .ttd-icon-settings,
+  .ttd-icon-api,
+  .ttd-icon-schema,
+  .ttd-icon-display,
+  .ttd-icon-coverage,
+  .ttd-icon-social,
+  .ttd-icon-key,
+  .ttd-icon-link,
+  .ttd-icon-logo {
+    filter: invert(1);
   }
 }

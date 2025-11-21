@@ -181,7 +181,12 @@ const siteMetrics = {
           if (value === undefined || value === '-') {
             element.textContent = '-';
           } else {
-            element.textContent = value;
+            // Format avg_relationships_per_post to 2 decimal places
+            if (dataKey === 'avg_relationships_per_post') {
+              element.textContent = parseFloat(value).toFixed(2);
+            } else {
+              element.textContent = value;
+            }
           }
         }
       }

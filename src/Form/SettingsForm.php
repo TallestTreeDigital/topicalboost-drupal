@@ -74,6 +74,7 @@ class SettingsForm extends ConfigFormBase {
     $form['#attached']['library'][] = 'ttd_topics/modern_forms';
     $form['#attached']['library'][] = 'ttd_topics/progress_bars';
     $form['#attached']['library'][] = 'ttd_topics/coverage';
+    $form['#attached']['library'][] = 'ttd_topics/code_examples';
 
     // Create tabbed interface container.
     $form['tabs_container'] = [
@@ -210,67 +211,88 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['settings']['custom_implementation_guide'] = [
       '#markup' => '<p class="description"><strong>Custom implementation:</strong> Use these Twig functions in your templates to build custom topic displays.</p>
-        <ul style="margin-left: 20px; margin-top: 5px;">
-          <li><strong>Twig function - topicalboost_display():</strong> Use <code>{{ topicalboost_display() }}</code> in your theme templates to render topics with built-in styling<br>
-            <em>Renders the complete HTML for topic display with show more/less functionality. Results are filtered by visibility settings, rejection status, and threshold count.</em><br>
-            <div style="background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 4px; padding: 10px; margin: 8px 0; font-size: 12px;">
-              <strong>Function signature:</strong><br>
-              <code style="color: #0066cc;">{{ topicalboost_display(node, options) }}</code><br><br>
-              <strong>Usage examples:</strong><br>
-              <code style="display: block; margin: 5px 0; color: #333;">
-              {# Display topics for the current node #}<br>
-              {{ topicalboost_display() }}<br><br>
-              {# Display topics for a specific node #}<br>
-              {{ topicalboost_display(node) }}<br><br>
-              {# Force display even if frontend is disabled #}<br>
-              {{ topicalboost_display(node, { force_display: true }) }}<br>
-              </code><br>
-              <strong>Return format:</strong><br>
-              <code style="display: block; margin: 5px 0; color: #666;">
-              Rendered HTML string (safe markup)
-              </code>
+        <div class="ttd-code-examples">
+          <div class="ttd-code-block">
+            <div class="ttd-code-header">
+              <strong>topicalboost_display()</strong>
+              <span class="ttd-code-toggle" role="button" tabindex="0" aria-expanded="false">
+                <span class="ttd-code-toggle-icon">▶</span> Expand
+              </span>
             </div>
-          </li>
-          <li><strong>Twig function - topicalboost_data():</strong> Use <code>{{ topicalboost_data() }}</code> in your theme templates to get topic data as an array<br>
-            <em>Returns topic data as a structured array for building completely custom displays. Results are filtered by visibility settings, rejection status, and threshold count.</em><br>
-            <div style="background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 4px; padding: 10px; margin: 8px 0; font-size: 12px;">
-              <strong>Function signature:</strong><br>
-              <code style="color: #0066cc;">{% set topics = topicalboost_data(node, options) %}</code><br><br>
-              <strong>Usage examples:</strong><br>
-              <code style="display: block; margin: 5px 0; color: #333;">
-              {# Get topics for current node #}<br>
-              {% set topics = topicalboost_data() %}<br><br>
-              {# Build a custom topic list #}<br>
-              {% set topics = topicalboost_data() %}<br>
-              {% if topics.topics|length > 0 %}<br>
-              &nbsp;&nbsp;&lt;div class="my-custom-topics"&gt;<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&lt;h3&gt;{{ topics.label }}&lt;/h3&gt;<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;{% for topic in topics.topics %}<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;a href="{{ topic.url }}"&gt;{{ topic.name }}&lt;/a&gt;<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;{% endfor %}<br>
-              &nbsp;&nbsp;&lt;/div&gt;<br>
-              {% endif %}<br>
-              </code><br>
-              <strong>Return format:</strong><br>
-              <code style="display: block; margin: 5px 0; color: #666;">
-              [<br>
-              &nbsp;&nbsp;label: "Mentions",<br>
-              &nbsp;&nbsp;max_visible: 5,<br>
-              &nbsp;&nbsp;total_count: 8,<br>
-              &nbsp;&nbsp;topics: [<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;{<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;id: 123,<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: "Artificial Intelligence",<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url: "/topics/artificial-intelligence",<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entity: { ... }<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;},<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;...<br>
-              &nbsp;&nbsp;]<br>
-              ]
-              </code>
+            <div class="ttd-code-description">Renders the complete HTML for topic display with show more/less functionality. Results are filtered by visibility settings, rejection status, and threshold count.</div>
+            <div class="ttd-code-content">
+              <div class="ttd-code-section">
+                <strong>Function signature:</strong>
+                <pre><code class="language-twig">{{ topicalboost_display(node, options) }}</code></pre>
+              </div>
+              <div class="ttd-code-section">
+                <strong>Usage examples:</strong>
+                <pre><code class="language-twig">{# Display topics for the current node #}
+{{ topicalboost_display() }}
+
+{# Display topics for a specific node #}
+{{ topicalboost_display(node) }}
+
+{# Force display even if frontend is disabled #}
+{{ topicalboost_display(node, { force_display: true }) }}</code></pre>
+              </div>
+              <div class="ttd-code-section">
+                <strong>Return format:</strong>
+                <pre><code class="language-text">Rendered HTML string (safe markup)</code></pre>
+              </div>
             </div>
-          </li>
-        </ul>',
+          </div>
+
+          <div class="ttd-code-block">
+            <div class="ttd-code-header">
+              <strong>topicalboost_data()</strong>
+              <span class="ttd-code-toggle" role="button" tabindex="0" aria-expanded="false">
+                <span class="ttd-code-toggle-icon">▶</span> Expand
+              </span>
+            </div>
+            <div class="ttd-code-description">Returns topic data as a structured array for building completely custom displays. Results are filtered by visibility settings, rejection status, and threshold count.</div>
+            <div class="ttd-code-content">
+              <div class="ttd-code-section">
+                <strong>Function signature:</strong>
+                <pre><code class="language-twig">{% set topics = topicalboost_data(node, options) %}</code></pre>
+              </div>
+              <div class="ttd-code-section">
+                <strong>Usage examples:</strong>
+                <pre><code class="language-twig">{# Get topics for current node #}
+{% set topics = topicalboost_data() %}
+
+{# Build a custom topic list #}
+{% set topics = topicalboost_data() %}
+{% if topics.topics|length > 0 %}
+  &lt;div class="my-custom-topics"&gt;
+    &lt;h3&gt;{{ topics.label }}&lt;/h3&gt;
+    {% for topic in topics.topics %}
+      &lt;a href="{{ topic.url }}"&gt;{{ topic.name }}&lt;/a&gt;
+    {% endfor %}
+  &lt;/div&gt;
+{% endif %}</code></pre>
+              </div>
+              <div class="ttd-code-section">
+                <strong>Return format:</strong>
+                <pre><code class="language-json">{
+  "topics": [
+    {
+      "id": 123,
+      "name": "Artificial Intelligence",
+      "label": "Artificial Intelligence",
+      "url": "/topics/artificial-intelligence",
+      "entity": { ... }
+    },
+    ...
+  ],
+  "label": "Mentions",
+  "max_visible": 5,
+  "total_count": 8
+}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>',
     ];
 
     $form['tabs_container']['content']['settings']['topics_list_label'] = [
@@ -335,56 +357,6 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
-    // Field Inspector
-    $form['tabs_container']['content']['settings']['field_inspector'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['field-inspector-container']],
-      '#attached' => [
-        'library' => ['ttd_topics/field_inspector'],
-      ],
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['header'] = [
-      '#markup' => '<h3>
-        <span class="ttd-icon ttd-icon-search"></span>Field Inspector
-        <span class="field-count-badge">0 selected</span>
-      </h3>',
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['messages'] = [
-      '#markup' => '<div class="field-inspector-messages"></div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['search_section'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['field-inspector-section', 'search-section']],
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['search_section']['search_input'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Search posts by title'),
-      '#title_display' => 'invisible',
-      '#attributes' => [
-        'class' => ['field-inspector-search'],
-        'placeholder' => $this->t('Search posts by title...'),
-        'autocomplete' => 'off',
-        'data-search-url' => '/api/topicalboost/field-inspector/search',
-        'min' => 1,
-      ],
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['search_section']['results'] = [
-      '#markup' => '<div class="search-results-dropdown" style="display: none;"></div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['field_list'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['field-inspector-section']],
-    ];
-
-    $form['tabs_container']['content']['settings']['field_inspector']['field_list']['container'] = [
-      '#markup' => '<div class="field-list"></div>',
-    ];
 
     // URL Path Configuration
     $form['tabs_container']['content']['settings']['url_section'] = [
@@ -734,14 +706,15 @@ class SettingsForm extends ConfigFormBase {
     // Calculate coverage percentage.
     $coverage_percentage = $total_posts > 0 ? ($posts_with_topics / $total_posts) * 100 : 0;
 
-    // Get average topics per post (only for posts that have topics, filtered by enabled content types)
-    $avg_topics_per_post = $posts_with_topics > 0 ?
-      $this->database->query("
-        SELECT COUNT(*) / COUNT(DISTINCT t.entity_id)
-        FROM {node__field_ttd_topics} t
-        INNER JOIN {node_field_data} n ON t.entity_id = n.nid
-        WHERE n.status = 1 AND n.type IN (:types[])
-      ", [':types[]' => $enabled_content_types])->fetchField() : 0;
+    // Get average topics per post
+    $relationships_count = $this->database->query("
+      SELECT COUNT(DISTINCT t.entity_id, t.field_ttd_topics_target_id)
+      FROM {node__field_ttd_topics} t
+      INNER JOIN {node_field_data} n ON t.entity_id = n.nid
+      WHERE n.status = 1 AND n.type IN (:types[])
+    ", [':types[]' => $enabled_content_types])->fetchField();
+
+    $avg_topics_per_post = $total_posts > 0 ? round($relationships_count / $total_posts, 2) : 0;
 
     // Get total relationships (topic assignments)
     $total_relationships = $this->database->query("
@@ -1486,33 +1459,11 @@ class SettingsForm extends ConfigFormBase {
       </div>',
     ];
 
-    $build['help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        Comprehensive analysis of TopicalBoost content processing and topic identification across your website.
-      </div>',
-    ];
-
-    $build['notice'] = [
-      '#markup' => '<div class="ttd-filter-notice">
-        <span class="ttd-filter-notice-icon">ℹ</span>
-        <span>Compare your local topic data with TopicalBoost API metrics. Values should stay in sync. Large differences may indicate synchronization issues.</span>
-      </div>',
-    ];
-
     // API error message container
     $build['api_error'] = [
       '#markup' => '<div id="ttd-api-error" class="ttd-api-error-message" style="display: none;"></div>',
     ];
 
-    // Cache info and refresh button
-    $build['cache_info'] = [
-      '#markup' => '<div class="ttd-cache-info-section">
-        <div id="ttd-cache-info" class="ttd-cache-info">Loading API data...</div>
-        <button id="ttd-refresh-metrics" class="ttd-refresh-button" type="button">
-          <span class="ttd-refresh-icon">⟳</span> Refresh Metrics
-        </button>
-      </div>',
-    ];
 
     // Stats overview boxes
     $build['stats'] = [

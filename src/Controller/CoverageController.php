@@ -115,20 +115,21 @@ class CoverageController extends ControllerBase {
     $nodes_with_topics = $nodes_with_topics_query->countQuery()->execute()->fetchField();
 
     // Get total topic relationships (assignments).
-    $relationships_query = $this->database->select('node__field_ttd_topics', 'ft')
-      ->fields('ft', ['field_ttd_topics_target_id']);
+    // Use raw SQL to count distinct entity_id + target_id combinations
+    // to avoid counting duplicates from multiple deltas/revisions
+    $query_string = "SELECT COUNT(DISTINCT ft.entity_id, ft.field_ttd_topics_target_id)
+      FROM {node__field_ttd_topics} ft
+      INNER JOIN {node_field_data} n ON ft.entity_id = n.nid
+      WHERE n.status = 1";
 
+    $params = [];
     if (!empty($enabled_content_types)) {
-      $relationships_query->innerJoin('node_field_data', 'n', 'ft.entity_id = n.nid');
-      $relationships_query->condition('n.status', 1);
-      $relationships_query->condition('n.type', $enabled_content_types, 'IN');
-    } else {
-      // If no specific types enabled, still filter by published nodes
-      $relationships_query->innerJoin('node_field_data', 'n', 'ft.entity_id = n.nid');
-      $relationships_query->condition('n.status', 1);
+      $placeholders = implode(',', array_fill(0, count($enabled_content_types), '?'));
+      $query_string .= " AND n.type IN ($placeholders)";
+      $params = $enabled_content_types;
     }
 
-    $total_relationships = $relationships_query->countQuery()->execute()->fetchField();
+    $total_relationships = (int)$this->database->query($query_string, $params)->fetchField();
 
     // Get unique topics.
     $topics_query = $this->database->select('taxonomy_term_field_data', 't')
@@ -137,7 +138,7 @@ class CoverageController extends ControllerBase {
     $total_topics = $topics_query->countQuery()->execute()->fetchField();
 
     // Calculate average topics per post.
-    $avg_topics_per_post = $nodes_with_topics > 0 ? round($total_relationships / $nodes_with_topics, 2) : 0;
+    $avg_topics_per_post = $total_nodes > 0 ? round($total_relationships / $total_nodes, 2) : 0;
     $coverage_percentage = $total_nodes > 0 ? round(($nodes_with_topics / $total_nodes) * 100, 2) : 0;
 
     // Get per-type breakdown.

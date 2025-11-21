@@ -1,0 +1,242 @@
+/* CSS Loaded Indicator - Check browser DevTools to verify CSS is loaded */
+.ttd-code-examples::before {
+  content: 'CSS Loaded ✓';
+  display: none;
+}
+
+.ttd-code-examples {
+  margin: 20px 0;
+}
+
+.ttd-code-block {
+  margin-bottom: 20px;
+  border: 1px solid #e2e4e7;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.gin--dark-mode .ttd-code-block {
+  border-color: var(--gin-border-color);
+  background: var(--gin-bg-app);
+}
+
+.ttd-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f6f7f7;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e4e7;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.ttd-code-header:hover {
+  background: #eee;
+}
+
+.gin--dark-mode .ttd-code-header {
+  background: rgba(0, 0, 0, 0.1);
+  border-bottom-color: var(--gin-border-color);
+}
+
+.gin--dark-mode .ttd-code-header:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.ttd-code-header strong {
+  font-size: 14px;
+  color: #2563eb;
+  flex: 1;
+}
+
+.gin--dark-mode .ttd-code-header strong {
+  color: rgb(var(--gin-color-primary-rgb));
+}
+
+.ttd-code-toggle {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s ease;
+  outline: none;
+}
+
+.ttd-code-toggle:hover {
+  color: #2563eb;
+}
+
+.gin--dark-mode .ttd-code-toggle {
+  color: var(--gin-color-text-light);
+}
+
+.gin--dark-mode .ttd-code-toggle:hover {
+  color: rgb(var(--gin-color-primary-rgb));
+}
+
+.ttd-code-toggle:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.gin--dark-mode .ttd-code-toggle:focus {
+  outline-color: rgb(var(--gin-color-primary-rgb));
+}
+
+.ttd-code-toggle:active {
+  color: #2563eb;
+}
+
+.gin--dark-mode .ttd-code-toggle:active {
+  color: rgb(var(--gin-color-primary-rgb));
+}
+
+.ttd-code-toggle-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 10px;
+}
+
+.ttd-code-toggle[aria-expanded="true"] .ttd-code-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.ttd-code-description {
+  padding: 12px 16px;
+  background: #fff;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  border-bottom: 1px solid #e2e4e7;
+}
+
+.gin--dark-mode .ttd-code-description {
+  background: var(--gin-bg-app);
+  color: var(--gin-color-text-light);
+  border-bottom-color: var(--gin-border-color);
+}
+
+.ttd-code-content {
+  padding: 16px;
+  background: #fff;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.gin--dark-mode .ttd-code-content {
+  background: var(--gin-bg-app);
+}
+
+.ttd-code-content.visible {
+  max-height: 2000px;
+  opacity: 1;
+  visibility: visible;
+}
+
+.ttd-code-section {
+  margin-bottom: 16px;
+}
+
+.ttd-code-section:last-child {
+  margin-bottom: 0;
+}
+
+.ttd-code-section strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gin--dark-mode .ttd-code-section strong {
+  color: rgb(var(--gin-color-primary-rgb));
+}
+
+.ttd-code-section pre {
+  margin: 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e2e4e7;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #333;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  white-space: pre;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.gin--dark-mode .ttd-code-section pre {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: var(--gin-border-color);
+  color: var(--gin-color-text);
+}
+
+.ttd-code-section code {
+  display: block;
+  color: #333;
+}
+
+.gin--dark-mode .ttd-code-section code {
+  color: var(--gin-color-text);
+}
+
+.language-twig {
+  color: #2563eb;
+}
+
+.gin--dark-mode .language-twig {
+  color: #60a5fa;
+}
+
+.language-json {
+  color: #d97706;
+}
+
+.gin--dark-mode .language-json {
+  color: #fbbf24;
+}
+
+.language-text {
+  color: #666;
+}
+
+.gin--dark-mode .language-text {
+  color: var(--gin-color-text-light);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .ttd-code-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ttd-code-header strong {
+    width: 100%;
+  }
+
+  .ttd-code-toggle {
+    align-self: flex-start;
+  }
+
+  .ttd-code-section pre {
+    font-size: 11px;
+  }
+}

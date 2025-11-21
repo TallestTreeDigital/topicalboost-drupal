@@ -1,33 +1,193 @@
-/* TopicalBoost Bulk Analysis - Clean, Simple Tailwind-based Styling */
+/* TopicalBoost Bulk Analysis Styles - Enhanced UX */
 
-/* Form container */
-#ttd-bulk-analysis-form {
+/* CSS Reset - Targeted Theme Isolation (selective, preserving layout) */
+#ttd-bulk-analysis-form,
+.ttd-bulk-analysis-wrapper {
+  /* Reset only problematic inherited properties */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   max-width: 1200px;
   margin: 0 auto;
-  background: white;
-  color: #1f2937;
+  background: white !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+  padding: 0;
 }
 
-/* Section styling */
+/* Dark mode support for Gin theme */
+.gin--dark-mode #ttd-bulk-analysis-form,
+.gin--dark-mode .ttd-bulk-analysis-wrapper {
+  background: var(--gin-bg-layer) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Reset focus styles that admin themes apply - but preserve our custom focus styles */
+#ttd-bulk-analysis-form *:focus:not(.ttd-date-range-btn):not(.ttd-content-type-card):not(input):not(button):not(select):not(textarea) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Reset admin theme button/link focus styles but allow our custom button styles */
+#ttd-bulk-analysis-form a:focus:not(.ttd-date-range-btn),
+#ttd-bulk-analysis-form button:focus:not(.ttd-date-range-btn):not([class*="button--"]) {
+  border-color: transparent !important;
+  background-color: inherit !important;
+}
+
+/* Reset and override Drupal's default styles for form elements */
+#ttd-bulk-analysis-form input[type="checkbox"] {
+  transform: none !important;
+  -webkit-transform: none !important;
+  position: static !important;
+  clip: auto !important;
+  overflow: visible !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 2px 8px 0 0 !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  border: 2px solid #9ca3af !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  transition: all 0.15s ease !important;
+  position: relative !important;
+}
+
+/* Aggressively hide Gin theme pseudo-elements */
+#ttd-bulk-analysis-form input[type="checkbox"]::before {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  content: none !important;
+}
+
+#ttd-bulk-analysis-form input[type="checkbox"]::after {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  content: none !important;
+}
+
+#ttd-bulk-analysis-form input[type="checkbox"]:checked {
+  background-color: #3b82f6 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='white' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+  border-color: #3b82f6 !important;
+}
+
+#ttd-bulk-analysis-form input[type="checkbox"]:hover {
+  border-color: #6b7280 !important;
+}
+
+#ttd-bulk-analysis-form input[type="checkbox"]:focus {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Selective form element resets - only reset problematic admin theme styles */
+#ttd-bulk-analysis-form .form-item,
+#ttd-bulk-analysis-form .js-form-item {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Reset admin theme fieldset styling that interferes */
+#ttd-bulk-analysis-form fieldset {
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Remove weird Drupal indentations */
+#ttd-bulk-analysis-form .form-checkboxes,
+#ttd-bulk-analysis-form .form-radios {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Ensure all direct children of form have proper margins */
+#ttd-bulk-analysis-form > *,
+#ttd-selection-status,
+.ttd-message-container,
+.ttd-bulk-analysis-actions {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Force proper margins on status elements that touch edges */
+#ttd-selection-status.ttd-selection-status {
+  width: calc(100% - 48px) !important;
+  max-width: 1200px !important;
+  margin: 24px auto !important;
+}
+
+/* Force proper margins on message container */
+#ttd-bulk-analysis-message.ttd-message-container {
+  width: calc(100% - 48px) !important;
+  max-width: 1200px !important;
+  margin: 24px auto !important;
+}
+
+/* Force proper margins on actions container */
+.ttd-bulk-analysis-actions {
+  width: calc(100% - 48px) !important;
+  max-width: 1200px !important;
+  margin: 24px auto !important;
+}
+
+/* Modern section styling - now part of unified container */
 .ttd-bulk-analysis-section {
-  border-bottom: 1px solid #e5e7eb;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
   padding: 0;
   margin: 0;
+  position: relative;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.gin--dark-mode .ttd-bulk-analysis-section {
+  border-bottom-color: var(--gin-border-color);
 }
 
 .ttd-bulk-analysis-section:last-child {
   border-bottom: none;
 }
 
-/* Section header */
+/* Hide the default legend since we'll use custom headers */
+.ttd-bulk-analysis-section legend {
+  display: none !important;
+}
+
+/* Modern section headers with icons */
 .ttd-section-header {
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 16px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 20px 24px;
+  margin: 0;
+}
+
+.gin--dark-mode .ttd-section-header {
+  background: var(--gin-bg-app) !important;
+  border-bottom-color: var(--gin-border-color) !important;
 }
 
 .ttd-section-title {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
@@ -36,447 +196,1267 @@
   gap: 12px;
 }
 
-.ttd-section-title svg {
-  width: 20px;
-  height: 20px;
-  fill: #2563eb;
+.gin--dark-mode .ttd-section-title {
+  color: var(--gin-color-text) !important;
 }
 
-/* Section content */
 .ttd-section-content {
   padding: 24px;
 }
 
-/* Form labels */
-#ttd-bulk-analysis-form label {
-  display: block;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 6px;
-  font-size: 14px;
+/* Status and actions - ensure proper margins */
+#ttd-selection-status,
+.ttd-progress-container,
+.ttd-message-container,
+.ttd-bulk-analysis-actions {
+  max-width: 1200px;
+  margin: 24px auto;
+  background: transparent;
 }
 
-/* Form descriptions */
-#ttd-bulk-analysis-form .description {
-  font-size: 13px;
-  color: #6b7280;
-  margin-top: 4px;
+.ttd-selection-status {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* Checkboxes */
-#ttd-bulk-analysis-form input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
-  accent-color: #2563eb;
-  cursor: pointer;
-  vertical-align: middle;
+.gin--dark-mode .ttd-selection-status {
+  background: var(--gin-bg-app);
+  border-color: var(--gin-border-color);
 }
 
-#ttd-bulk-analysis-form .form-type-checkbox {
+.ttd-bulk-analysis-actions {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.gin--dark-mode .ttd-bulk-analysis-actions {
+  background: var(--gin-bg-app);
+  border-color: var(--gin-border-color);
+}
+
+/* Icon styling */
+.ttd-section-title .ttd-icon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.ttd-section-title svg.ttd-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Fix for nested fieldset spacing */
+.ttd-bulk-analysis-section > div {
+  margin-top: 0;
+}
+
+.ttd-bulk-analysis-section > .form-item {
   margin-bottom: 16px;
 }
 
-#ttd-bulk-analysis-form .form-type-checkbox label {
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-  cursor: pointer;
+.ttd-bulk-analysis-section > .form-item:last-child {
   margin-bottom: 0;
 }
 
-/* Date range buttons */
+/* Date Range Component - now inside section content */
+.ttd-unified-date-range {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
 .ttd-date-range-buttons {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 2px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
+.gin--dark-mode .ttd-date-range-buttons {
+  background: transparent !important;
+  border-color: #3a3a3a !important;
+  border: 1px solid #3a3a3a !important;
+}
+
 .ttd-date-range-btn {
-  padding: 8px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: white;
-  color: #6b7280;
-  font-weight: 500;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  padding: 8px 12px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+  min-width: 65px !important;
+  flex: 1 !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  margin: 0 !important;
+}
+
+.gin--dark-mode .ttd-date-range-btn {
+  color: var(--gin-color-text-secondary) !important;
 }
 
 .ttd-date-range-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-  border-color: #9ca3af;
+  background: #e5e7eb !important;
+  color: #374151 !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+}
+
+.gin--dark-mode .ttd-date-range-btn:hover {
+  background: rgba(var(--gin-color-primary-rgb), 0.15) !important;
+  color: var(--gin-color-text) !important;
 }
 
 .ttd-date-range-btn.active {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
-  font-weight: 600;
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15) !important;
+  border: none !important;
+  text-decoration: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  font-weight: 600 !important;
 }
 
 .ttd-date-range-btn:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
-/* Custom date range */
+/* Custom date range styling - integrated into the unified component */
 .ttd-custom-date-range {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid #f1f5f9;
   padding-top: 16px;
-  border-top: 1px solid #f3f4f6;
+}
+
+.gin--dark-mode .ttd-custom-date-range {
+  border-top-color: var(--gin-border-color) !important;
 }
 
 .ttd-custom-date-range .description {
   display: block;
-  text-align: center;
+  font-weight: 500;
+  color: #64748b;
   margin-bottom: 12px;
-  color: #6b7280;
-  font-size: 13px;
+  font-size: 14px;
+  text-align: center;
 }
 
-/* Date range inputs */
+.gin--dark-mode .ttd-custom-date-range .description {
+  color: var(--gin-color-text) !important;
+}
+
+/* Modern Date Range Styling - now part of unified component */
 .modern-date-range {
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.gin--dark-mode .modern-date-range {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .date-input-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  min-width: 140px;
 }
 
 .date-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.gin--dark-mode .date-label {
+  color: var(--gin-color-text) !important;
 }
 
 .modern-date-input {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  background: white;
-  color: #1f2937;
-  width: 160px;
-  box-sizing: border-box;
+  padding: 10px 12px !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  position: relative !important;
+  min-width: 140px !important;
+  /* Override any appearance: none rules that might disable the date picker */
+  -webkit-appearance: auto !important;
+  -moz-appearance: auto !important;
+  appearance: auto !important;
+}
+
+.gin--dark-mode .modern-date-input {
+  background: #2a2a2a !important;
+  color: #e8e8e8 !important;
+  border-color: #444444 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }
 
 .modern-date-input:hover {
-  border-color: #9ca3af;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07) !important;
+  transform: translateY(-1px) !important;
+}
+
+.gin--dark-mode .modern-date-input:hover {
+  border-color: #555555 !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
 }
 
 .modern-date-input:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  background: #eff6ff;
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 4px 6px rgba(0, 0, 0, 0.07) !important;
+  transform: translateY(-1px) !important;
 }
 
-/* Date separator */
+.gin--dark-mode .modern-date-input:focus {
+  border-color: rgb(var(--gin-color-primary-rgb)) !important;
+  box-shadow: 0 0 0 4px rgba(var(--gin-color-primary-rgb), 0.2), 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.modern-date-input:active {
+  transform: translateY(0) !important;
+}
+
+/* Custom date picker icon styling */
+.modern-date-input::-webkit-calendar-picker-indicator {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%236366f1'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5M9 12.75h6m-6 3h6' /%3e%3c/svg%3e") !important;
+  background-size: 18px 18px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  cursor: pointer !important;
+  opacity: 0.7 !important;
+  transition: all 0.2s ease !important;
+  padding: 6px !important;
+  margin-left: 8px !important;
+  border-radius: 4px !important;
+}
+
+.gin--dark-mode .modern-date-input::-webkit-calendar-picker-indicator {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2360a5fa'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5M9 12.75h6m-6 3h6' /%3e%3c/svg%3e") !important;
+  opacity: 0.8 !important;
+}
+
+.modern-date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.gin--dark-mode .modern-date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Date separator with modern arrow */
 .date-separator {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d1d5db;
-  width: 24px;
-  flex-shrink: 0;
+  color: #64748b;
+  margin: 0 2px;
+  opacity: 0.6;
+  margin-top: 18px; /* Align with input fields */
+}
+
+.gin--dark-mode .date-separator {
+  color: var(--gin-color-text-secondary) !important;
+  opacity: 0.8 !important;
 }
 
 .date-separator svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2;
-  opacity: 0.5;
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
 }
 
-/* Content type grid */
+/* Firefox specific styling */
+.modern-date-input::-moz-focus-inner {
+  border: 0 !important;
+}
+
+/* Remove old date-inputs styling */
+.date-inputs {
+  display: none;
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .modern-date-range {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .date-input-group {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .modern-date-input {
+    min-width: 100%;
+  }
+
+  .date-separator {
+    margin-top: 0;
+    transform: rotate(90deg);
+  }
+}
+
+/* Analysis Options - Clean checkbox styling with proper spacing */
+.ttd-bulk-analysis-section .form-type-checkbox {
+  margin-bottom: 20px !important;
+  display: block !important;
+  clear: both !important;
+}
+
+.ttd-bulk-analysis-section .form-type-checkbox:last-child {
+  margin-bottom: 0 !important;
+}
+
+.ttd-bulk-analysis-section .form-type-checkbox label {
+  display: inline-block !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  margin-bottom: 6px !important;
+  cursor: pointer !important;
+  line-height: 1.4 !important;
+  vertical-align: top !important;
+}
+
+.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label {
+  color: var(--gin-color-text) !important;
+}
+
+.ttd-bulk-analysis-section .form-type-checkbox .description {
+  display: block !important;
+  margin-left: 24px !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  color: #64748b !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox .description {
+  color: var(--gin-color-text-secondary) !important;
+}
+
+
+/* Specific fieldset title styling */
+#ttd-bulk-analysis-form .ttd-bulk-analysis-section > legend,
+#ttd-bulk-analysis-form .ttd-bulk-analysis-section legend {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  padding: 0 !important;
+  margin: 0 0 20px 0 !important;
+  border: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  display: block !important;
+  position: static !important;
+  float: none !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+/* Ensure all headings in bulk analysis are consistently aligned */
+#ttd-bulk-analysis-form h1,
+#ttd-bulk-analysis-form h2,
+#ttd-bulk-analysis-form h3,
+#ttd-bulk-analysis-form h4,
+#ttd-bulk-analysis-form h5,
+#ttd-bulk-analysis-form h6,
+#ttd-bulk-analysis-form legend {
+  text-align: left !important;
+  vertical-align: baseline !important;
+  box-sizing: border-box !important;
+}
+
+/* Content Types Section */
+.ttd-filter-group {
+  margin-bottom: 20px;
+}
+
+.ttd-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.gin--dark-mode .ttd-filter-header {
+  background: var(--gin-bg-app) !important;
+}
+
+.ttd-section-label {
+  font-weight: 500;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.gin--dark-mode .ttd-section-label {
+  color: var(--gin-color-text) !important;
+}
+
+.ttd-edit-link {
+  color: #3b82f6;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+  font-size: 13px;
+}
+
+.ttd-edit-link:hover {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+/* Pencil icon using CSS pseudo-element */
+.ttd-edit-link--pencil::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%233b82f6' viewBox='0 0 512 512'%3E%3Cpath d='M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-13.3-10.7-24-24-24s-24 10.7-24 24v96c0 26.5-21.5 48-48 48H96c-26.5 0-48-21.5-48-48V160c0-26.5 21.5-48 48-48h96c13.3 0 24-10.7 24-24s-10.7-24-24-24H96z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.ttd-edit-link--pencil:hover::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%230369a1' viewBox='0 0 512 512'%3E%3Cpath d='M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-13.3-10.7-24-24-24s-24 10.7-24 24v96c0 26.5-21.5 48-48 48H96c-26.5 0-48-21.5-48-48V160c0-26.5 21.5-48 48-48h96c13.3 0 24-10.7 24-24s-10.7-24-24-24H96z'/%3E%3C/svg%3E");
+}
+
+/* Content Type List - Clean UX Design */
 .ttd-content-type-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin-bottom: 24px;
 }
 
 .ttd-content-type-card {
+  background: #ffffff;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  min-height: auto;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.gin--dark-mode .ttd-content-type-card {
+  background: var(--gin-bg-app);
+  border-color: var(--gin-border-color);
 }
 
 .ttd-content-type-card:hover {
-  border-color: #d1d5db;
   background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+.gin--dark-mode .ttd-content-type-card:hover {
+  background: rgba(var(--gin-color-primary-rgb), 0.1);
+  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 .ttd-content-type-card.ttd-enabled {
-  border-color: #2563eb;
   background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.gin--dark-mode .ttd-content-type-card.ttd-enabled {
+  background: rgba(var(--gin-color-primary-rgb), 0.2);
+  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 .ttd-content-type-card.ttd-enabled:hover {
-  border-color: #1d4ed8;
   background: #dbeafe;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.15);
+}
+
+.gin--dark-mode .ttd-content-type-card.ttd-enabled:hover {
+  background: rgba(var(--gin-color-primary-rgb), 0.25);
+  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 .ttd-content-type-checkbox {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #d1d5db;
-  border-radius: 4px;
-  background: white;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
 .ttd-content-type-card.ttd-enabled .ttd-content-type-checkbox {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.ttd-content-type-checkbox::after {
+  content: "";
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: all 0.15s ease;
 }
 
 .ttd-content-type-card.ttd-enabled .ttd-content-type-checkbox::after {
   content: "✓";
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
+  width: auto;
+  height: auto;
+  opacity: 1;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .ttd-content-type-info {
   flex: 1;
+  min-width: 0;
 }
 
 .ttd-content-type-name {
   font-weight: 500;
   color: #374151;
-  font-size: 14px;
+  font-size: 15px;
   margin: 0;
+  line-height: 1.3;
 }
 
-.post-count {
+.gin--dark-mode .ttd-content-type-name {
+  color: var(--gin-color-text);
+}
+
+.ttd-content-type-name .post-count {
   font-weight: 400;
   font-size: 13px;
   margin-left: 4px;
 }
 
-.post-count.has-posts {
+.ttd-content-type-name .post-count.has-posts {
   color: #059669;
 }
 
-.post-count.no-posts {
+.ttd-content-type-name .post-count.no-posts {
   color: #dc2626;
 }
 
-/* Selection status */
-#ttd-selection-status {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+/* Selection Status - Enhanced feedback */
+#ttd-selection-status.ttd-selection-status {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   padding: 20px 24px;
   border-radius: 8px;
-  margin: 24px auto;
+  margin: 24px auto !important;
+  max-width: 1200px !important;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-  max-width: 1200px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+}
+
+/* Hide selection status during analysis without leaving gaps */
+#ttd-selection-status.ttd-hidden-during-analysis {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Clean up borders during analysis and style progress as main focus */
+#ttd-bulk-analysis-form.analysis-in-progress .ttd-bulk-analysis-section {
+  border-bottom: none !important;
+}
+
+#ttd-bulk-analysis-form.analysis-in-progress .ttd-progress-container {
+  border: none !important;
+  border-radius: 0 !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+  margin-top: 0 !important;
+  padding-top: 24px !important;
+}
+
+.ttd-selection-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .ttd-selection-count {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
-  display: block;
-  margin-bottom: 8px;
+  color: #ffffff;
 }
 
 .ttd-selection-text {
-  font-size: 14px;
+  font-size: 16px;
   color: #dbeafe;
+  font-weight: 500;
 }
 
-/* Progress container */
+/* Progress Container */
 .ttd-progress-container {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 24px;
-  margin: 24px auto;
-  max-width: 1200px;
-  display: none;
+  margin-bottom: 24px;
 }
 
-.ttd-progress-container.visible {
-  display: block;
+.gin--dark-mode .ttd-progress-container {
+  background: var(--gin-bg-app);
+  border-color: var(--gin-border-color);
 }
 
 .ttd-progress-section h4 {
-  margin: 0 0 20px 0;
-  color: #1f2937;
-  font-size: 16px;
-  font-weight: 600;
+  margin: 0 0 20px 0 !important;
+  color: #1e293b !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  padding: 0 !important;
+}
+
+.gin--dark-mode .ttd-progress-section h4 {
+  color: var(--gin-color-text) !important;
 }
 
 .ttd-progress-bar {
   width: 100%;
-  height: 8px;
-  background: #f3f4f6;
-  border-radius: 4px;
+  height: 12px;
+  background: #f1f5f9;
+  border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.gin--dark-mode .ttd-progress-bar {
+  background: var(--gin-border-color);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .ttd-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  border-radius: 4px;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 6px;
   transition: width 0.3s ease;
+  position: relative;
+}
+
+.ttd-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+}
+  100% {
+    transform: translateX(100%);
+}
 }
 
 .ttd-progress-text {
-  color: #6b7280;
-  font-size: 13px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
   text-align: center;
 }
 
-/* Message container */
-.ttd-message-container {
-  padding: 16px 20px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  border-left: 4px solid;
-  display: none;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 500;
+.gin--dark-mode .ttd-progress-text {
+  color: var(--gin-color-text) !important;
 }
 
-.ttd-message-container.visible {
+/* Message Container */
+.ttd-message-container {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-weight: 500;
+  position: relative;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid;
 }
 
 .ttd-message-container.success {
-  background: #f0fdf4;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
   border-left-color: #22c55e;
   color: #15803d;
 }
 
 .ttd-message-container.error {
-  background: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2 0%, #fefefe 100%);
   border-left-color: #ef4444;
   color: #dc2626;
 }
 
 .ttd-message-container.info {
-  background: #eff6ff;
-  border-left-color: #2563eb;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border-left-color: #3b82f6;
   color: #1d4ed8;
 }
 
 .ttd-message-container.warning {
-  background: #fffbeb;
+  background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%);
   border-left-color: #f59e0b;
-  color: #92400e;
+  color: #d97706;
 }
 
 .ttd-message-container.progress {
-  background: #f9fafb;
-  border-left-color: #6b7280;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left-color: #64748b;
   color: #475569;
 }
 
-/* Buttons */
+.gin--dark-mode .ttd-message-container.progress {
+  background: rgba(var(--gin-color-primary-rgb), 0.1) !important;
+  border-left-color: rgb(var(--gin-color-primary-rgb)) !important;
+  color: var(--gin-color-text) !important;
+}
+
+.ttd-message-container.ready {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left-color: #0ea5e9;
+  color: #0369a1;
+}
+
+.gin--dark-mode .ttd-message-container.ready {
+  background: rgba(var(--gin-color-primary-rgb), 0.15) !important;
+  border-left-color: rgb(var(--gin-color-primary-rgb)) !important;
+  color: var(--gin-color-text) !important;
+}
+
+/* Message content and dismiss button */
+.ttd-message-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.ttd-message-icon {
+  margin-right: 12px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ttd-message-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.ttd-message-text {
+  flex: 1;
+}
+
+.ttd-message-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: 16px;
+  width: 32px;
+  height: 32px;
+  position: relative;
+}
+
+.ttd-message-dismiss:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(1.1);
+}
+
+.ttd-message-dismiss:active {
+  transform: scale(0.95);
+}
+
+/* Styled X icon using CSS */
+.ttd-message-dismiss::before,
+.ttd-message-dismiss::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.ttd-message-dismiss::before {
+  transform: rotate(45deg);
+}
+
+.ttd-message-dismiss::after {
+  transform: rotate(-45deg);
+}
+
+/* Enhanced message animations */
+.ttd-message-container {
+  animation: slideInMessage 0.3s ease-out;
+}
+
+@keyframes slideInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ttd-message-container.fade-out {
+  animation: fadeOutMessage 0.2s ease-in forwards;
+}
+
+@keyframes fadeOutMessage {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* Info text styling for "Default from Settings" */
+#ttd-bulk-analysis-form .form-item > small,
+#ttd-bulk-analysis-form .form-item > .description {
+  display: block;
+  color: #6b7280 !important;
+  font-size: 13px !important;
+  margin-top: 6px !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .form-item > small,
+.gin--dark-mode #ttd-bulk-analysis-form .form-item > .description {
+  color: var(--gin-color-text-secondary) !important;
+}
+
+/* Catch-all for any light text in the form */
+#ttd-bulk-analysis-form .form-item label.option,
+#ttd-bulk-analysis-form .form-item label.block {
+  color: #374151 !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .form-item label.option,
+.gin--dark-mode #ttd-bulk-analysis-form .form-item label.block {
+  color: var(--gin-color-text) !important;
+}
+
+/* Action Buttons */
 .ttd-bulk-analysis-actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   justify-content: center;
+  margin-top: 32px;
   padding: 24px;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: #f8fafc;
   border-radius: 8px;
-  margin: 24px auto;
-  max-width: 1200px;
+  border: 1px solid #e2e8f0;
+}
+
+.gin--dark-mode .ttd-bulk-analysis-actions {
+  background: transparent !important;
 }
 
 .ttd-bulk-analysis-actions button {
   padding: 12px 32px;
-  border: none;
   border-radius: 6px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
+  border: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  min-width: 140px;
+  position: relative;
 }
 
 .button--primary {
-  background: #2563eb;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
-.button--primary:hover {
-  background: #1d4ed8;
+.button--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .button--primary:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .button--danger {
-  background: #ef4444;
-  color: white;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  border: 1px solid #dc2626;
 }
 
 .button--danger:hover {
-  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff !important;
 }
 
-/* Responsive */
+/* Loading states */
+.ttd-loading .ttd-selection-count::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+  margin-left: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+}
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-  .modern-date-range {
-    flex-direction: column;
-    align-items: stretch;
+  #ttd-bulk-analysis-form {
+    padding: 16px;
   }
 
-  .date-separator {
-    width: auto;
-    height: 20px;
+  .ttd-bulk-analysis-section {
+    padding: 16px;
+    margin-bottom: 16px;
   }
 
-  .date-separator svg {
-    transform: rotate(90deg);
-  }
-
-  .modern-date-input {
-    width: 100%;
+  .ttd-date-range-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
   }
 
   .ttd-content-type-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .ttd-bulk-analysis-actions {
     flex-direction: column;
   }
+
+  .date-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
-/* Hide elements */
-#ttd-selection-status.ttd-hidden-during-analysis {
-  display: none;
+/* Focus management for accessibility */
+.ttd-content-type-card:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ttd-content-type-card {
+    border-width: 3px;
+  }
+
+  .ttd-content-type-card.ttd-enabled {
+    border-color: #000000;
+    background: #ffffff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Analysis in progress - disabled state styles */
 .ttd-analysis-disabled {
-  opacity: 0.6;
+  position: relative;
   pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.ttd-analysis-disabled::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(248, 250, 252, 0.8);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Disabled content type cards during analysis */
+.ttd-content-type-card.disabled,
+.ttd-content-type-card[aria-disabled="true"] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+}
+
+.ttd-content-type-card.disabled:hover {
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Disabled date range buttons during analysis */
+.ttd-date-range-btn.disabled,
+.ttd-date-range-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.ttd-date-range-btn.disabled:hover,
+.ttd-date-range-btn:disabled:hover {
+  background: transparent !important;
+  transform: none !important;
+}
+
+/* Disabled form inputs during analysis */
+.ttd-analysis-disabled input,
+.ttd-analysis-disabled select,
+.ttd-analysis-disabled button {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+/* Analysis progress overlay message */
+.ttd-analysis-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 20;
+  font-weight: 500;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+/* Analysis completion message styles */
+.ttd-analysis-complete {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  border: 1px solid #059669 !important;
+  color: white !important;
+  padding: 24px !important;
+  text-align: left !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 24px 0 !important;
+  border-radius: 8px !important;
+}
+
+.ttd-analysis-complete .ttd-message-content {
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+}
+
+.ttd-completion-main {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.ttd-completion-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 !important;
+  color: white !important;
+  display: inline-block !important;
+  line-height: 1.3 !important;
+  white-space: nowrap !important;
+}
+
+.ttd-completion-text {
+  font-size: 0.95rem;
+  margin: 0 !important;
+  opacity: 0.95;
+  color: white !important;
+  display: inline-block !important;
+  line-height: 1.4 !important;
+}
+
+.ttd-completion-actions {
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+.ttd-completion-actions .ttd-btn {
+  background: white !important;
+  color: #059669 !important;
+  border: 2px solid white !important;
+  padding: 10px 20px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
+}
+
+.ttd-completion-actions .ttd-btn:hover {
+  background: #f0f9ff !important;
+  color: #047857 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.ttd-completion-actions .ttd-btn:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
+}
+
+/* Responsive layout for completion message */
+@media (max-width: 768px) {
+  .ttd-analysis-complete .ttd-message-content {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+
+  .ttd-completion-main {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .ttd-completion-title {
+    font-size: 1.1rem !important;
+    white-space: normal !important;
+  }
+
+  .ttd-completion-text {
+    font-size: 0.9rem !important;
+  }
+
+  .ttd-completion-actions {
+    text-align: center !important;
+  }
+
+  .ttd-completion-actions .ttd-btn {
+    width: 100% !important;
+    padding: 12px 20px !important;
+  }
 }

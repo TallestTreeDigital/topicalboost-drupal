@@ -1,30 +1,30 @@
-/* Topic Count Feedback Styles */
+/* Integrated Topic Count Feedback - Modern UX approach */
 .ttd-topics-tabs-container .description {
-  line-height: 1.5;
+  line-height: 1.5 !important;
 }
 
+/* Only color the feedback elements, not the entire description */
 .ttd-topics-tabs-container .description.loading em {
-  color: #6b7280;
+  color: #6b7280 !important;
   font-style: italic;
   opacity: 0.8;
 }
 
 .ttd-topics-tabs-container .description.success strong {
-  color: #059669;
-  font-weight: 600;
+  color: #059669 !important;
 }
 
 .ttd-topics-tabs-container .description.warning strong {
-  color: #d97706;
-  font-weight: 600;
+  color: #d97706 !important;
 }
 
 .ttd-topics-tabs-container .description.error strong {
-  color: #dc2626;
-  font-weight: 600;
+  color: #dc2626 !important;
 }
 
+/* Style the result line specifically */
 .ttd-topics-tabs-container .description strong {
+  font-weight: 600 !important;
   margin-right: 4px;
 }
 
@@ -40,6 +40,12 @@
   overflow: hidden;
 }
 
+.gin--dark-mode .frequency-slider-container {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
 .frequency-slider-container::before {
   content: '';
   position: absolute;
@@ -49,6 +55,10 @@
   height: 3px;
   background: linear-gradient(90deg, #007cba, #005a87);
   border-radius: 12px 12px 0 0;
+}
+
+.gin--dark-mode .frequency-slider-container::before {
+  background: linear-gradient(90deg, #3b82f6, #2563eb) !important;
 }
 
 .slider-header {
@@ -65,6 +75,10 @@
   letter-spacing: 0.3px;
 }
 
+.gin--dark-mode .slider-title {
+  color: #f8fafc !important;
+}
+
 .slider-value-display {
   display: flex;
   align-items: center;
@@ -75,6 +89,11 @@
   font-weight: 600;
   font-size: 14px;
   box-shadow: 0 2px 4px rgba(0, 124, 186, 0.3);
+}
+
+.gin--dark-mode .slider-value-display {
+  background: rgb(var(--gin-color-primary-rgb)) !important;
+  box-shadow: 0 2px 4px rgba(var(--gin-color-primary-rgb), 0.4) !important;
 }
 
 .slider-value-display::before {
@@ -105,12 +124,24 @@
   appearance: none;
 }
 
+.gin--dark-mode .frequency-slider {
+  background: rgba(107, 114, 128, 0.5) !important;
+}
+
 .frequency-slider:hover {
   box-shadow: 0 0 0 8px rgba(0, 124, 186, 0.1);
 }
 
+.gin--dark-mode .frequency-slider:hover {
+  box-shadow: 0 0 0 8px rgba(var(--gin-color-primary-rgb), 0.15) !important;
+}
+
 .frequency-slider:focus {
   box-shadow: 0 0 0 4px rgba(0, 124, 186, 0.2);
+}
+
+.gin--dark-mode .frequency-slider:focus {
+  box-shadow: 0 0 0 4px rgba(var(--gin-color-primary-rgb), 0.25) !important;
 }
 
 .frequency-slider::-webkit-slider-thumb {
@@ -172,6 +203,10 @@
   font-size: 11px;
   color: #6c757d;
   font-weight: 500;
+}
+
+.gin--dark-mode .slider-range-labels {
+  color: #cbd5e1 !important;
 }
 
 /* Dynamic recommendation zones */
@@ -258,13 +293,17 @@
 
 /* Hide the original number input when slider is active */
 .frequency-slider-container ~ input[type="number"] {
-  display: none;
+  display: none !important;
 }
 
 /* Enhanced description styling */
 .description {
   line-height: 1.5;
   color: #495057;
+}
+
+.gin--dark-mode .description {
+  color: #cbd5e1 !important;
 }
 
 /* Integrated impact feedback styling */
