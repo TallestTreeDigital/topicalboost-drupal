@@ -25,9 +25,23 @@ const siteMetrics = {
         this.nonce = this.generateNonce();
       }
 
+      this.applyProgressBarWidths();
       this.cacheLocalData();
       this.attachEventListeners();
       this.fetchMetrics();
+    },
+
+    /**
+     * Apply progress bar widths from data attributes.
+     * This is a fallback for when template caching prevents inline styles.
+     */
+    applyProgressBarWidths: function() {
+      document.querySelectorAll('.ttd-coverage-bar[data-coverage]').forEach(bar => {
+        const coverage = bar.getAttribute('data-coverage');
+        if (coverage) {
+          bar.style.width = coverage + '%';
+        }
+      });
     },
 
     /**

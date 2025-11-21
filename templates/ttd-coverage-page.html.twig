@@ -110,8 +110,7 @@
           <td class="ttd-type-with-topics">{{ stats.with_topics }}</td>
           <td class="ttd-type-coverage">
             <div class="ttd-coverage-bar-container">
-              <div class="ttd-coverage-bar" style="width: {{ stats.coverage_percentage }}%"
-                   class="ttd-coverage-{% if stats.coverage_percentage >= 90 %}high{% elseif stats.coverage_percentage >= 50 %}medium{% else %}low{% endif %}">
+              <div class="ttd-coverage-bar ttd-coverage-{{ stats.bar_class }}" style="{{ stats.bar_style }}" data-coverage="{{ stats.coverage_percentage }}">
               </div>
             </div>
             <span class="ttd-coverage-text">{{ stats.coverage_percentage }}%</span>

@@ -553,10 +553,15 @@
 }
 
 .ttd-coverage-bar {
-  height: 100%;
-  position: absolute;
-  left: 0;
-  top: 0;
+  height: 100% !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  display: block !important;
+  border-radius: 10px !important;
+  transition: width 0.3s ease !important;
+  min-height: 20px !important;
+  box-sizing: border-box !important;
 }
 
 .ttd-coverage-value {
@@ -577,15 +582,27 @@
 }
 
 .ttd-coverage-high {
-  background-color: #2271b1;
+  background-color: #2271b1 !important;
 }
 
 .ttd-coverage-medium {
-  background-color: #72aee6;
+  background-color: #72aee6 !important;
 }
 
 .ttd-coverage-low {
-  background-color: #bcdffb;
+  background-color: #bcdffb !important;
+}
+
+.gin--dark-mode .ttd-coverage-high {
+  background-color: #3b82f6 !important;
+}
+
+.gin--dark-mode .ttd-coverage-medium {
+  background-color: #60a5fa !important;
+}
+
+.gin--dark-mode .ttd-coverage-low {
+  background-color: #93c5fd !important;
 }
 
 .ttd-coverage-text {

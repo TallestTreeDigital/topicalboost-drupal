@@ -6,6 +6,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\Core\Render\Markup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -1507,7 +1508,7 @@ class SettingsForm extends ConfigFormBase {
     }
 
     $build['type_breakdown'] = [
-      '#markup' => '<div class="ttd-type-coverage-wrapper">
+      '#markup' => Markup::create('<div class="ttd-type-coverage-wrapper">
         <h3><span class="ttd-icon ttd-icon-large ttd-icon-analytics"></span>Coverage by Content Type</h3>
         <table class="ttd-type-coverage-table">
           <thead>
@@ -1520,12 +1521,12 @@ class SettingsForm extends ConfigFormBase {
           </thead>
           <tbody>' . $table_rows . '</tbody>
         </table>
-      </div>',
+      </div>'),
     ];
 
     // Comparison table
     $build['comparison_table'] = [
-      '#markup' => '<div class="ttd-comparison-table-wrapper">
+      '#markup' => Markup::create('<div class="ttd-comparison-table-wrapper">
         <h3><span class="ttd-icon ttd-icon-large ttd-icon-api"></span>API Coverage Comparison</h3>
         <table class="ttd-comparison-table">
           <thead>
@@ -1574,7 +1575,7 @@ class SettingsForm extends ConfigFormBase {
             </tr>
           </tbody>
         </table>
-      </div>',
+      </div>'),
     ];
 
 

@@ -203,11 +203,19 @@ class CoverageController extends ControllerBase {
 
       $coverage = $total > 0 ? round(($with_topics / $total) * 100, 2) : 0;
 
+      $bar_class = $coverage >= 90 ? 'high' : ($coverage >= 50 ? 'medium' : 'low');
+      $bar_style = 'width: ' . (int) $coverage . '%;';
+
+      \Drupal::logger('ttd_topics')->warning("DEBUG Coverage Type: $type, Coverage: $coverage, BarClass: $bar_class, BarStyle: $bar_style");
+
       $type_stats[$type] = [
         'total' => (int) $total,
         'with_topics' => (int) $with_topics,
         'without_topics' => (int) ($total - $with_topics),
         'coverage_percentage' => $coverage,
+        'bar_width' => (int) $coverage,
+        'bar_class' => $bar_class,
+        'bar_style' => $bar_style,
       ];
     }
 
