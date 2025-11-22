@@ -137,7 +137,7 @@ body.path-admin .ttd-topics-tabs-container select:not(.ttd-topics-select2),
   font-size: 16px !important;
   color: #374151 !important;
   margin-bottom: 8px !important;
-  display: block !important;
+  display: inline-block !important;
 }
 
 .gin--dark-mode .ttd-topics-tabs-container .form-item label,

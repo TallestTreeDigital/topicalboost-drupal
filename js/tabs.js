@@ -48,7 +48,8 @@
           'analytics': 'tab-analytics',
           'settings': 'tab-settings',
           'api': 'tab-api',
-          'schema': 'tab-schema'
+          'schema': 'tab-schema',
+          'bulk-analysis': 'tab-bulk-analysis'
         };
 
         // If there's a hash, use it

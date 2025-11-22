@@ -5,6 +5,7 @@ namespace Drupal\ttd_topics\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -688,6 +689,14 @@ class TtdTopicsController extends ControllerBase {
         'message' => $this->t('An error occurred while checking analysis status.'),
       ], 500);
     }
+  }
+
+  /**
+   * Redirect old bulk analysis URL to settings page with bulk-analysis tab hash.
+   */
+  public function redirectToSettings() {
+    $url = Url::fromRoute('topicalboost.settings_form', [], ['fragment' => 'bulk-analysis']);
+    return new RedirectResponse($url->toString(), 301);
   }
 
 }

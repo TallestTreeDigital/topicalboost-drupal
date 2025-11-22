@@ -568,34 +568,7 @@ form.ttd-topics-hide-submit .form-actions input[type="submit"] {
 .gin--dark-mode .ttd-icon-analytics,
 .gin--dark-mode .ttd-icon-settings,
 .gin--dark-mode .ttd-icon-api,
-.gin--dark-mode .ttd-icon-schema {
+.gin--dark-mode .ttd-icon-schema,
+.gin--dark-mode .ttd-icon-bulk-analysis {
   filter: invert(1) brightness(1.1);
-}
-
-.gin--dark-mode .ttd-icon-display,
-.gin--dark-mode .ttd-icon-coverage {
-  filter: invert(1) brightness(1.1) saturate(1.1);
-}
-
-.gin--dark-mode .ttd-icon-social,
-.gin--dark-mode .ttd-icon-key,
-.gin--dark-mode .ttd-icon-link,
-.gin--dark-mode .ttd-icon-logo {
-  filter: invert(1);
-}
-
-/* Fallback for browser prefers-color-scheme (non-Gin environments) */
-@media (prefers-color-scheme: dark) {
-  .ttd-icon-analytics,
-  .ttd-icon-settings,
-  .ttd-icon-api,
-  .ttd-icon-schema,
-  .ttd-icon-display,
-  .ttd-icon-coverage,
-  .ttd-icon-social,
-  .ttd-icon-key,
-  .ttd-icon-link,
-  .ttd-icon-logo {
-    filter: invert(1);
-  }
 }

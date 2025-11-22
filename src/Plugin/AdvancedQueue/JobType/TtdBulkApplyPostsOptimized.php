@@ -69,13 +69,15 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
         ]);
 
         $apply_progress['posts']['completed'] = $page;
-        $apply_progress['posts']['total'] = $result['page_count'] ?? $page;
         $apply_progress['posts']['current_page'] = $page;
         \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', $apply_progress);
 
         // Check if there are more pages
-        if (isset($result['has_next_page']) && $result['has_next_page']) {
-          // Schedule next page
+        // If we got exactly 100 posts (the default page_size), there might be more pages
+        // If we got fewer posts, we're on the last page
+        $page_size = 100;
+        if (count($posts) >= $page_size) {
+          // Likely more pages - schedule next page
           $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
           $queue = $queue_storage->load('ttd_topics_analysis');
 
@@ -85,7 +87,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
           ]);
           $queue->enqueueJob($next_job);
         } else {
-          // Mark as complete
+          // Got fewer results than page_size - this is the last page
           $apply_progress['stage'] = 'complete';
           \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', $apply_progress);
           \Drupal::state()->set('topicalboost.bulk_analysis.completed_at', time());

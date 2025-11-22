@@ -9,7 +9,7 @@ topicalboost.example:
 topicalboost.settings_form:
   path: '/admin/config/content/topicalboost'
   defaults:
-    _title: 'TopicalBoost Settings'
+    _title: 'TopicalBoost'
     _form: 'Drupal\ttd_topics\Form\SettingsForm'
   requirements:
     _permission: 'administer topicalboost configuration'
@@ -17,8 +17,7 @@ topicalboost.settings_form:
 topicalboost.bulk_analysis:
   path: '/admin/config/content/topicalboost/bulk-analysis'
   defaults:
-    _title: 'TopicalBoost Bulk Analysis'
-    _form: 'Drupal\ttd_topics\Form\BulkAnalysisForm'
+    _controller: 'Drupal\ttd_topics\Controller\TtdTopicsController::redirectToSettings'
   requirements:
     _permission: 'administer topicalboost configuration'
 

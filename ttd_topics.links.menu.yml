@@ -1,5 +1,5 @@
 topicalboost.settings_form:
-  title: TopicalBoost Settings
+  title: TopicalBoost
   description: Configure TopicalBoost AI-powered topic analysis and schema generation.
   parent: system.admin_config_content
   route_name: topicalboost.settings_form

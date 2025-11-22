@@ -43,7 +43,7 @@
   overflow: visible !important;
   width: 18px !important;
   height: 18px !important;
-  margin: 2px 8px 0 0 !important;
+  margin: 0 !important;
   cursor: pointer;
   flex-shrink: 0;
   display: inline-block !important;
@@ -552,8 +552,10 @@
 /* Analysis Options - Clean checkbox styling with proper spacing */
 .ttd-bulk-analysis-section .form-type-checkbox {
   margin-bottom: 20px !important;
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
   clear: both !important;
+  flex-wrap: nowrap !important;
 }
 
 .ttd-bulk-analysis-section .form-type-checkbox:last-child {
@@ -561,13 +563,16 @@
 }
 
 .ttd-bulk-analysis-section .form-type-checkbox label {
-  display: inline-block !important;
+  display: flex !important;
+  align-items: center !important;
   font-weight: 500 !important;
   color: #374151 !important;
-  margin-bottom: 6px !important;
+  margin-bottom: 4px !important;
   cursor: pointer !important;
-  line-height: 1.4 !important;
-  vertical-align: top !important;
+  line-height: 1.5 !important;
+  gap: 10px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label {
@@ -576,12 +581,13 @@
 
 .ttd-bulk-analysis-section .form-type-checkbox .description {
   display: block !important;
-  margin-left: 24px !important;
-  margin-top: 6px !important;
-  margin-bottom: 0 !important;
+  margin-left: 28px !important;
+  margin-top: 2px !important;
+  margin-bottom: 14px !important;
   color: #64748b !important;
   font-size: 13px !important;
-  line-height: 1.4 !important;
+  line-height: 1.5 !important;
+  width: 100% !important;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox .description {

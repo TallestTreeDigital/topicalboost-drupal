@@ -53,7 +53,7 @@
       // Initialize components
       initializeDateRangeButtons();
       initializeContentTypeCards();
-      initializeFormInteractions();
+      initializeFormInteractions($form);
       initializeButtons();
 
       // Set initial UI state - show loading status
@@ -235,20 +235,15 @@
   /**
    * Initialize form interactions
    */
-  function initializeFormInteractions() {
+  function initializeFormInteractions(formElement) {
     // Handle checkbox changes
-    $('#ttd-bulk-analysis-reanalyze').once('ttd-reanalyze-cb').on('change', function () {
+    $('input[name="reanalyze"]', formElement).once('ttd-reanalyze-cb').on('change', function () {
       currentFilters.reanalyze = $(this).is(':checked');
       updateSelectionCount();
     });
 
-    $('#ttd-bulk-analysis-include-drafts').once('ttd-drafts-cb').on('change', function () {
+    $('input[name="include_drafts"]', formElement).once('ttd-drafts-cb').on('change', function () {
       currentFilters.includeDrafts = $(this).is(':checked');
-      updateSelectionCount();
-    });
-
-    $('#ttd-bulk-analysis-only-topicless').once('ttd-topicless-cb').on('change', function () {
-      currentFilters.onlyTopicless = $(this).is(':checked');
       updateSelectionCount();
     });
   }
@@ -286,9 +281,8 @@
   function updateCurrentFilters() {
     currentFilters.startDate = $('#ttd-bulk-analysis-start-date').val() || null;
     currentFilters.endDate = $('#ttd-bulk-analysis-end-date').val() || null;
-    currentFilters.reanalyze = $('#ttd-bulk-analysis-reanalyze').is(':checked');
-    currentFilters.includeDrafts = $('#ttd-bulk-analysis-include-drafts').is(':checked');
-    currentFilters.onlyTopicless = $('#ttd-bulk-analysis-only-topicless').is(':checked');
+    currentFilters.reanalyze = $('input[name="reanalyze"]', '#ttd-bulk-analysis-form').is(':checked');
+    currentFilters.includeDrafts = $('input[name="include_drafts"]', '#ttd-bulk-analysis-form').is(':checked');
 
     // Content types are updated in real-time via card interactions
   }
@@ -340,7 +334,6 @@
         start_date: currentFilters.startDate,
         end_date: currentFilters.endDate,
         include_drafts: currentFilters.includeDrafts,
-        only_topicless: currentFilters.onlyTopicless,
         reanalyze: currentFilters.reanalyze
       })
     })
@@ -443,7 +436,6 @@
         start_date: currentFilters.startDate,
         end_date: currentFilters.endDate,
         include_drafts: currentFilters.includeDrafts,
-        only_topicless: currentFilters.onlyTopicless,
         reanalyze: currentFilters.reanalyze
       })
     })
@@ -918,9 +910,8 @@
    */
   function addUserGuidance() {
     // Add helpful tooltips for better UX
-    $('#ttd-bulk-analysis-reanalyze').attr('title', 'Re-analyze content that has already been processed');
-    $('#ttd-bulk-analysis-include-drafts').attr('title', 'Include draft content in the analysis');
-    $('#ttd-bulk-analysis-only-topicless').attr('title', 'Only analyze content that doesn\'t have any topics yet');
+    $('input[name="reanalyze"]', '#ttd-bulk-analysis-form').attr('title', 'Re-analyze content that has already been processed');
+    $('input[name="include_drafts"]', '#ttd-bulk-analysis-form').attr('title', 'Include draft content in the analysis');
   }
 
 })(jQuery, Drupal, drupalSettings);
