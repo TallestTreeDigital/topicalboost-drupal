@@ -277,13 +277,14 @@
 
 .ttd-date-range-buttons {
   display: flex;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 4px;
-  gap: 2px;
+  padding: 6px;
+  gap: 4px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .gin--dark-mode .ttd-date-range-buttons {
@@ -292,47 +293,77 @@
   border: 1px solid #3a3a3a !important;
 }
 
-.ttd-date-range-btn {
-  padding: 8px 12px !important;
-  border: none !important;
+.ttd-date-range-buttons .button.ttd-date-range-btn {
+  padding: 10px 16px !important;
+  border: 1px solid #e5e7eb !important;
   border-radius: 6px !important;
-  background: transparent !important;
+  background: #ffffff !important;
   color: #6b7280 !important;
   font-weight: 500 !important;
+  font-size: 14px !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
+  transition: all 0.2s ease !important;
   text-align: center !important;
-  font-size: 13px !important;
   white-space: nowrap !important;
-  min-width: 65px !important;
+  min-width: 70px !important;
   flex: 1 !important;
-  box-shadow: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
   text-decoration: none !important;
   margin: 0 !important;
+  outline: none !important;
+  border-color: #e5e7eb !important;
+  background-color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.gin--dark-mode .ttd-date-range-btn {
-  color: var(--gin-color-text-secondary) !important;
+.gin--dark-mode .ttd-date-range-buttons {
+  background: #2a2a2a !important;
+  border-color: #3a3a3a !important;
 }
 
-.ttd-date-range-btn:hover {
-  background: #e5e7eb !important;
+.gin--dark-mode .ttd-date-range-buttons .button.ttd-date-range-btn {
+  background: #3a3a3a !important;
+  color: #e5e7eb !important;
+  border-color: #4a4a4a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+.gin--dark-mode .ttd-date-range-buttons .button.ttd-date-range-btn:hover {
+  background: #4a4a4a !important;
+  color: #f3f4f6 !important;
+  border-color: #5a5a5a !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.gin--dark-mode .ttd-date-range-buttons .button.ttd-date-range-btn.active {
+  background: #1e3a8a !important;
+  color: #bfdbfe !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
+}
+
+.ttd-date-range-buttons .button.ttd-date-range-btn:hover {
+  background: #f9fafb !important;
   color: #374151 !important;
-  border: none !important;
-  box-shadow: none !important;
+  border-color: #d1d5db !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
   text-decoration: none !important;
+  transform: translateY(-1px);
 }
 
-.gin--dark-mode .ttd-date-range-btn:hover {
-  background: rgba(var(--gin-color-primary-rgb), 0.15) !important;
+.gin--dark-mode .ttd-date-range-buttons .button.ttd-date-range-btn:hover {
+  background: rgba(var(--gin-color-primary-rgb), 0.08) !important;
   color: var(--gin-color-text) !important;
+  border-color: rgba(var(--gin-color-primary-rgb), 0.3) !important;
 }
 
-.ttd-date-range-btn.active {
-  background: #3b82f6 !important;
-  color: #ffffff !important;
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15) !important;
-  border: none !important;
+.ttd-date-range-buttons .button.ttd-date-range-btn.active {
+  background: #eff6ff !important;
+  color: #1e40af !important;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1) !important;
+  border: 1px solid #bfdbfe !important;
   text-decoration: none !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
@@ -340,7 +371,7 @@
   font-weight: 600 !important;
 }
 
-.ttd-date-range-btn:focus {
+.ttd-date-range-buttons .button.ttd-date-range-btn:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
@@ -551,11 +582,11 @@
 
 /* Analysis Options - Clean checkbox styling with proper spacing */
 .ttd-bulk-analysis-section .form-type-checkbox {
-  margin-bottom: 20px !important;
+  margin-bottom: 28px !important;
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   clear: both !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;
 }
 
 .ttd-bulk-analysis-section .form-type-checkbox:last-child {
@@ -567,12 +598,13 @@
   align-items: center !important;
   font-weight: 500 !important;
   color: #374151 !important;
-  margin-bottom: 4px !important;
+  margin-bottom: 0 !important;
   cursor: pointer !important;
   line-height: 1.5 !important;
   gap: 10px !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
+  margin-right: auto !important;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label {
@@ -582,8 +614,8 @@
 .ttd-bulk-analysis-section .form-type-checkbox .description {
   display: block !important;
   margin-left: 28px !important;
-  margin-top: 2px !important;
-  margin-bottom: 14px !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
   color: #64748b !important;
   font-size: 13px !important;
   line-height: 1.5 !important;

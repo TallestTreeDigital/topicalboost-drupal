@@ -167,6 +167,32 @@ class BulkAnalysisController extends ControllerBase {
    * Initiate bulk analysis using the bulk API endpoint.
    */
   public function initiateAnalysis(Request $request) {
+    // SAFEGUARD 1: Check if an analysis is already in progress
+    $existing_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    if ($existing_request_id) {
+      // Check if the existing analysis is actually still running or just stale
+      $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress');
+
+      // If apply is complete, the analysis lifecycle is ending but cleanup hasn't happened yet
+      if ($apply_progress && isset($apply_progress['stage']) && $apply_progress['stage'] === 'complete') {
+        $completed_at = \Drupal::state()->get('topicalboost.bulk_analysis.completed_at');
+        $current_time = time();
+        // Allow new analysis after 60 seconds of completion to account for cleanup delay
+        if ($completed_at && ($current_time - $completed_at) < 60) {
+          return new JsonResponse([
+            'success' => FALSE,
+            'message' => 'A previous analysis is still completing. Please wait a moment and try again.',
+          ]);
+        }
+      } else {
+        // Analysis is actively running (not completed yet)
+        return new JsonResponse([
+          'success' => FALSE,
+          'message' => 'An analysis is currently in progress. Please wait for it to complete before starting a new one.',
+        ]);
+      }
+    }
+
     $filters = $this->parseFilters($request);
 
     // Get total node count.
@@ -268,7 +294,23 @@ class BulkAnalysisController extends ControllerBase {
   public function pollAnalysis(Request $request) {
     $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
 
+    \Drupal::logger('ttd_topics')->debug('pollAnalysis() called - current request_id: @request_id', [
+      '@request_id' => $request_id ?? 'NULL',
+    ]);
+
+    // SAFEGUARD: Sanity check - ensure state consistency
+    // If frontend sends a different request_id, it means they might be out of sync
+    $frontend_request_id = $request->query->get('request_id');
+    if ($frontend_request_id && $request_id && $frontend_request_id !== $request_id) {
+      \Drupal::logger('ttd_topics')->warning('Frontend/backend request ID mismatch. Frontend: @frontend, Backend: @backend', [
+        '@frontend' => $frontend_request_id,
+        '@backend' => $request_id,
+      ]);
+      // Return backend's current state, which is the source of truth
+    }
+
     if (!$request_id) {
+      \Drupal::logger('ttd_topics')->debug('pollAnalysis() returning empty state - no active request_id');
       return new JsonResponse([
         'success' => TRUE,
         'data' => [
@@ -386,10 +428,13 @@ class BulkAnalysisController extends ControllerBase {
     // Clear any existing apply jobs.
     $this->clearApplyJobs($queue, $request_id);
 
+    // Get content count for progress tracking
+    $content_count = \Drupal::state()->get('topicalboost.bulk_analysis.content_count', 0);
+
     // Initialize apply progress for posts-based processing
     \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', [
       'stage' => 'posts',
-      'posts' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
+      'posts' => ['completed' => 0, 'total' => $content_count, 'current_page' => 1],
     ]);
 
     // Schedule optimized posts retrieval job (single call gets posts + entities).
@@ -420,20 +465,40 @@ class BulkAnalysisController extends ControllerBase {
     $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
     $cleared_jobs = 0;
 
+    \Drupal::logger('ttd_topics')->warning('resetAnalysis() called - request_id before deletion: @request_id', [
+      '@request_id' => $request_id ?? 'NULL',
+    ]);
+
+    // SAFEGUARD: Log reset attempts for audit purposes
+    if ($request_id) {
+      \Drupal::logger('ttd_topics')->warning('Reset analysis requested for request @request_id', [
+        '@request_id' => $request_id,
+      ]);
+    }
+
     if ($request_id) {
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
       $queue = $queue_storage->load('ttd_topics_analysis');
-      
+
       // Count jobs before clearing for logging.
       $bulk_jobs_count = $this->countBulkAnalysisJobs();
       $apply_jobs_count = $this->countApplyJobs($request_id);
       $cleared_jobs = $bulk_jobs_count + $apply_jobs_count;
-      
+
+      \Drupal::logger('ttd_topics')->warning('Clearing @bulk_count bulk jobs and @apply_count apply jobs', [
+        '@bulk_count' => $bulk_jobs_count,
+        '@apply_count' => $apply_jobs_count,
+      ]);
+
       // Clear all related jobs.
       $this->clearBulkAnalysisJobs($queue);
       $this->clearApplyJobs($queue, $request_id);
 
       // Clear all related state.
+      \Drupal::logger('ttd_topics')->warning('Deleting state keys for request @request_id', [
+        '@request_id' => $request_id,
+      ]);
+
       \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
       \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
       \Drupal::state()->delete('topicalboost.bulk_analysis.content_count');
@@ -442,14 +507,22 @@ class BulkAnalysisController extends ControllerBase {
       \Drupal::state()->delete('topicalboost.bulk_analysis.customer_id_page_count');
       \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
 
+      // Verify state was actually deleted
+      $verify_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+      \Drupal::logger('ttd_topics')->warning('VERIFICATION: request_id after deletion: @request_id', [
+        '@request_id' => $verify_request_id ?? 'NULL (DELETED SUCCESSFULLY)',
+      ]);
+
       // Log the cancellation.
       \Drupal::logger('ttd_topics')->info('Bulk analysis cancelled - cleared @count queued jobs for request @request_id', [
         '@count' => $cleared_jobs,
         '@request_id' => $request_id,
       ]);
+    } else {
+      \Drupal::logger('ttd_topics')->warning('resetAnalysis() called but no active request_id found');
     }
 
-    $message = $cleared_jobs > 0 
+    $message = $cleared_jobs > 0
       ? "Bulk analysis cancelled - cleared {$cleared_jobs} queued jobs"
       : 'Bulk analysis reset successfully - no active jobs found';
 
@@ -610,10 +683,13 @@ class BulkAnalysisController extends ControllerBase {
       // Clear any existing apply jobs first.
       $this->clearApplyJobs($queue, $request_id);
 
+      // Get content count for progress tracking
+      $content_count = \Drupal::state()->get('topicalboost.bulk_analysis.content_count', 0);
+
       // Initialize apply progress for posts-based processing.
       \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', [
         'stage' => 'posts',
-        'posts' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
+        'posts' => ['completed' => 0, 'total' => $content_count, 'current_page' => 1],
       ]);
 
       $job = Job::create('ttd_bulk_apply_posts_optimized', [

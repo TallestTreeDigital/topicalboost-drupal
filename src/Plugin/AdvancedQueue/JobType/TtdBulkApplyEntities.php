@@ -213,6 +213,12 @@ class TtdBulkApplyEntities extends JobTypeBase {
   private function applyEntitiesToNode(NodeInterface $node, $entities) {
     $topicalboost = [];
     $failed_entities = [];
+    $existing_terms = [];
+
+    // Get already-assigned term IDs to avoid duplicates
+    foreach ($node->field_ttd_topics->getValue() as $item) {
+      $existing_terms[] = $item['target_id'];
+    }
 
     foreach ($entities as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
@@ -226,7 +232,11 @@ class TtdBulkApplyEntities extends JobTypeBase {
       try {
         $term_id = $this->getOrCreateTerm($name, $ttd_id, $entity);
         if ($term_id) {
-          $topicalboost[] = ['target_id' => $term_id];
+          // Only add if not already assigned to this node
+          if (!in_array($term_id, $existing_terms)) {
+            $topicalboost[] = ['target_id' => $term_id];
+            $existing_terms[] = $term_id;
+          }
         }
         else {
           \Drupal::logger('ttd_topics')->warning(
@@ -256,6 +266,7 @@ class TtdBulkApplyEntities extends JobTypeBase {
     if (!empty($topicalboost)) {
       // Append to existing topics instead of replacing
       // This ensures topics from multiple pages aren't overwritten
+      // and prevents duplicates if bulk analysis is rerun
       foreach ($topicalboost as $topic) {
         $node->field_ttd_topics->appendItem($topic);
       }

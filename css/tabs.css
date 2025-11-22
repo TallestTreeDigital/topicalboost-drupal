@@ -37,6 +37,15 @@
   background-color: inherit !important;
 }
 
+/* Allow active tab to keep its border even on focus */
+.ttd-topics-tab-button.active:focus {
+  border-bottom-color: #3b82f6 !important;
+}
+
+.gin--dark-mode .ttd-topics-tab-button.active:focus {
+  border-bottom-color: rgb(var(--gin-color-primary-rgb)) !important;
+}
+
 .ttd-topics-tabs-nav {
   display: flex;
   justify-content: space-between;

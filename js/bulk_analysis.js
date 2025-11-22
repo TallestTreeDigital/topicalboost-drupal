@@ -9,6 +9,8 @@
   let updateCountTimeout = null;
   let currentRequestId = null;
   let currentStage = null; // 'sending', 'analyzing', 'applying'
+  let isInitiatingAnalysis = false; // Prevent multiple concurrent initiation requests
+  let lastAnalysisStartTime = 0; // Track when analysis was last started
   let currentFilters = {
     startDate: null,
     endDate: null,
@@ -17,6 +19,10 @@
     includeDrafts: false,
     onlyTopicless: false
   };
+
+  // SAFEGUARD: Store analysis state in localStorage for cross-tab synchronization
+  const STORAGE_KEY_ANALYSIS_ACTIVE = 'ttd_topics_analysis_active';
+  const STORAGE_KEY_ANALYSIS_REQUEST_ID = 'ttd_topics_analysis_request_id';
 
   Drupal.behaviors.ttdBulkAnalysis = {
     attach: function (context, settings) {
@@ -44,10 +50,7 @@
 
       Drupal.ttd_topics.debug.log('TTD Bulk Analysis initialized', drupalSettings.ttd_topics.bulk_analysis_endpoints);
 
-      // Check for existing analysis on page load
-      checkExistingAnalysis();
-
-      // Set default date range to "Last Month" first
+      // Set default date range first
       setDefaultDateRange();
 
       // Initialize components
@@ -56,39 +59,63 @@
       initializeFormInteractions($form);
       initializeButtons();
 
-      // Set initial UI state - show loading status
-      if (!analysisInProgress) {
-        $('#ttd-bulk-analysis-progress').hide();
-        $('#ttd-selection-status').hide(); // Start with selection status hidden
-        showMessage('Loading content selection...', 'info');
+      // Check for existing analysis and complete initialization after
+      checkExistingAnalysis().then(function(hasActiveAnalysis) {
+        // Only show loading state if there's NO active analysis
+        if (!hasActiveAnalysis) {
+          $('#ttd-bulk-analysis-progress').hide();
+          $('#ttd-selection-status').hide();
+          showMessage('Loading content selection...', 'info');
 
-        // Load initial selection count with delay to ensure form is ready and filters are set
-        setTimeout(function () {
-          updateCurrentFilters();
-          // Only update selection count if we have content types enabled
-          if (currentFilters.contentTypes.length > 0) {
-            updateSelectionCount();
-          } else {
-            $('#ttd-selection-status').show();
-            $('#ttd-selection-status .ttd-selection-count').text('0');
-            showMessage('Please select at least one content type to analyze', 'warning');
-            $('#ttd-bulk-analysis-analyze-button').prop('disabled', true);
-          }
-        }, 1000);
-      }
+          // Load initial selection count with delay to ensure form is ready and filters are set
+          setTimeout(function () {
+            updateCurrentFilters();
+            // Only update selection count if we have content types enabled
+            if (currentFilters.contentTypes.length > 0) {
+              updateSelectionCount();
+            } else {
+              $('#ttd-selection-status').show();
+              $('#ttd-selection-status .ttd-selection-count').text('0');
+              showMessage('Please select at least one content type to analyze', 'warning');
+              $('#ttd-bulk-analysis-analyze-button').prop('disabled', true);
+            }
+          }, 1000);
+        }
+      });
 
       // Add helpful tooltips and guidance
       addUserGuidance();
+
+      // SAFEGUARD: Monitor storage for cross-tab synchronization
+      // If another tab starts analysis, this tab will know about it
+      $(window).on('storage', function(e) {
+        if (e.key === STORAGE_KEY_ANALYSIS_ACTIVE) {
+          const isActive = e.newValue === 'true';
+          if (isActive && !analysisInProgress) {
+            // Another tab started analysis - sync our state
+            analysisInProgress = true;
+            currentRequestId = localStorage.getItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
+            Drupal.ttd_topics.debug.log('Detected analysis in another tab, syncing state. Request ID: ' + currentRequestId);
+            updateUIForAnalysis(true);
+            startProgressPolling();
+          } else if (!isActive && analysisInProgress) {
+            // Another tab finished/cancelled analysis - sync our state
+            Drupal.ttd_topics.debug.log('Detected analysis completion in another tab, syncing state');
+            analysisComplete();
+          }
+        }
+      });
     }
   };
 
   /**
    * Check for existing analysis on page load
+   * Returns a promise that resolves with true if analysis is active, false otherwise
    */
   function checkExistingAnalysis() {
     const endpoints = drupalSettings.ttd_topics.bulk_analysis_endpoints;
 
-    $.ajax({
+    return $.ajax({
       url: endpoints.poll,
       method: 'GET',
       headers: {
@@ -100,31 +127,55 @@
         currentRequestId = response.data.request_id;
         analysisInProgress = true;
 
-        // Determine current stage and continue polling
+        // SAFEGUARD: Sync analysis state to localStorage for cross-tab awareness
+        localStorage.setItem(STORAGE_KEY_ANALYSIS_ACTIVE, 'true');
+        localStorage.setItem(STORAGE_KEY_ANALYSIS_REQUEST_ID, currentRequestId);
+
+        // Determine current stage based on response data
         const contentCount = response.data.content_count || 0;
-        if (response.data.batch_progress.completed < response.data.batch_progress.total) {
+        const batchProgress = response.data.batch_progress || {};
+        const analysisStatus = response.data.analysis_status;
+        const applyProgress = response.data.apply_progress;
+
+        // Stage 1: Batches still being sent
+        if (batchProgress.completed < batchProgress.total) {
           currentStage = 'sending';
-          const contentProcessed = Math.min(response.data.batch_progress.completed * 50, contentCount);
+          const contentProcessed = Math.min(batchProgress.completed * 50, contentCount);
           showMessage('Step 1/3: Preparing content for analysis (' + formatNumber(contentProcessed) + ' of ' + formatNumber(contentCount) + ' items)', 'progress');
-        } else if (response.data.analysis_status && !response.data.analysis_status.ready) {
+        }
+        // Stage 2: Analysis is running (batches sent but not ready)
+        else if (analysisStatus && !analysisStatus.ready) {
           currentStage = 'analyzing';
-          const percent = response.data.analysis_status.percent || 0;
-          const analyzed = response.data.analysis_status.analyzed || 0;
-          const totalContent = response.data.analysis_status.content_count || contentCount;
+          const percent = analysisStatus.percent || analysisStatus.percentage || 0;
+          const analyzed = analysisStatus.analyzed || 0;
+          const totalContent = analysisStatus.content_count || contentCount;
           showMessage('Step 2/3: Analyzing content • ' + percent + '% complete (' + formatNumber(analyzed) + ' of ' + formatNumber(totalContent) + ' items)', 'progress');
-        } else if (response.data.apply_progress) {
+        }
+        // Stage 3: Applying results
+        else if (applyProgress) {
           currentStage = 'applying';
-          updateApplyProgress(response.data.apply_progress, contentCount);
+          updateApplyProgress(applyProgress, contentCount);
+        }
+        // Fallback: if we have request_id but can't determine stage, assume analyzing
+        else if (analysisStatus) {
+          currentStage = 'analyzing';
+          const percent = analysisStatus.percent || analysisStatus.percentage || 0;
+          const analyzed = analysisStatus.analyzed || 0;
+          const totalContent = analysisStatus.content_count || contentCount;
+          showMessage('Step 2/3: Analyzing content • ' + percent + '% complete (' + formatNumber(analyzed) + ' of ' + formatNumber(totalContent) + ' items)', 'progress');
         }
 
         updateUIForAnalysis(true);
         startProgressPolling();
-      } else {
-        // No existing analysis - let main initialization handle initial state
       }
     })
-    .fail(function () {
-      // Request failed - let main initialization handle initial state  
+    .then(function() {
+      // Return true if analysis is in progress, false otherwise
+      return analysisInProgress;
+    })
+    .fail(function (xhr) {
+      // Request failed - return false (no active analysis)
+      return false;
     });
   }
 
@@ -405,7 +456,72 @@
    * Start bulk analysis process
    */
   function startAnalysis() {
-    if (analysisInProgress) { return;
+    // Declare endpoints once for use throughout function
+    const endpoints = drupalSettings.ttd_topics.bulk_analysis_endpoints;
+
+    // SAFEGUARD 1: Prevent multiple concurrent initiation requests
+    if (isInitiatingAnalysis) {
+      Drupal.ttd_topics.debug.log('Analysis initiation already in progress - ignoring duplicate request');
+      return;
+    }
+
+    // SAFEGUARD 2: Prevent starting analysis if one is already running
+    // This includes both active analyses and resets in progress
+    if (analysisInProgress) {
+      Drupal.ttd_topics.debug.log('Analysis or reset already in progress - ignoring start request');
+      showMessage('An analysis is already in progress. Please wait for it to complete.', 'warning');
+      return;
+    }
+
+    // SAFEGUARD 3: Debounce - prevent rapid successive analysis starts
+    const now = Date.now();
+    const timeSinceLastStart = now - lastAnalysisStartTime;
+    const MIN_TIME_BETWEEN_STARTS = 2000; // Minimum 2 seconds between start attempts
+    if (timeSinceLastStart < MIN_TIME_BETWEEN_STARTS) {
+      Drupal.ttd_topics.debug.log('Too many start attempts in quick succession - please wait');
+      showMessage('Please wait before starting another analysis', 'warning');
+      return;
+    }
+    lastAnalysisStartTime = now;
+
+    // SAFEGUARD 4: Verify backend state - don't rely just on localStorage
+    // This prevents clients from getting stuck if localStorage is stale
+    const localStorageIsActive = localStorage.getItem(STORAGE_KEY_ANALYSIS_ACTIVE) === 'true';
+
+    // Make synchronous check with backend to verify actual state
+    let backendHasActiveAnalysis = false;
+    $.ajax({
+      url: endpoints.poll,
+      method: 'GET',
+      async: false, // Must be synchronous to block UI
+      headers: {
+        'X-CSRF-Token': drupalSettings.ttd_topics.nonce
+      }
+    })
+    .done(function (response) {
+      if (response.success && response.data.request_id) {
+        backendHasActiveAnalysis = true;
+        // Sync localStorage with backend truth
+        localStorage.setItem(STORAGE_KEY_ANALYSIS_ACTIVE, 'true');
+        localStorage.setItem(STORAGE_KEY_ANALYSIS_REQUEST_ID, response.data.request_id);
+      } else {
+        // Backend is clean - clear any stale localStorage flags
+        if (localStorageIsActive) {
+          localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+          localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
+        }
+      }
+    })
+    .fail(function (xhr) {
+      // If poll fails, show error but don't block (might be temporary)
+      showMessage('Could not verify analysis status. Please try again in a moment.', 'error');
+      return;
+    });
+
+    if (backendHasActiveAnalysis) {
+      Drupal.ttd_topics.debug.log('Backend confirms analysis is in progress - cannot start');
+      showMessage('An analysis is currently running. Please wait for it to complete or cancel it first.', 'warning');
+      return;
     }
 
     updateCurrentFilters();
@@ -416,13 +532,17 @@
       return;
     }
 
+    // SAFEGUARD 5: Mark that we're initiating (before AJAX call)
+    isInitiatingAnalysis = true;
     analysisInProgress = true;
     currentStage = 'initiating';
-          updateUIForAnalysis(true);
+
+    // SAFEGUARD 6: Sync to localStorage to notify other tabs
+    localStorage.setItem(STORAGE_KEY_ANALYSIS_ACTIVE, 'true');
+
+    updateUIForAnalysis(true);
 
     showMessage('Initiating bulk analysis...', 'progress');
-
-    const endpoints = drupalSettings.ttd_topics.bulk_analysis_endpoints;
 
     $.ajax({
       url: endpoints.initiate,
@@ -440,17 +560,33 @@
       })
     })
     .done(function (response) {
+      // SAFEGUARD: Clear initiation flag since we got a response
+      isInitiatingAnalysis = false;
+
       if (response.success) {
         currentRequestId = response.data.request_id;
+
+        // SAFEGUARD: Sync request ID to localStorage for cross-tab awareness
+        localStorage.setItem(STORAGE_KEY_ANALYSIS_REQUEST_ID, currentRequestId);
+
         currentStage = 'sending';
         showMessage('Step 1/3: Sending content batches (0 of ' + response.data.page_count + ')', 'progress');
         startProgressPolling();
       } else {
+        // SAFEGUARD: Backend rejected the analysis - clear flags
+        isInitiatingAnalysis = false;
+        analysisInProgress = false;
+        localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
         analysisFailed(response.message || 'Failed to initiate analysis');
       }
     })
-          .fail(function (xhr) {
-        Drupal.ttd_topics.debug.error('Initiate analysis failed:', xhr);
+    .fail(function (xhr) {
+      // SAFEGUARD: AJAX failed - clear flags
+      isInitiatingAnalysis = false;
+      analysisInProgress = false;
+      localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+
+      Drupal.ttd_topics.debug.error('Initiate analysis failed:', xhr);
       analysisFailed('Failed to start analysis. Please try again.');
     });
   }
@@ -590,22 +726,39 @@
    * Update apply progress display
    */
   function updateApplyProgress(progress, contentCount) {
-    if (progress.stage === 'customer_ids') {
+    if (progress.stage === 'posts') {
+      // New optimized stage using v2/result/posts endpoint
+      const p = progress.posts;
+
+      // Calculate items processed (100 items per page for posts endpoint)
+      const itemsProcessed = Math.min(p.completed * 100, contentCount);
+
+      // Calculate percentage based on items to match progress bar
+      const percentage = contentCount > 0 ? Math.round((itemsProcessed / contentCount) * 100) : 0;
+
+      // Show progress message with percentage
+      showMessage('Step 3/3: Applying results • ' + percentage + '% complete', 'progress');
+
+      // Update progress bar with same calculations
+      updateProgressBar(itemsProcessed, contentCount);
+    } else if (progress.stage === 'customer_ids') {
+      // Legacy stage from old implementation
       const p = progress.customer_ids;
       // Calculate estimated content items processed (50 items per page)
       const itemsProcessed = Math.min(p.completed * 50, contentCount);
       showMessage('Step 3/3: Applying results • Phase 1/2 • ' + formatNumber(itemsProcessed) + ' of ' + formatNumber(contentCount) + ' items', 'progress');
       updateProgressBar(itemsProcessed, contentCount);
     } else if (progress.stage === 'entities') {
+      // Legacy stage from old implementation
       const p = progress.entities;
-      
+
       // Skip displaying initial 0 progress to avoid visual flash
       if (p.completed === 0 && p.total > 0) {
         showMessage('Step 3/3: Applying results • Phase 2/2 • Processing...', 'progress');
         // Don't update progress bar for initial 0 state
         return;
       }
-      
+
       // Calculate estimated content items processed (50 items per page)
       const itemsProcessed = Math.min(p.completed * 50, contentCount);
       showMessage('Step 3/3: Applying results • Phase 2/2 • ' + formatNumber(itemsProcessed) + ' of ' + formatNumber(contentCount) + ' items', 'progress');
@@ -634,8 +787,13 @@
   function analysisComplete() {
     stopProgressPolling();
     analysisInProgress = false;
+    isInitiatingAnalysis = false;
     currentRequestId = null;
     currentStage = null;
+
+    // SAFEGUARD: Clear localStorage to notify other tabs that analysis is done
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
 
     // Immediately hide progress section to prevent brief flash of reset values
     $('#ttd-bulk-analysis-progress').hide();
@@ -698,18 +856,85 @@
    * Start a new analysis (clear completion state)
    */
   function startNewAnalysis() {
-    // Reset UI to normal state
-    updateUIForAnalysis(false);
+    // SAFEGUARD 1: Prevent multiple concurrent resets
+    // If analysisInProgress is true, another reset is already in flight
+    if (analysisInProgress) {
+      Drupal.ttd_topics.debug.log('Reset already in progress - ignoring duplicate request');
+      return;
+    }
 
-    // Show selection status again
-    $('#ttd-selection-status').show();
+    // SAFEGUARD 2: Mark analysis as "in progress" to block new analyses
+    // This prevents startAnalysis() from being called while we're resetting
+    analysisInProgress = true;
 
-    // Show loading message and update count
-    showMessage('Loading content selection...', 'info');
-    setTimeout(function () {
-      updateCurrentFilters();
-      updateSelectionCount();
-    }, 500);
+    const $startNewBtn = $('#ttd-start-new-analysis');
+    const $analyzeBtn = $('#ttd-bulk-analysis-analyze-button');
+
+    // SAFEGUARD 3: Disable buttons to prevent accidental clicks while resetting
+    $startNewBtn.prop('disabled', true).text('Resetting...');
+    $analyzeBtn.prop('disabled', true);
+
+    const endpoints = drupalSettings.ttd_topics.bulk_analysis_endpoints;
+
+    $.ajax({
+      url: endpoints.reset,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': drupalSettings.ttd_topics.nonce
+      }
+    })
+    .done(function (response) {
+      // Backend state cleared - now reset UI
+      stopProgressPolling();
+      isInitiatingAnalysis = false;
+      currentRequestId = null;
+      currentStage = null;
+
+      // SAFEGUARD: Clear localStorage to notify other tabs
+      localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+      localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
+
+      updateUIForAnalysis(false);
+
+      // Clear progress bar display
+      $('#ttd-bulk-analysis-progress').hide();
+      $('#ttd-progress-completed').text('0');
+      $('#ttd-progress-total').text('0');
+      $('#ttd-bulk-analysis-progress-bar').css('width', '0%');
+
+      // Show selection status again
+      $('#ttd-selection-status').show();
+
+      // Show loading message and update count
+      showMessage('Loading content selection...', 'info');
+
+      // SAFEGUARD 4: Only clear the "in progress" flag AFTER everything is reset
+      // This allows new analyses to be started after full reset
+      analysisInProgress = false;
+
+      // SAFEGUARD 5: Re-enable buttons now that reset is complete
+      $startNewBtn.text('Start New Analysis').prop('disabled', false);
+      // Analyze button will be enabled by updateUIForAnalysis(false), but ensure it is
+      $analyzeBtn.prop('disabled', false);
+
+      setTimeout(function () {
+        updateCurrentFilters();
+        updateSelectionCount();
+      }, 500);
+    })
+    .fail(function (xhr) {
+      Drupal.ttd_topics.debug.error('Failed to reset analysis:', xhr);
+
+      // SAFEGUARD 6: On failure, still clear the flag and re-enable buttons
+      analysisInProgress = false;
+      $startNewBtn.text('Start New Analysis').prop('disabled', false);
+      $analyzeBtn.prop('disabled', false);
+
+      // Still reset UI even if backend call fails
+      updateUIForAnalysis(false);
+      showMessage('Error resetting analysis state. Please refresh the page.', 'error');
+    });
   }
 
   /**
@@ -749,8 +974,12 @@
       currentRequestId = null;
       currentStage = null;
 
+      // Clear localStorage to allow new analyses
+      localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+      localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
+
       updateUIForAnalysis(false);
-      
+
       // Show detailed cancellation message with job count if available
       let message = response.message || 'Analysis cancelled successfully';
       if (response.data && response.data.cleared_jobs > 0) {
@@ -913,5 +1142,34 @@
     $('input[name="reanalyze"]', '#ttd-bulk-analysis-form').attr('title', 'Re-analyze content that has already been processed');
     $('input[name="include_drafts"]', '#ttd-bulk-analysis-form').attr('title', 'Include draft content in the analysis');
   }
+
+  /**
+   * DEBUGGING: Force clear all stuck state (exposed to window for console access)
+   */
+  window.ttdForceClearAnalysisState = function() {
+    console.log('[DEBUG TOOL] Force clearing all analysis state...');
+
+    // Clear localStorage
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
+
+    // Clear JS variables
+    analysisInProgress = false;
+    isInitiatingAnalysis = false;
+    currentRequestId = null;
+    currentStage = null;
+    pollInterval = null;
+
+    console.log('[DEBUG TOOL] Cleared all state');
+    console.log('[DEBUG TOOL] Current state:', {
+      'analysisInProgress': analysisInProgress,
+      'localStorage': Object.entries(localStorage).filter(([k]) => k.includes('ttd'))
+    });
+    console.log('[DEBUG TOOL] You can now try to start a new analysis, or reload the page');
+
+    // Reset UI
+    updateUIForAnalysis(false);
+    showMessage('Cleared all stuck state - ready to analyze', 'info');
+  };
 
 })(jQuery, Drupal, drupalSettings);
