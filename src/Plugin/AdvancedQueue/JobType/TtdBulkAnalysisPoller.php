@@ -129,25 +129,27 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
   }
 
   /**
-   * Automatically start applying results when analysis is complete.
+   * Automatically start applying results when analysis is complete (using optimized posts endpoint).
    */
   private function autoStartApplyResults($request_id) {
     try {
-      // Schedule customer IDs retrieval job.
+      // Schedule optimized posts retrieval job.
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
       $queue = $queue_storage->load('ttd_topics_analysis');
 
       // Clear any existing apply jobs first.
       $this->clearApplyJobs($queue, $request_id);
 
-      // Initialize apply progress.
+      // Get content count for progress tracking
+      $content_count = \Drupal::state()->get('topicalboost.bulk_analysis.content_count', 0);
+
+      // Initialize apply progress for posts-based processing.
       \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', [
-        'stage' => 'starting',
-        'customer_ids' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
-        'entities' => ['completed' => 0, 'total' => 0, 'current_page' => 1],
+        'stage' => 'posts',
+        'posts' => ['completed' => 0, 'total' => $content_count, 'current_page' => 1],
       ]);
 
-      $job = Job::create('ttd_bulk_apply_customer_ids', [
+      $job = Job::create('ttd_bulk_apply_posts_optimized', [
         'request_id' => $request_id,
         'page' => 1,
       ]);
@@ -172,7 +174,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
     $database = \Drupal::database();
     $database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
-      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities'], 'IN')
+      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
       ->condition('payload', '%' . $request_id . '%', 'LIKE')
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();

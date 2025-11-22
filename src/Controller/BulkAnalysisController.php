@@ -70,7 +70,7 @@ class BulkAnalysisController extends ControllerBase {
    * Builds the bulk analysis page.
    */
   public function buildPage() {
-    $form = \Drupal::formBuilder()->getForm('\Drupal\topicalboost\Form\BulkAnalysisForm');
+    $form = \Drupal::formBuilder()->getForm('\Drupal\ttd_topics\Form\BulkAnalysisForm');
 
     return [
       '#theme' => 'ttd_bulk_analysis_page',
@@ -622,7 +622,7 @@ class BulkAnalysisController extends ControllerBase {
   private function clearApplyJobs($queue, $request_id) {
     $this->database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
-      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities'], 'IN')
+      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
       ->condition('payload', '%' . $request_id . '%', 'LIKE')
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
@@ -647,7 +647,7 @@ class BulkAnalysisController extends ControllerBase {
   private function countApplyJobs($request_id) {
     return $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
-      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities'], 'IN')
+      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
       ->condition('payload', '%' . $request_id . '%', 'LIKE')
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
