@@ -300,13 +300,26 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
           if (!$existing_rel) {
             try {
+              // Extract salience data if present
+              $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;
+              $salience_category = $content['salience_category'] ?? NULL;
+
+              // Validate salience_category is a valid value
+              if ($salience_category !== NULL && !in_array($salience_category, ['about', 'mentions'], TRUE)) {
+                $salience_category = NULL;
+              }
+
+              $fields = [
+                'entity_id' => $ttd_id,
+                'post_id' => (string) $customer_id,
+                'createdAt' => date('Y-m-d H:i:s'),
+                'updatedAt' => date('Y-m-d H:i:s'),
+                'salience_score' => $salience_score,
+                'salience_category' => $salience_category,
+              ];
+
               \Drupal::database()->insert('ttd_entity_post_ids')
-                ->fields([
-                  'entity_id' => $ttd_id,
-                  'post_id' => (string) $customer_id,
-                  'createdAt' => date('Y-m-d H:i:s'),
-                  'updatedAt' => date('Y-m-d H:i:s'),
-                ])
+                ->fields($fields)
                 ->execute();
             } catch (\Exception $e) {
               // Continue on error

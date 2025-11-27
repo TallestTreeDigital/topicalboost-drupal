@@ -433,10 +433,24 @@ function ttd_topics_schema() {
         'not null' => TRUE,
         'description' => 'Last update timestamp',
       ],
+      'salience_score' => [
+        'type' => 'float',
+        'not null' => FALSE,
+        'description' => 'Salience score (0-1)',
+      ],
+      'salience_category' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+        'description' => 'Salience category (about or mentions)',
+      ],
     ],
     'primary key' => ['id'],
     'unique keys' => [
       'entity_id_post_id' => ['entity_id', ['post_id', 191]],
+    ],
+    'indexes' => [
+      'salience_category' => ['salience_category'],
     ],
   ];
 
@@ -781,13 +795,53 @@ function ttd_topics_uninstall() {
  */
 function ttd_topics_update_8001() {
   $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
-  
+
   // Only set the key if it doesn't exist to preserve any early-adopter custom overrides
   if (!$config->get('analysis_custom_fields')) {
     $config->set('analysis_custom_fields', [])->save();
   }
-  
+
   return t('Added analysis_custom_fields configuration key for custom field analysis feature.');
+}
+
+/**
+ * Add salience_score and salience_category columns to ttd_entity_post_ids table.
+ */
+function ttd_topics_update_8002() {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  // Add salience_score column if it doesn't exist
+  if (!$schema->fieldExists('ttd_entity_post_ids', 'salience_score')) {
+    $schema->addField('ttd_entity_post_ids', 'salience_score', [
+      'type' => 'float',
+      'not null' => FALSE,
+      'description' => 'Salience score (0-1)',
+    ]);
+  }
+
+  // Add salience_category column if it doesn't exist
+  if (!$schema->fieldExists('ttd_entity_post_ids', 'salience_category')) {
+    $schema->addField('ttd_entity_post_ids', 'salience_category', [
+      'type' => 'varchar',
+      'length' => 16,
+      'not null' => FALSE,
+      'description' => 'Salience category (about or mentions)',
+    ]);
+
+    // Add index on salience_category
+    $schema->addIndex('ttd_entity_post_ids', 'salience_category', ['salience_category'], [
+      'fields' => [
+        'salience_category' => [
+          'type' => 'varchar',
+          'length' => 16,
+          'not null' => FALSE,
+        ],
+      ],
+    ]);
+  }
+
+  return t('Added salience_score and salience_category columns to ttd_entity_post_ids table.');
 }
 
 
