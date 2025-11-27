@@ -175,6 +175,9 @@ class TtdTopicsAnalysisService {
           $topicalboost[] = [
             'target_id' => $term_id,
           ];
+
+          // Store demand metrics (KD/KV) if present
+          $this->storeDemandMetricsForTerm($term_id, $entity);
         }
       }
     }
@@ -224,7 +227,7 @@ class TtdTopicsAnalysisService {
     }
     else {
       // Exclude fields that are not columns in ttd_entities table
-      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories'];
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume'];
       foreach ($exclude_fields as $field) {
         unset($entity_data[$field]);
       }
@@ -385,6 +388,38 @@ class TtdTopicsAnalysisService {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Store demand metrics (KD/KV) for a term from entity data.
+   *
+   * @param int $term_id
+   *   The taxonomy term ID.
+   * @param array $entity_data
+   *   Entity data from API response.
+   */
+  private function storeDemandMetricsForTerm($term_id, array $entity_data) {
+    // Check if entity has keyword_difficulty and/or search_volume
+    $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
+    $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+
+    if (!$has_kd && !$has_sv) {
+      return;
+    }
+
+    // Build metrics data structure
+    $metrics_data = [];
+
+    if ($has_kd) {
+      $metrics_data['keyword_difficulty'] = (int) $entity_data['keyword_difficulty'];
+    }
+
+    if ($has_sv) {
+      $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    // Store using module function
+    ttd_store_demand_metrics($term_id, $metrics_data);
   }
 
 }

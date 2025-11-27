@@ -1155,6 +1155,86 @@ function ttd_topics_page_top(array &$page_top) {
 }
 
 /**
+ * Demand metrics cache TTL in seconds (90 days to match API and WordPress).
+ */
+const TTD_DEMAND_CACHE_TTL = 90 * 24 * 60 * 60; // 7,776,000 seconds
+
+/**
+ * Get demand metrics from cache.
+ *
+ * @param string|int $term_or_keyword
+ *   Term ID (numeric) or keyword string.
+ *
+ * @return array|null
+ *   Demand metrics data array or NULL if cache miss/expired.
+ */
+function ttd_get_demand_metrics($term_or_keyword) {
+  $cache_key = ttd_get_demand_cache_key($term_or_keyword);
+  $cached_data = \Drupal::state()->get($cache_key);
+
+  if (!$cached_data) {
+    return NULL;
+  }
+
+  // Check if cache is still valid
+  if (isset($cached_data['fetched_at'])) {
+    $fetched_time = strtotime($cached_data['fetched_at']);
+    $expiry_time = $fetched_time + TTD_DEMAND_CACHE_TTL;
+
+    if (time() >= $expiry_time) {
+      // Cache expired - delete and return null
+      \Drupal::state()->delete($cache_key);
+      return NULL;
+    }
+  }
+
+  return $cached_data;
+}
+
+/**
+ * Store demand metrics in cache.
+ *
+ * @param string|int $term_or_keyword
+ *   Term ID (numeric) or keyword string.
+ * @param array $metrics_data
+ *   Demand metrics data to store (keyword_difficulty, search_volume).
+ *
+ * @return bool
+ *   TRUE on success.
+ */
+function ttd_store_demand_metrics($term_or_keyword, array $metrics_data) {
+  $cache_key = ttd_get_demand_cache_key($term_or_keyword);
+
+  // Add timestamp to the data
+  $cache_data = array_merge($metrics_data, [
+    'fetched_at' => gmdate('c'),
+  ]);
+
+  \Drupal::state()->set($cache_key, $cache_data);
+  return TRUE;
+}
+
+/**
+ * Generate cache key for demand metrics.
+ *
+ * @param string|int $term_or_keyword
+ *   Term ID (numeric) or keyword string.
+ *
+ * @return string
+ *   Cache key string.
+ */
+function ttd_get_demand_cache_key($term_or_keyword) {
+  if (is_numeric($term_or_keyword)) {
+    // Entity topic (by term_id)
+    return 'ttd_demand_metrics_entity_' . intval($term_or_keyword);
+  }
+  else {
+    // Manual topic (by keyword)
+    return 'ttd_demand_metrics_keyword_' . md5($term_or_keyword);
+  }
+}
+
+/**
  * Ensure the ttd_topics Pathauto pattern exists.
  *
  * This helper is used during install and whenever Pathauto is installed
