@@ -5,25 +5,48 @@
  *
  * Available variables:
  * - node: The node entity.
- * - filtered_topics: Array of filtered TopicalBoost topic entities.
+ * - filtered_topics: Array of filtered TopicalBoost topics with salience data.
+ *   Each topic has: term, count, salience_score, salience_category
  * - topics_list_label: Label for the topics section.
  * - maximum_visible_post_topics: Maximum number of topics to show initially.
  * - options: Display options.
+ *
+ * Topics are ordered by salience (highest first).
+ * "About" topics (salience_category = 'about') are shown by default.
+ * "Mentions" topics are hidden behind a "Show More" toggle.
  */
 #}
 
 {% if filtered_topics %}
+  {# Separate topics by salience category #}
+  {% set about_topics = [] %}
+  {% set mentions_topics = [] %}
+  {% for topic in filtered_topics %}
+    {% if topic.salience_category == 'about' %}
+      {% set about_topics = about_topics|merge([topic]) %}
+    {% else %}
+      {% set mentions_topics = mentions_topics|merge([topic]) %}
+    {% endif %}
+  {% endfor %}
+
   <div class="topicalboost-section">
     <div class="topicalboost-inline-mentions">
       <span class="mentions-label">{{ topics_list_label }}:</span>
-      <div class="mentions-list" data-max-visible="{{ maximum_visible_post_topics }}">
-        {% for topic in filtered_topics %}
-          <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.id}) }}" class="mention-tag{% if loop.index > maximum_visible_post_topics %} hidden{% endif %}">
-            {{ topic.label|trim }}
+      <div class="mentions-list">
+        {# Show "about" topics (visible by default) #}
+        {% for topic in about_topics %}
+          <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag">
+            {{ topic.term.label|trim }}
           </a>
         {% endfor %}
-        {% if filtered_topics|length > maximum_visible_post_topics %}
-          <button class="toggle-mentions-btn" type="button">+{{ filtered_topics|length - maximum_visible_post_topics }} more</button>
+        {# Show "mentions" topics (hidden by default) #}
+        {% for topic in mentions_topics %}
+          <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag hidden">
+            {{ topic.term.label|trim }}
+          </a>
+        {% endfor %}
+        {% if mentions_topics|length > 0 %}
+          <button class="toggle-mentions-btn" type="button">+{{ mentions_topics|length }} more</button>
         {% endif %}
       </div>
     </div>

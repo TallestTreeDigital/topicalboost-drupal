@@ -182,10 +182,11 @@ class TtdTopicsAnalysisService {
           $this->storeDemandMetricsForTerm($term_id, $entity);
 
           // Store salience data if present (nested in Contents array)
+          // API returns 'salience' (from Google NLP), we store as 'salience_score'
           if ($post_id && !empty($entity['Contents'])) {
             foreach ($entity['Contents'] as $content) {
               if (isset($content['customer_id']) && intval($content['customer_id']) === intval($post_id)) {
-                $salience_score = $content['salience_score'] ?? NULL;
+                $salience_score = $content['salience'] ?? $content['salience_score'] ?? NULL;
                 $salience_category = $content['salience_category'] ?? NULL;
                 if ($salience_score !== NULL || $salience_category !== NULL) {
                   $this->storeSalienceForEntity($entity['id'], $post_id, $salience_score, $salience_category);

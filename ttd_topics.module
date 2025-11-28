@@ -438,6 +438,9 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
     // Get the count of nodes for each term.
     $term_counts = ttd_topics_get_topic_node_counts($term_ids);
 
+    // Get salience data for all entities on this node.
+    $salience_data = ttd_get_node_salience_data($node->id());
+
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
       if ($term && !$term->get('field_hide')->value) {
@@ -452,26 +455,33 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
 
         // Only include terms associated with at least the minimum display count.
         if ($count >= $min_display_count) {
+          // Get salience data using ttd_id.
+          $ttd_id = $term->hasField('field_ttd_id') ? (int) $term->get('field_ttd_id')->value : 0;
+          $entity_salience = $salience_data[$ttd_id] ?? ['salience_score' => NULL, 'salience_category' => NULL];
+
           $filtered_topics[] = [
             'term' => $term,
             'count' => $count,
+            'salience_score' => $entity_salience['salience_score'],
+            'salience_category' => $entity_salience['salience_category'],
           ];
         }
       }
     }
 
-    // Sort filtered topics by count in descending order.
+    // Sort filtered topics by salience score (highest first), then alphabetically.
     usort($filtered_topics, function ($a, $b) {
-      return $b['count'] - $a['count'];
-    });
+      $score_a = $a['salience_score'] ?? -1;
+      $score_b = $b['salience_score'] ?? -1;
 
-    // Only include topics that meet the minimum display count.
-    $filtered_topics = array_filter($filtered_topics, function ($topic) use ($min_display_count) {
-      return $topic['count'] >= $min_display_count;
-    });
+      // First sort by salience score (descending).
+      if ($score_b !== $score_a) {
+        return $score_b <=> $score_a;
+      }
 
-    // Extract just the term objects for the template.
-    $filtered_topics = array_column($filtered_topics, 'term');
+      // If scores are equal, sort alphabetically.
+      return strcasecmp($a['term']->label(), $b['term']->label());
+    });
   }
 
   return $filtered_topics;
@@ -705,8 +715,7 @@ function ttd_topics_cron() {
 function ttd_topics_perform_single_analysis(NodeInterface $node) {
   $config = \Drupal::config('ttd_topics.settings');
   $api_key = $config->get('topicalboost_api_key');
-  // Adjust if necessary.
-  $api_base_url = 'https://topics-api.tallesttree.digital';
+  $api_base_url = TOPICALBOOST_API_ENDPOINT;
 
   $client = \Drupal::httpClient();
 
@@ -1360,6 +1369,37 @@ function ttd_get_term_salience_category($term_id, $node_id) {
     ->fetchField();
 
   return $salience_category ?: NULL;
+}
+
+/**
+ * Get salience data for all entities on a node.
+ *
+ * Returns array indexed by ttd_id with salience_score and salience_category.
+ * Used by frontend display to order topics by relevance.
+ *
+ * @param int $node_id
+ *   The node ID.
+ *
+ * @return array
+ *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null]].
+ */
+function ttd_get_node_salience_data($node_id) {
+  $database = \Drupal::database();
+  $results = $database->select('ttd_entity_post_ids', 'ep')
+    ->fields('ep', ['entity_id', 'salience_score', 'salience_category'])
+    ->condition('post_id', $node_id)
+    ->execute()
+    ->fetchAll();
+
+  $salience_map = [];
+  foreach ($results as $row) {
+    $salience_map[(int) $row->entity_id] = [
+      'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
+      'salience_category' => $row->salience_category,
+    ];
+  }
+
+  return $salience_map;
 }
 
 /**
