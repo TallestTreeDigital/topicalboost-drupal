@@ -24,6 +24,7 @@ use Drupal\Core\Database\Database;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
@@ -191,42 +192,125 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       // Get the count of nodes for each term only if there are terms.
       $term_counts = !empty($term_ids) ? ttd_topics_get_topic_node_counts($term_ids) : [];
 
-      // Create an array of terms with their counts.
-      $terms_with_counts = [];
+      // Create arrays for About and Mentions topics.
+      $about_topics = [];
+      $mentions_topics = [];
+
       foreach ($term_ids as $term_id) {
         $term = Term::load($term_id);
         if ($term && !$term->get('field_hide')->value) {
           $count = $term_counts[$term_id] ?? 0;
-          $terms_with_counts[] = [
+          $term_data = [
             'term' => $term,
             'count' => $count,
           ];
+
+          // Check salience category if node is saved.
+          if ($node->id()) {
+            $salience = ttd_get_term_salience_category($term_id, $node->id());
+            if ($salience === 'about') {
+              $about_topics[] = $term_data;
+            }
+            else {
+              $mentions_topics[] = $term_data;
+            }
+          }
+          else {
+            // For new nodes, put all in mentions.
+            $mentions_topics[] = $term_data;
+          }
         }
       }
 
-      // Sort terms by count in descending order.
-      usort($terms_with_counts, function ($a, $b) {
+      // Sort both arrays by count in descending order.
+      usort($about_topics, function ($a, $b) {
+        return $b['count'] - $a['count'];
+      });
+      usort($mentions_topics, function ($a, $b) {
         return $b['count'] - $a['count'];
       });
 
-      // Create form elements for sorted terms.
-      foreach ($terms_with_counts as $term_data) {
-        $term = $term_data['term'];
-        $count = $term_data['count'];
-        $is_below_threshold = $count < $min_display_count;
+      $about_count = count($about_topics);
+      $mentions_count = count($mentions_topics);
 
-        // Skip hidden terms in the form.
-        if ($term->get('field_hide')->value) {
-          continue;
+      // About This Post section (always visible, not collapsible).
+      $form['ttd_topics']['about_section'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ttd-topics-section', 'ttd-about-section']],
+        '#weight' => 10,
+      ];
+
+      $form['ttd_topics']['about_section']['header'] = [
+        '#markup' => '<div class="ttd-section-header ttd-section-static"><span class="ttd-section-title">' . t('About This Post') . '</span> <span class="ttd-section-count">(' . $about_count . ')</span></div>',
+      ];
+
+      if ($about_count > 0) {
+        foreach ($about_topics as $term_data) {
+          $term = $term_data['term'];
+          $count = $term_data['count'];
+          $is_below_threshold = $count < $min_display_count;
+
+          // Get KD badge for About topics.
+          $kd_badge = '';
+          if ($node->id()) {
+            $kd_badge = ttd_get_kd_badge($term->id(), $node->id());
+          }
+
+          // Build title with optional KD badge.
+          $title = $term->getName() . ' (' . $count . ')';
+          if ($kd_badge) {
+            $title = $kd_badge . ' ' . $title;
+          }
+
+          $form['ttd_topics']['about_section'][$term->id()] = [
+            '#type' => 'checkbox',
+            '#title' => Markup::create($title),
+            '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
+            '#disabled' => $is_below_threshold,
+            '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
+            '#wrapper_attributes' => [
+              'data-tooltip' => t('Primary topic: This post is mainly about this subject'),
+              'class' => ['ttd-topic-item', 'ttd-about-topic'],
+            ],
+          ];
         }
-
-        $form['ttd_topics'][$term->id()] = [
-          '#type' => 'checkbox',
-          '#title' => $term->getName() . ' (' . $count . ')',
-          '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
-          '#disabled' => $is_below_threshold,
-          '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
+      }
+      else {
+        $form['ttd_topics']['about_section']['empty'] = [
+          '#markup' => '<p class="ttd-no-topics-message">' . t('No primary topics detected.') . '</p>',
         ];
+      }
+
+      // Also Mentioned section (collapsed by default).
+      if ($mentions_count > 0) {
+        $form['ttd_topics']['mentions_section'] = [
+          '#type' => 'details',
+          '#title' => t('Also Mentioned (@count)', ['@count' => $mentions_count]),
+          '#open' => FALSE,
+          '#attributes' => ['class' => ['ttd-topics-section', 'ttd-mentions-section']],
+          '#weight' => 20,
+        ];
+
+        foreach ($mentions_topics as $term_data) {
+          $term = $term_data['term'];
+          $count = $term_data['count'];
+          $is_below_threshold = $count < $min_display_count;
+
+          // Build title (no KD badge for mentions).
+          $title = $term->getName() . ' (' . $count . ')';
+
+          $form['ttd_topics']['mentions_section'][$term->id()] = [
+            '#type' => 'checkbox',
+            '#title' => Markup::create($title),
+            '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
+            '#disabled' => $is_below_threshold,
+            '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
+            '#wrapper_attributes' => [
+              'data-tooltip' => t('Mentioned: Referenced in the post but not the main focus'),
+              'class' => ['ttd-topic-item', 'ttd-mentions-topic'],
+            ],
+          ];
+        }
       }
 
       // Add custom CSS to style the below-threshold topics.
@@ -293,11 +377,23 @@ function ttd_topics_node_builder($entity_type, $entity, &$form, FormStateInterfa
   $current_rejected_topics = $entity->get('field_ttd_rejected_topics')->getValue();
   $new_rejected_topics = [];
 
+  // Get values from both sections (About and Mentions).
+  $about_values = $form_state->getValue('about_section') ?? [];
+  $mentions_values = $form_state->getValue('mentions_section') ?? [];
+
   // Process each topic from the form.
   foreach ($all_topics as $topic) {
     if (isset($topic['target_id'])) {
       $topic_id = $topic['target_id'];
-      $checkbox_value = $form_state->getValue($topic_id);
+
+      // Check in about_section first, then mentions_section.
+      $checkbox_value = NULL;
+      if (isset($about_values[$topic_id])) {
+        $checkbox_value = $about_values[$topic_id];
+      }
+      elseif (isset($mentions_values[$topic_id])) {
+        $checkbox_value = $mentions_values[$topic_id];
+      }
 
       if ($checkbox_value === 0) {
         $new_rejected_topics[] = ['target_id' => $topic_id];
@@ -1232,6 +1328,147 @@ function ttd_get_demand_cache_key($term_or_keyword) {
     // Manual topic (by keyword)
     return 'ttd_demand_metrics_keyword_' . md5($term_or_keyword);
   }
+}
+
+/**
+ * Get salience category for a term on a specific node.
+ *
+ * @param int $term_id
+ *   The taxonomy term ID.
+ * @param int $node_id
+ *   The node ID.
+ *
+ * @return string|null
+ *   The salience category ('about' or 'mentions') or NULL if not found.
+ */
+function ttd_get_term_salience_category($term_id, $node_id) {
+  $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+  if (!$term || !$term->hasField('field_ttd_id')) {
+    return NULL;
+  }
+  $ttd_id = $term->get('field_ttd_id')->value;
+  if (!$ttd_id) {
+    return NULL;
+  }
+
+  $database = \Drupal::database();
+  $salience_category = $database->select('ttd_entity_post_ids', 'ep')
+    ->fields('ep', ['salience_category'])
+    ->condition('entity_id', $ttd_id)
+    ->condition('post_id', $node_id)
+    ->execute()
+    ->fetchField();
+
+  return $salience_category ?: NULL;
+}
+
+/**
+ * Get KD difficulty color based on value.
+ *
+ * @param int $difficulty
+ *   Keyword difficulty value (0-100).
+ *
+ * @return string
+ *   Hex color code.
+ */
+function ttd_get_kd_color($difficulty) {
+  if ($difficulty >= 90) {
+    return '#dc2626';
+  }
+  if ($difficulty >= 70) {
+    return '#ea580c';
+  }
+  if ($difficulty >= 50) {
+    return '#ca8a04';
+  }
+  if ($difficulty >= 30) {
+    return '#65a30d';
+  }
+  return '#16a34a';
+}
+
+/**
+ * Get difficulty label for a KD value.
+ *
+ * @param int $difficulty
+ *   Keyword difficulty value (0-100).
+ *
+ * @return string
+ *   Human-readable difficulty label.
+ */
+function ttd_get_kd_label($difficulty) {
+  if ($difficulty <= 30) {
+    return 'Easy';
+  }
+  if ($difficulty <= 60) {
+    return 'Medium';
+  }
+  if ($difficulty <= 80) {
+    return 'Hard';
+  }
+  return 'Very Hard';
+}
+
+/**
+ * Format volume with K/M notation.
+ *
+ * @param int $volume
+ *   Search volume value.
+ *
+ * @return string
+ *   Formatted volume string.
+ */
+function ttd_format_volume($volume) {
+  if (!$volume && $volume !== 0) {
+    return '--';
+  }
+  $num = (int) $volume;
+  if ($num >= 1000000) {
+    return round($num / 1000000, 1) . 'M';
+  }
+  if ($num >= 1000) {
+    return round($num / 1000, 1) . 'K';
+  }
+  return (string) $num;
+}
+
+/**
+ * Get KD badge markup for a term (About topics only).
+ *
+ * @param int $term_id
+ *   The taxonomy term ID.
+ * @param int $node_id
+ *   The node ID.
+ *
+ * @return string
+ *   HTML markup for the KD badge, or empty string if not applicable.
+ */
+function ttd_get_kd_badge($term_id, $node_id) {
+  // Check if this is an About topic.
+  $salience = ttd_get_term_salience_category($term_id, $node_id);
+  if ($salience !== 'about') {
+    return '';
+  }
+
+  // Get cached demand metrics.
+  $metrics = ttd_get_demand_metrics($term_id);
+  if (!$metrics || !isset($metrics['keyword_difficulty'])) {
+    return '';
+  }
+
+  $kd = (int) $metrics['keyword_difficulty'];
+  $sv = isset($metrics['search_volume']) ? (int) $metrics['search_volume'] : 0;
+  $color = ttd_get_kd_color($kd);
+  $label = ttd_get_kd_label($kd);
+  $sv_formatted = ttd_format_volume($sv);
+
+  $tooltip = t('Monthly search volume: @volume | Difficulty: @kd/100 (@label)', [
+    '@volume' => $sv_formatted,
+    '@kd' => $kd,
+    '@label' => $label,
+  ]);
+
+  return '<span class="ttd-kd-badge" style="color: ' . $color . ';" title="' . $tooltip . '">' . $sv_formatted . '</span>';
 }
 
 /**

@@ -4,7 +4,7 @@ services:
     arguments: ['@config.factory', '@database', '@renderer']
     tags:
       - { name: twig.extension }
-  
+
   ttd_topics.schema_generator:
     class: Drupal\ttd_topics\SchemaGenerator
     arguments: ['@database', '@path_alias.manager']
@@ -12,3 +12,6 @@ services:
   ttd_topics.field_collector:
     class: Drupal\ttd_topics\Service\FieldCollectorService
     arguments: ['@config.factory', '@entity_type.manager']
+
+  ttd_topics.analysis_service:
+    class: Drupal\ttd_topics\Service\TtdTopicsAnalysisService

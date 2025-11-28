@@ -167,6 +167,8 @@ class TtdTopicsAnalysisService {
    */
   private function saveAnalysisResults(NodeInterface $node, array $results, $save_entity = TRUE) {
     $topicalboost = [];
+    $post_id = $node->id();
+
     foreach ($results['entities'] as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
       if (!empty($name)) {
@@ -178,12 +180,81 @@ class TtdTopicsAnalysisService {
 
           // Store demand metrics (KD/KV) if present
           $this->storeDemandMetricsForTerm($term_id, $entity);
+
+          // Store salience data if present (nested in Contents array)
+          if ($post_id && !empty($entity['Contents'])) {
+            foreach ($entity['Contents'] as $content) {
+              if (isset($content['customer_id']) && intval($content['customer_id']) === intval($post_id)) {
+                $salience_score = $content['salience_score'] ?? NULL;
+                $salience_category = $content['salience_category'] ?? NULL;
+                if ($salience_score !== NULL || $salience_category !== NULL) {
+                  $this->storeSalienceForEntity($entity['id'], $post_id, $salience_score, $salience_category);
+                }
+                break;
+              }
+            }
+          }
         }
       }
     }
     $node->set('field_ttd_topics', $topicalboost);
     if ($save_entity) {
       $node->save();
+    }
+  }
+
+  /**
+   * Store salience score and category for an entity-post relationship.
+   *
+   * @param string $entity_id
+   *   The TTD entity ID.
+   * @param int $post_id
+   *   The node ID.
+   * @param float|null $salience_score
+   *   The salience score (0-1).
+   * @param string|null $salience_category
+   *   The salience category ('about' or 'mentions').
+   */
+  private function storeSalienceForEntity($entity_id, $post_id, $salience_score, $salience_category = NULL) {
+    $database = \Drupal::database();
+
+    // If category not provided, derive from score
+    if ($salience_category === NULL && $salience_score !== NULL) {
+      $salience_category = $salience_score > 0.5 ? 'about' : 'mentions';
+    }
+
+    try {
+      // Update existing record with salience data.
+      $updated = $database->update('ttd_entity_post_ids')
+        ->fields([
+          'salience_score' => $salience_score,
+          'salience_category' => $salience_category,
+          'updatedAt' => date('Y-m-d H:i:s'),
+        ])
+        ->condition('entity_id', $entity_id)
+        ->condition('post_id', $post_id)
+        ->execute();
+
+      // If no record existed, insert one.
+      if ($updated === 0) {
+        $database->insert('ttd_entity_post_ids')
+          ->fields([
+            'entity_id' => $entity_id,
+            'post_id' => $post_id,
+            'salience_score' => $salience_score,
+            'salience_category' => $salience_category,
+            'createdAt' => date('Y-m-d H:i:s'),
+            'updatedAt' => date('Y-m-d H:i:s'),
+          ])
+          ->execute();
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error storing salience for entity @id on post @post: @message', [
+        '@id' => $entity_id,
+        '@post' => $post_id,
+        '@message' => $e->getMessage(),
+      ]);
     }
   }
 

@@ -456,3 +456,151 @@ fieldset .form-radios > div > div {
 }
 
 /* No responsive adjustments needed - layout is vertical by default */
+
+/* KD Badge - displays search volume with color-coded difficulty */
+.ttd-kd-badge {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: help;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.ttd-kd-badge:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.gin--dark-mode .ttd-kd-badge {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gin--dark-mode .ttd-kd-badge:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* About/Mentions section styling for node edit form */
+.ttd-topics-section {
+  margin-bottom: 12px;
+}
+
+.ttd-topics-section:last-child {
+  margin-bottom: 0;
+}
+
+/* About section styling - static header (not collapsible) */
+.ttd-about-section .ttd-section-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: #f0f6fc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.ttd-about-section .ttd-section-title {
+  flex: 1;
+}
+
+.ttd-about-section .ttd-section-count {
+  color: #646970;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.gin--dark-mode .ttd-about-section .ttd-section-header {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--gin-color-text);
+}
+
+.gin--dark-mode .ttd-about-section .ttd-section-count {
+  color: var(--gin-color-text-light);
+}
+
+/* Mentions section styling */
+.ttd-mentions-section > summary {
+  background: #f6f7f7;
+}
+
+.ttd-mentions-section > summary:hover {
+  background: #f0f0f1;
+}
+
+/* Dark mode for sections */
+.gin--dark-mode .ttd-about-section > summary {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.gin--dark-mode .ttd-about-section > summary:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.gin--dark-mode .ttd-about-section {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.gin--dark-mode .ttd-mentions-section > summary {
+  background: var(--gin-bg-layer2);
+}
+
+.gin--dark-mode .ttd-mentions-section > summary:hover {
+  background: var(--gin-bg-layer3);
+}
+
+/* No primary topics message */
+.ttd-no-topics-message {
+  padding: 12px;
+  color: #646970;
+  font-style: italic;
+  font-size: 14px;
+  text-align: center;
+}
+
+.gin--dark-mode .ttd-no-topics-message {
+  color: var(--gin-color-text-light);
+}
+
+/* Topic item tooltips */
+.ttd-topic-item {
+  position: relative;
+  cursor: help;
+}
+
+.ttd-topic-item[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: rgba(31, 41, 55, 0.95);
+  color: white;
+  font-size: 11px;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-radius: 4px;
+  z-index: 999999;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ttd-topic-item[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid rgba(31, 41, 55, 0.95);
+  z-index: 999999;
+  pointer-events: none;
+}

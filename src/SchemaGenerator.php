@@ -148,90 +148,33 @@ class SchemaGenerator {
     // Get rejected TTD IDs first.
     $rejected_ttd_ids = $this->getRejectedTopics($nid);
 
-    // Reset query for full data.
-    $query = $this->database->select('node__field_ttd_topics', 'ti');
-    $query->join('taxonomy_term_field_data', 't', 't.tid = ti.field_ttd_topics_target_id');
-    $query->leftJoin('taxonomy_term__field_ttd_id', 'ttd', 'ttd.entity_id = t.tid');
-    $query->leftJoin('taxonomy_term__field_hide', 'h', 'h.entity_id = t.tid');
-    $query->leftJoin('path_alias', 'pa', "pa.path = CONCAT('/taxonomy/term/', t.tid) AND pa.status = 1");
-
-    // Add subquery to count posts per term.
-    $subquery = $this->database->select('node__field_ttd_topics', 'ti2')
-      ->fields('ti2', ['field_ttd_topics_target_id'])
-      ->groupBy('field_ttd_topics_target_id');
-    $subquery->addExpression('COUNT(DISTINCT ti2.entity_id)', 'post_count');
-
-    $query->leftJoin($subquery, 'pc', 'pc.field_ttd_topics_target_id = t.tid');
-
-    $query->fields('t', ['tid', 'name'])
-      ->fields('ttd', ['field_ttd_id_value'])
-      ->fields('h', ['field_hide_value'])
-      ->fields('pa', ['alias'])
-      ->fields('pc', ['post_count'])
-      ->condition('ti.entity_id', $nid)
-      ->condition('t.vid', 'ttd_topics')
-      ->condition('ti.deleted', 0);
-
-    // Only add NOT IN condition if there are rejected topics.
-    if (!empty($rejected_ttd_ids)) {
-      $query->condition('ttd.field_ttd_id_value', $rejected_ttd_ids, 'NOT IN');
-    }
-
-    $query->orderBy('pc.post_count', 'DESC');
-
-    $topics = $query->execute()->fetchAll();
-
-    // Create Article schema with mentions.
+    // Create Article schema with proper schema.org properties:
+    // - "about": high-salience topics (what the article IS about)
+    // - "mentions": low-salience topics (what the article references)
     $article = [
       '@type' => 'Article',
     ];
 
-    if (!empty($topics)) {
-      $article['mentions'] = [];
-
-      // Sort topics by post count in descending order.
-      usort($topics, function ($a, $b) {
-        return $b->post_count - $a->post_count;
-      });
-
-      foreach ($topics as $topic) {
-        // Skip hidden topics.
-        if (!empty($topic->field_hide_value)) {
-          continue;
-        }
-
-        // Skip topics below threshold.
-        if ($topic->post_count < $min_display_count) {
-          continue;
-        }
-
-        $entity = $this->getEntityData($topic->field_ttd_id_value);
-        if (!$entity) {
-          continue;
-        }
-
-        $schema_types = $this->getEntitySchemaTypes($topic->field_ttd_id_value);
-        if (empty($schema_types)) {
-          // Default to Thing if no schema types found.
-          $schema_types = ['Thing'];
-        }
-
-        $output_data = [
-          '@type' => count($schema_types) > 1 ? $schema_types : $schema_types[0],
-          'name' => $topic->name,
-          'url' => !empty($entity['official_website']) ? $entity['official_website'] : $base_url . $topic->alias,
-        ];
-
-        // Format the entity data.
-        $output_data = $this->formatEntityData($output_data, $entity, $schema_types[0]);
-
-        // Add to mentions array.
-        $article['mentions'][] = $output_data;
+    // Get "about" topics (high salience > 0.5)
+    $about_topics = $this->getTopicsBySalience($nid, 'about', $rejected_ttd_ids);
+    if (!empty($about_topics)) {
+      $about_items = $this->formatTopicsForSchema($about_topics, $base_url);
+      if (!empty($about_items)) {
+        $article['about'] = $about_items;
       }
     }
 
-    // Only add the Article schema if there are mentions.
-    if (!empty($article['mentions'])) {
+    // Get "mentions" topics (low salience <= 0.5)
+    $mentions_topics = $this->getTopicsBySalience($nid, 'mentions', $rejected_ttd_ids);
+    if (!empty($mentions_topics)) {
+      $mentions_items = $this->formatTopicsForSchema($mentions_topics, $base_url);
+      if (!empty($mentions_items)) {
+        $article['mentions'] = $mentions_items;
+      }
+    }
+
+    // Only add the Article schema if there are about or mentions.
+    if (!empty($article['about']) || !empty($article['mentions'])) {
       $data['@graph'][] = $article;
     }
 
@@ -262,6 +205,102 @@ class SchemaGenerator {
     }
 
     return [];
+  }
+
+  /**
+   * Gets topics for a node filtered by salience category.
+   *
+   * @param int $nid
+   *   The node ID.
+   * @param string $salience_category
+   *   The salience category to filter by ('about' or 'mentions').
+   * @param array $rejected_ttd_ids
+   *   Array of rejected TTD IDs to exclude.
+   *
+   * @return array
+   *   Array of topic objects.
+   */
+  protected function getTopicsBySalience($nid, $salience_category, array $rejected_ttd_ids = []) {
+    $query = $this->database->select('node__field_ttd_topics', 'ti');
+    $query->join('taxonomy_term_field_data', 't', 't.tid = ti.field_ttd_topics_target_id');
+    $query->leftJoin('taxonomy_term__field_ttd_id', 'ttd', 'ttd.entity_id = t.tid');
+    $query->leftJoin('taxonomy_term__field_hide', 'h', 'h.entity_id = t.tid');
+    $query->leftJoin('path_alias', 'pa', "pa.path = CONCAT('/taxonomy/term/', t.tid) AND pa.status = 1");
+
+    // Join with ttd_entity_post_ids to filter by salience category.
+    $query->join('ttd_entity_post_ids', 'ep', 'ep.entity_id = ttd.field_ttd_id_value AND ep.post_id = ti.entity_id');
+
+    // Add subquery to count posts per term.
+    $subquery = $this->database->select('node__field_ttd_topics', 'ti2')
+      ->fields('ti2', ['field_ttd_topics_target_id'])
+      ->groupBy('field_ttd_topics_target_id');
+    $subquery->addExpression('COUNT(DISTINCT ti2.entity_id)', 'post_count');
+
+    $query->leftJoin($subquery, 'pc', 'pc.field_ttd_topics_target_id = t.tid');
+
+    $query->fields('t', ['tid', 'name'])
+      ->fields('ttd', ['field_ttd_id_value'])
+      ->fields('h', ['field_hide_value'])
+      ->fields('pa', ['alias'])
+      ->fields('pc', ['post_count'])
+      ->condition('ti.entity_id', $nid)
+      ->condition('t.vid', 'ttd_topics')
+      ->condition('ti.deleted', 0)
+      ->condition('ep.salience_category', $salience_category);
+
+    // Exclude rejected topics.
+    if (!empty($rejected_ttd_ids)) {
+      $query->condition('ttd.field_ttd_id_value', $rejected_ttd_ids, 'NOT IN');
+    }
+
+    $query->orderBy('pc.post_count', 'DESC');
+
+    return $query->execute()->fetchAll();
+  }
+
+  /**
+   * Formats topics array into schema.org items.
+   *
+   * @param array $topics
+   *   Array of topic objects from getTopicsBySalience().
+   * @param string $base_url
+   *   The base URL for generating topic URLs.
+   *
+   * @return array
+   *   Array of formatted schema.org items.
+   */
+  protected function formatTopicsForSchema(array $topics, $base_url) {
+    $items = [];
+
+    foreach ($topics as $topic) {
+      // Skip hidden topics.
+      if (!empty($topic->field_hide_value)) {
+        continue;
+      }
+
+      $entity = $this->getEntityData($topic->field_ttd_id_value);
+      if (!$entity) {
+        continue;
+      }
+
+      $schema_types = $this->getEntitySchemaTypes($topic->field_ttd_id_value);
+      if (empty($schema_types)) {
+        $schema_types = ['Thing'];
+      }
+
+      $output_data = [
+        '@type' => count($schema_types) > 1 ? $schema_types : $schema_types[0],
+        'name' => $topic->name,
+        'url' => !empty($entity['official_website']) ? $entity['official_website'] : $base_url . $topic->alias,
+      ];
+
+      // Format the entity data.
+      $output_data = $this->formatEntityData($output_data, $entity, $schema_types[0]);
+
+      $items[] = $output_data;
+    }
+
+    return $items;
   }
 
   /**
