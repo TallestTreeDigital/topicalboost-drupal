@@ -347,6 +347,71 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     else {
       // Existing code for displaying topics...
     }
+
+    // Add Meta Generator section (if enabled in settings).
+    $meta_gen_enabled = $config->get('enable_meta_generator') ?? FALSE;
+    if ($meta_gen_enabled && $is_saved && !$node->get('field_ttd_analysis_in_progress')->value) {
+      // Check topics directly from the node field to avoid variable scoping issues
+      $topics_field_value = $node->get('field_ttd_topics')->getValue();
+      $has_topics = !empty($topics_field_value);
+
+      // Get existing generated meta if any.
+      $existing_title = $node->hasField('field_ttd_generated_meta_title')
+        ? $node->get('field_ttd_generated_meta_title')->value
+        : '';
+      $existing_description = $node->hasField('field_ttd_generated_meta_desc')
+        ? $node->get('field_ttd_generated_meta_desc')->value
+        : '';
+
+      $form['ttd_meta_generator'] = [
+        '#type' => 'details',
+        '#title' => t('SEO Meta Generator'),
+        '#weight' => -5,
+        '#optional' => FALSE,
+        '#open' => TRUE,
+      ];
+
+      if (!$has_topics) {
+        $form['ttd_meta_generator']['no_topics'] = [
+          '#markup' => '<p>' . t('Run TopicalBoost analysis first to detect topics, then generate SEO-optimized meta.') . '</p>',
+        ];
+      }
+      else {
+        // Add container for the meta generator UI.
+        $form['ttd_meta_generator']['container'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'id' => 'ttd-meta-generator-container',
+            'data-node-id' => $node->id(),
+          ],
+        ];
+
+        // Show existing meta if available.
+        if ($existing_title && $existing_description) {
+          $form['ttd_meta_generator']['existing'] = [
+            '#markup' => '
+              <div class="ttd-meta-existing">
+                <h4>' . t('Current Generated Meta') . '</h4>
+                <div class="ttd-meta-preview">
+                  <div class="ttd-meta-preview-title">' . htmlspecialchars($existing_title, ENT_QUOTES, 'UTF-8') . '</div>
+                  <div class="ttd-meta-preview-desc">' . htmlspecialchars($existing_description, ENT_QUOTES, 'UTF-8') . '</div>
+                </div>
+                <button type="button" class="button ttd-meta-regenerate-btn">' . t('Regenerate') . '</button>
+              </div>',
+            '#weight' => -10,
+          ];
+        }
+
+        // Attach libraries and settings.
+        $form['ttd_meta_generator']['#attached']['library'][] = 'ttd_topics/meta_generator';
+        $form['ttd_meta_generator']['#attached']['drupalSettings']['ttdMetaGenerator'] = [
+          'nodeId' => $node->id(),
+          'postUrl' => $node->toUrl()->setAbsolute()->toString(),
+          'apiBase' => '/api/topicalboost/meta',
+          'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
+        ];
+      }
+    }
   }
 }
 

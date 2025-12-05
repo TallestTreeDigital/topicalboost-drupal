@@ -142,3 +142,29 @@ topicalboost.api.coverage_metrics:
   methods: [GET]
   requirements:
     _permission: 'administer topicalboost configuration'
+
+# Meta Generation API routes
+topicalboost.api.meta.get_keywords:
+  path: '/api/topicalboost/meta/keywords/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::getKeywords'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+    node: \d+
+
+topicalboost.api.meta.generate:
+  path: '/api/topicalboost/meta/generate'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::generate'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.save:
+  path: '/api/topicalboost/meta/save'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::save'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'

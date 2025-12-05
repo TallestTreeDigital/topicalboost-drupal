@@ -173,4 +173,14 @@ code_examples:
     - core/drupal
     - core/once
 
-
+meta_generator:
+  css:
+    theme:
+      css/meta-generator.css: {}
+  js:
+    js/meta-generator.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill

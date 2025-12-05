@@ -8,7 +8,6 @@ const siteMetrics = {
     apiData: {},
     localData: {},
     ajaxUrl: '/api/topicalboost/coverage/metrics',
-    nonce: '',
 
     /**
      * Initialize the metrics handler.
@@ -16,13 +15,7 @@ const siteMetrics = {
     init: function() {
       // Get settings from drupalSettings (Drupal 9+ way).
       if (typeof drupalSettings !== 'undefined' && drupalSettings.ttdCoverage) {
-        this.nonce = drupalSettings.ttdCoverage.nonce || '';
         this.ajaxUrl = drupalSettings.ttdCoverage.ajaxUrl || this.ajaxUrl;
-      }
-
-      // Fallback: if no nonce, generate a basic one for safety.
-      if (!this.nonce) {
-        this.nonce = this.generateNonce();
       }
 
       this.applyProgressBarWidths();
@@ -42,13 +35,6 @@ const siteMetrics = {
           bar.style.width = coverage + '%';
         }
       });
-    },
-
-    /**
-     * Generate a basic nonce if not provided.
-     */
-    generateNonce: function() {
-      return Math.random().toString(36).substr(2, 9);
     },
 
     /**
@@ -92,12 +78,12 @@ const siteMetrics = {
       }
 
       const url = new URL(this.ajaxUrl, window.location.origin);
-      url.searchParams.set('token', this.nonce);
       if (forceRefresh) {
         url.searchParams.set('force_refresh', '1');
       }
 
       fetch(url, {
+        credentials: 'same-origin', // Include cookies for authentication
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
