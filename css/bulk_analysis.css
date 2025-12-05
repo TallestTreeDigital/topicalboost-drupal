@@ -883,6 +883,10 @@
   padding-top: 24px !important;
 }
 
+.gin--dark-mode #ttd-bulk-analysis-form.analysis-in-progress .ttd-progress-container {
+  background: var(--gin-bg-layer) !important;
+}
+
 .ttd-selection-info {
   display: flex;
   align-items: center;
@@ -1006,10 +1010,22 @@
   color: #15803d;
 }
 
+.gin--dark-mode .ttd-message-container.success {
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-left-color: #22c55e !important;
+  color: #86efac !important;
+}
+
 .ttd-message-container.error {
   background: linear-gradient(135deg, #fef2f2 0%, #fefefe 100%);
   border-left-color: #ef4444;
   color: #dc2626;
+}
+
+.gin--dark-mode .ttd-message-container.error {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-left-color: #ef4444 !important;
+  color: #fca5a5 !important;
 }
 
 .ttd-message-container.info {
@@ -1018,10 +1034,22 @@
   color: #1d4ed8;
 }
 
+.gin--dark-mode .ttd-message-container.info {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-left-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
 .ttd-message-container.warning {
   background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%);
   border-left-color: #f59e0b;
   color: #d97706;
+}
+
+.gin--dark-mode .ttd-message-container.warning {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-left-color: #f59e0b !important;
+  color: #fcd34d !important;
 }
 
 .ttd-message-container.progress {
@@ -1189,7 +1217,8 @@
 }
 
 .gin--dark-mode .ttd-bulk-analysis-actions {
-  background: transparent !important;
+  background: var(--gin-bg-layer) !important;
+  border-color: var(--gin-border-color) !important;
 }
 
 .ttd-bulk-analysis-actions button {
@@ -1335,6 +1364,10 @@
   pointer-events: none;
 }
 
+.gin--dark-mode .ttd-analysis-disabled::before {
+  background: rgba(30, 30, 30, 0.8) !important;
+}
+
 /* Disabled content type cards during analysis */
 .ttd-content-type-card.disabled,
 .ttd-content-type-card[aria-disabled="true"] {
@@ -1385,6 +1418,13 @@
   font-weight: 500;
   color: #374151;
   border: 1px solid #e5e7eb;
+}
+
+.gin--dark-mode .ttd-analysis-overlay {
+  background: var(--gin-bg-layer) !important;
+  color: var(--gin-color-text) !important;
+  border-color: var(--gin-border-color) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
 }
 
 /* Analysis completion message styles */
@@ -1496,5 +1536,212 @@
   .ttd-completion-actions .ttd-btn {
     width: 100% !important;
     padding: 12px 20px !important;
+  }
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  /* Only apply if Gin dark mode class is NOT present (avoid double-application) */
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form,
+  body:not(.gin--dark-mode) .ttd-bulk-analysis-wrapper {
+    background: #1e1e1e !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  body:not(.gin--dark-mode) .ttd-bulk-analysis-section {
+    border-bottom-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-section-header {
+    background: #2a2a2a !important;
+    border-bottom-color: #3a3a3a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-section-title {
+    color: #e8e8e8 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-selection-status {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-bulk-analysis-actions {
+    background: #1e1e1e !important;
+    border-color: #3a3a3a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-date-range-buttons {
+    background: #2a2a2a !important;
+    border-color: #3a3a3a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-date-range-buttons .button.ttd-date-range-btn {
+    background: #3a3a3a !important;
+    color: #e5e7eb !important;
+    border-color: #4a4a4a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-date-range-buttons .button.ttd-date-range-btn:hover {
+    background: #4a4a4a !important;
+    color: #f3f4f6 !important;
+    border-color: #5a5a5a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-date-range-buttons .button.ttd-date-range-btn.active {
+    background: #1e3a8a !important;
+    color: #bfdbfe !important;
+    border-color: #3b82f6 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-custom-date-range {
+    border-top-color: #3a3a3a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-custom-date-range .description {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) .modern-date-range {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  body:not(.gin--dark-mode) .date-label {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) .modern-date-input {
+    background: #2a2a2a !important;
+    color: #e8e8e8 !important;
+    border-color: #444444 !important;
+  }
+
+  body:not(.gin--dark-mode) .modern-date-input:hover {
+    border-color: #555555 !important;
+  }
+
+  body:not(.gin--dark-mode) .modern-date-input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
+  }
+
+  body:not(.gin--dark-mode) .date-separator {
+    color: #6b7280 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-bulk-analysis-section .form-type-checkbox label {
+    color: #e8e8e8 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-bulk-analysis-section .form-type-checkbox .description {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-filter-header {
+    background: #2a2a2a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-section-label {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-content-type-card {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-content-type-card:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+  }
+
+  body:not(.gin--dark-mode) .ttd-content-type-card.ttd-enabled {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+  }
+
+  body:not(.gin--dark-mode) .ttd-content-type-name {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) .ttd-progress-container {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-progress-section h4 {
+    color: #e8e8e8 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-progress-bar {
+    background: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-progress-text {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.success {
+    background: rgba(34, 197, 94, 0.15) !important;
+    color: #86efac !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.error {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #fca5a5 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.info {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #93c5fd !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.warning {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #fcd34d !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.progress {
+    background: rgba(100, 116, 139, 0.2) !important;
+    color: #cbd5e1 !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-message-container.ready {
+    background: rgba(14, 165, 233, 0.15) !important;
+    color: #7dd3fc !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-overlay {
+    background: #2a2a2a !important;
+    color: #e8e8e8 !important;
+    border-color: #3a3a3a !important;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-disabled::before {
+    background: rgba(30, 30, 30, 0.8) !important;
+  }
+
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form input[type="checkbox"] {
+    background: #2a2a2a !important;
+    border-color: #4a4a4a !important;
+  }
+
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form .form-item > small,
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form .form-item > .description {
+    color: #9ca3af !important;
+  }
+
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form .form-item label.option,
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form .form-item label.block {
+    color: #e8e8e8 !important;
+  }
+
+  body:not(.gin--dark-mode) #ttd-bulk-analysis-form.analysis-in-progress .ttd-progress-container {
+    background: #1e1e1e !important;
   }
 }
