@@ -380,12 +380,6 @@ fieldset .form-radios > div > div {
   border: 1px solid #e5e7eb;
 }
 
-.gin--dark-mode .mention-tag {
-  background: var(--gin-bg-app);
-  color: var(--gin-color-text);
-  border-color: var(--gin-border-color);
-}
-
 .mention-tag:hover {
   background: #2563eb;
   color: white;
@@ -393,11 +387,6 @@ fieldset .form-radios > div > div {
   border-color: #2563eb;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-}
-
-.gin--dark-mode .mention-tag:hover {
-  background: rgb(var(--gin-color-primary-rgb));
-  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 .mention-tag.hidden {

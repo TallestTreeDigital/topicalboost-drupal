@@ -74,7 +74,6 @@ class CoverageController extends ControllerBase {
         'drupalSettings' => [
           'ttdCoverage' => [
             'ajaxUrl' => '/api/topicalboost/coverage/metrics',
-            'nonce' => \Drupal::csrfToken()->get('ttd-coverage-metrics'),
           ],
         ],
       ],
@@ -227,16 +226,9 @@ class CoverageController extends ControllerBase {
    *   JSON response with API metrics.
    */
   public function getMetrics() {
-    // Verify nonce.
-    $nonce = \Drupal::request()->query->get('token');
-    if (!$nonce || !\Drupal::csrfToken()->validate($nonce, 'ttd-coverage-metrics')) {
-      return new JsonResponse(['error' => 'Invalid token'], 403);
-    }
-
-    // Check permission.
-    if (!$this->currentUser()->hasPermission('administer topicalboost configuration')) {
-      return new JsonResponse(['error' => 'Access denied'], 403);
-    }
+    // Permission is already checked at the routing level via _permission requirement.
+    // No CSRF token needed for GET requests (read-only, no state change).
+    // Removing CSRF check fixes caching issues where stale tokens cause 404s.
 
     // Check for cache bypass.
     $force_refresh = \Drupal::request()->query->get('force_refresh');

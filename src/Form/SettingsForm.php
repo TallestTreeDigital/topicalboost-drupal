@@ -454,7 +454,6 @@ class SettingsForm extends ConfigFormBase {
       // Attach drupalSettings for coverage metrics
       $form['#attached']['drupalSettings']['ttdCoverage'] = [
         'ajaxUrl' => '/api/topicalboost/coverage/metrics',
-        'nonce' => \Drupal::csrfToken()->get('ttd-coverage-metrics'),
       ];
     }
 
@@ -1118,21 +1117,45 @@ class SettingsForm extends ConfigFormBase {
    *   The URL to the auto-detected logo or NULL if none found.
    */
   protected function getAutoDetectedLogoUrl() {
-    $request = \Drupal::request();
-    $base_url = $request->getSchemeAndHttpHost();
+    // Use Drupal's proper base URL handling (works behind proxies, in subdirs, etc.)
+    $base_url = \Drupal::request()->getSchemeAndHttpHost() . \Drupal::request()->getBasePath();
 
     // First, try to get logo from Drupal site logo settings.
     $site_logo = theme_get_setting('logo');
     if (!empty($site_logo['url'])) {
-      return $site_logo['url'];
+      $logo_url = $site_logo['url'];
+
+      // Already a full URL (http://, https://, or protocol-relative //).
+      if (preg_match('#^(https?:)?//#i', $logo_url)) {
+        return $logo_url;
+      }
+
+      // Relative path - ensure it starts with /.
+      if (strpos($logo_url, '/') !== 0) {
+        $logo_url = '/' . $logo_url;
+      }
+
+      // Verify file exists before returning.
+      $local_path = \Drupal::root() . $logo_url;
+      if (file_exists($local_path)) {
+        return $base_url . $logo_url;
+      }
+      // File doesn't exist, continue to other detection methods.
     }
 
     // Get active theme info.
     $theme_handler = \Drupal::service('theme_handler');
     $active_theme = $theme_handler->getDefault();
-    $theme_path = $theme_handler->getTheme($active_theme)->getPath();
 
-    // Common logo filenames to search for.
+    try {
+      $theme_path = $theme_handler->getTheme($active_theme)->getPath();
+    }
+    catch (\Exception $e) {
+      // Theme not found, can't detect logo from theme.
+      return NULL;
+    }
+
+    // Common logo filenames to search for (ordered by preference).
     $logo_filenames = [
       'logo.svg',
       'logo.png',
@@ -1142,7 +1165,6 @@ class SettingsForm extends ConfigFormBase {
       'images/logo.svg',
       'images/logo.png',
       'images/logo.jpg',
-      'images/logo.jpeg',
       'assets/logo.svg',
       'assets/logo.png',
       'img/logo.svg',
@@ -1151,23 +1173,26 @@ class SettingsForm extends ConfigFormBase {
 
     // Search for logo files in active theme.
     foreach ($logo_filenames as $filename) {
-      $logo_path = $theme_path . '/' . $filename;
-      if (file_exists(\Drupal::root() . '/' . $logo_path)) {
-        return $base_url . '/' . $logo_path;
+      $logo_path = '/' . $theme_path . '/' . $filename;
+      if (file_exists(\Drupal::root() . $logo_path)) {
+        return $base_url . $logo_path;
       }
     }
 
-    // Fallback: look for site-specific logos (like your fordhaminstitute theme)
-    $site_specific_logos = [
-      '/themes/fordhaminstitute/logo.png',
-      '/themes/fordhaminstitute/images/logo-alt.png',
-      '/themes/fordhaminstitute/2color-logo.svg',
-      '/themes/fordhaminstitute/logo.svg',
-    ];
-
-    foreach ($site_specific_logos as $logo_path) {
-      if (file_exists(\Drupal::root() . $logo_path)) {
-        return $base_url . $logo_path;
+    // Also check the default theme if different from active (admin vs frontend).
+    $default_theme = \Drupal::config('system.theme')->get('default');
+    if ($default_theme && $default_theme !== $active_theme) {
+      try {
+        $default_theme_path = $theme_handler->getTheme($default_theme)->getPath();
+        foreach ($logo_filenames as $filename) {
+          $logo_path = '/' . $default_theme_path . '/' . $filename;
+          if (file_exists(\Drupal::root() . $logo_path)) {
+            return $base_url . $logo_path;
+          }
+        }
+      }
+      catch (\Exception $e) {
+        // Default theme not found, skip.
       }
     }
 
