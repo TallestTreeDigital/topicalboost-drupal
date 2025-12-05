@@ -354,10 +354,6 @@ fieldset .form-radios > div > div {
   margin-bottom: 8px;
 }
 
-.gin--dark-mode .mentions-label {
-  color: var(--gin-color-text);
-}
-
 .mentions-list {
   display: flex;
   flex-wrap: wrap;
@@ -415,33 +411,16 @@ fieldset .form-radios > div > div {
   line-height: 1.2;
 }
 
-.gin--dark-mode .toggle-mentions-btn {
-  background: var(--gin-bg-app);
-  border-color: var(--gin-border-color);
-  color: var(--gin-color-text-light);
-}
-
 .toggle-mentions-btn:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
   color: #374151;
 }
 
-.gin--dark-mode .toggle-mentions-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgb(var(--gin-color-primary-rgb));
-  color: var(--gin-color-text);
-}
-
 .toggle-mentions-btn:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
   border-color: #3b82f6;
-}
-
-.gin--dark-mode .toggle-mentions-btn:focus {
-  box-shadow: 0 0 0 2px rgba(var(--gin-color-primary-rgb), 0.3);
-  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 /* No responsive adjustments needed - layout is vertical by default */
