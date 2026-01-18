@@ -1428,6 +1428,18 @@ class SettingsForm extends ConfigFormBase {
         'storage_settings' => [],
         'settings' => [],
       ],
+      'field_ttd_generated_meta_title' => [
+        'type' => 'string',
+        'label' => 'TopicalBoost Generated Meta Title',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_generated_meta_desc' => [
+        'type' => 'string_long',
+        'label' => 'TopicalBoost Generated Meta Description',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
     ];
     
     // Ensure field storage exists for all fields before creating instances.

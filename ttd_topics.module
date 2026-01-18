@@ -233,7 +233,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       $about_count = count($about_topics);
       $mentions_count = count($mentions_topics);
 
-      // About This Post section (always visible, not collapsible).
+      // Also About section (always visible, not collapsible).
       $form['ttd_topics']['about_section'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['ttd-topics-section', 'ttd-about-section']],
@@ -241,7 +241,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       ];
 
       $form['ttd_topics']['about_section']['header'] = [
-        '#markup' => '<div class="ttd-section-header ttd-section-static"><span class="ttd-section-title">' . t('About This Post') . '</span> <span class="ttd-section-count">(' . $about_count . ')</span></div>',
+        '#markup' => '<div class="ttd-section-header ttd-section-static"><span class="ttd-section-title">' . t('Also About') . '</span> <span class="ttd-section-count">(' . $about_count . ')</span></div>',
       ];
 
       if ($about_count > 0) {
@@ -281,11 +281,11 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         ];
       }
 
-      // Also Mentioned section (collapsed by default).
+      // Mentions section (collapsed by default).
       if ($mentions_count > 0) {
         $form['ttd_topics']['mentions_section'] = [
           '#type' => 'details',
-          '#title' => t('Also Mentioned (@count)', ['@count' => $mentions_count]),
+          '#title' => t('Mentions (@count)', ['@count' => $mentions_count]),
           '#open' => FALSE,
           '#attributes' => ['class' => ['ttd-topics-section', 'ttd-mentions-section']],
           '#weight' => 20,
@@ -404,12 +404,22 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
         // Attach libraries and settings.
         $form['ttd_meta_generator']['#attached']['library'][] = 'ttd_topics/meta_generator';
-        $form['ttd_meta_generator']['#attached']['drupalSettings']['ttdMetaGenerator'] = [
+        $settings = [
           'nodeId' => $node->id(),
           'postUrl' => $node->toUrl()->setAbsolute()->toString(),
           'apiBase' => '/api/topicalboost/meta',
           'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
         ];
+
+        // Pass existing meta to JS so it can load it into the editable UI.
+        if ($existing_title && $existing_description) {
+          $settings['existingMeta'] = [
+            'title' => $existing_title,
+            'description' => $existing_description,
+          ];
+        }
+
+        $form['ttd_meta_generator']['#attached']['drupalSettings']['ttdMetaGenerator'] = $settings;
       }
     }
   }

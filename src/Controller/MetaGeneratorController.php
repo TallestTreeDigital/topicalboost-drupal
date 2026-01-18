@@ -17,6 +17,8 @@ class MetaGeneratorController extends ControllerBase {
   /**
    * Get keywords/topics for a node with demand metrics.
    *
+   * Only returns "Also About" (focus topics), not "Mentions".
+   *
    * @param \Drupal\node\NodeInterface $node
    *   The node entity.
    *
@@ -33,11 +35,25 @@ class MetaGeneratorController extends ControllerBase {
       ], 400);
     }
 
+    // Get only "about" (focus) topics from ttd_entity_post_ids table.
+    $database = \Drupal::database();
+    $about_entity_ids = $database->select('ttd_entity_post_ids', 'ep')
+      ->fields('ep', ['entity_id'])
+      ->condition('ep.post_id', $node->id())
+      ->condition('ep.salience_category', 'about')
+      ->execute()
+      ->fetchCol();
+
     $topics = $node->get('field_ttd_topics')->referencedEntities();
 
     foreach ($topics as $term) {
       /** @var \Drupal\taxonomy\Entity\Term $term */
       $ttd_id = $term->get('field_ttd_id')->value ?? NULL;
+
+      // Only include topics that are in the "about" category.
+      if (!empty($about_entity_ids) && $ttd_id && !in_array($ttd_id, $about_entity_ids)) {
+        continue;
+      }
 
       // Get cached demand metrics if available.
       $kd = $term->hasField('field_keyword_difficulty')
@@ -262,11 +278,16 @@ class MetaGeneratorController extends ControllerBase {
 
       $node->save();
 
+      // Return the new changed timestamp so JS can update the form's hidden field
+      // This prevents "content has been modified by another user" errors
+      $changed = $node->getChangedTime();
+
       return new JsonResponse([
         'success' => TRUE,
         'data' => [
           'message' => 'Meta saved successfully',
           'seo_module' => $seo_module,
+          'changed' => $changed,
         ],
       ]);
     }

@@ -585,6 +585,18 @@ function ttd_topics_install() {
       'type' => 'boolean',
       'cardinality' => 1,
     ],
+    [
+      'field_name' => 'field_ttd_generated_meta_title',
+      'entity_type' => 'node',
+      'type' => 'string',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_ttd_generated_meta_desc',
+      'entity_type' => 'node',
+      'type' => 'string_long',
+      'cardinality' => 1,
+    ],
   ];
 
   // Create field storages.
@@ -844,9 +856,63 @@ function ttd_topics_update_8002() {
   return t('Added salience_score and salience_category columns to ttd_entity_post_ids table.');
 }
 
+/**
+ * Add field storage for SEO meta title and description fields.
+ */
+function ttd_topics_update_8003() {
+  $meta_field_storage_configs = [
+    [
+      'field_name' => 'field_ttd_generated_meta_title',
+      'entity_type' => 'node',
+      'type' => 'string',
+      'cardinality' => 1,
+      'label' => 'TopicalBoost Generated Meta Title',
+    ],
+    [
+      'field_name' => 'field_ttd_generated_meta_desc',
+      'entity_type' => 'node',
+      'type' => 'string_long',
+      'cardinality' => 1,
+      'label' => 'TopicalBoost Generated Meta Description',
+    ],
+  ];
 
+  // Create field storages.
+  foreach ($meta_field_storage_configs as $field_storage_config) {
+    if (!FieldStorageConfig::loadByName($field_storage_config['entity_type'], $field_storage_config['field_name'])) {
+      FieldStorageConfig::create([
+        'field_name' => $field_storage_config['field_name'],
+        'entity_type' => $field_storage_config['entity_type'],
+        'type' => $field_storage_config['type'],
+        'cardinality' => $field_storage_config['cardinality'],
+      ])->save();
+    }
+  }
 
+  // Add field instances to all enabled content types.
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
 
+  foreach ($enabled_content_types as $content_type) {
+    // Check if content type exists.
+    if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($content_type)) {
+      continue;
+    }
+
+    foreach ($meta_field_storage_configs as $field_storage_config) {
+      if (!FieldConfig::loadByName('node', $content_type, $field_storage_config['field_name'])) {
+        FieldConfig::create([
+          'field_name' => $field_storage_config['field_name'],
+          'entity_type' => 'node',
+          'bundle' => $content_type,
+          'label' => $field_storage_config['label'],
+        ])->save();
+      }
+    }
+  }
+
+  return t('Added field storage for SEO meta title and description fields.');
+}
 
 
 

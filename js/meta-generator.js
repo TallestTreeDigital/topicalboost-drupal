@@ -2,39 +2,47 @@
  * @file
  * Meta Generator JavaScript for Drupal.
  *
- * SEO-focused meta title/description generation with keyword selection,
- * option review, and live validation.
+ * SEO-focused meta title/description generation with 2-column layout.
+ * Keywords on top, Titles | Descriptions side by side below.
  */
 
 (function ($, Drupal, drupalSettings, once) {
     'use strict';
 
+    // Debounce utility
+    function debounce(fn, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
     const MetaGenerator = {
         // Configuration
         config: {
             titleMaxLength: 60,
-            titleWarningLength: 65,
+            titleWarningLength: 55,
             descriptionMaxLength: 160,
-            descriptionWarningLength: 165,
-            debounceDelay: 500,
-            minKeywords: 2
+            descriptionWarningLength: 150,
+            debounceDelay: 150,
+            minKeywords: 1,
+            numOptions: 5
         },
 
         // State
         state: {
-            currentStep: 1,
             selectedKeywords: [],
-            generatedVariations: [],
-            selectedVariation: null,
-            editedTitle: '',
-            editedDescription: '',
-            isGenerating: false
+            titleOptions: [],
+            descriptionOptions: [],
+            selectedTitleIndex: null,
+            selectedDescIndex: null,
+            isGenerating: false,
+            hasGenerated: false
         },
 
-        // DOM Elements (set during init)
+        // DOM Elements
         $container: null,
-        $stepContainers: {},
-        debounceTimer: null,
 
         /**
          * Initialize the meta generator
@@ -45,170 +53,138 @@
 
             // Reset state
             this.state = {
-                currentStep: 1,
                 selectedKeywords: [],
-                generatedVariations: [],
-                selectedVariation: null,
-                editedTitle: '',
-                editedDescription: '',
-                isGenerating: false
+                titleOptions: [],
+                descriptionOptions: [],
+                selectedTitleIndex: null,
+                selectedDescIndex: null,
+                isGenerating: false,
+                hasGenerated: false
             };
 
             this.render();
             this.bindEvents();
+
+            // If existing meta is passed, show it in the UI
+            if (this.options.existingMeta && this.options.existingMeta.title && this.options.existingMeta.description) {
+                this.loadExistingMeta(this.options.existingMeta);
+                return;
+            }
+
+            // Check for saved draft in localStorage
+            if (this.restoreFromLocalStorage()) {
+                this.renderRestoredState();
+            }
         },
 
         /**
-         * Render the complete UI
+         * Load existing saved meta into the UI
+         */
+        loadExistingMeta: function(existingMeta) {
+            // Hide the PHP-rendered preview at top - we'll show SERP preview below columns
+            this.$container.siblings('.ttd-meta-existing').hide();
+
+            // Set up state with existing values as the single option
+            this.state.titleOptions = [existingMeta.title];
+            this.state.descriptionOptions = [existingMeta.description];
+            this.state.selectedTitleIndex = 0;
+            this.state.selectedDescIndex = 0;
+            this.state.hasGenerated = true;
+
+            // Render the options
+            this.renderTitleOptions();
+            this.renderDescriptionOptions();
+
+            // Pre-select the options
+            this.$container.find('.ttd-title-radio[value="0"]').prop('checked', true);
+            this.$container.find('.ttd-desc-radio[value="0"]').prop('checked', true);
+
+            // Update Generate button to Regenerate
+            this.$container.find('.ttd-meta-generate-btn')
+                .removeClass('button button--primary')
+                .addClass('button-link')
+                .text(Drupal.t('Regenerate'));
+
+            // Show the SERP preview below columns with saved state
+            this.renderInlinePreview(existingMeta.title, existingMeta.description, true);
+        },
+
+        /**
+         * Render restored state from localStorage
+         */
+        renderRestoredState: function() {
+            // Render the options
+            this.renderTitleOptions();
+            this.renderDescriptionOptions();
+
+            // Select the saved selections
+            if (this.state.selectedTitleIndex !== null) {
+                this.$container.find('.ttd-title-radio[value="' + this.state.selectedTitleIndex + '"]').prop('checked', true);
+            }
+            if (this.state.selectedDescIndex !== null) {
+                this.$container.find('.ttd-desc-radio[value="' + this.state.selectedDescIndex + '"]').prop('checked', true);
+            }
+
+            // Update save button state
+            this.updateSaveButton();
+
+            // Update Generate button to say Regenerate (as link)
+            this.$container.find('.ttd-meta-generate-btn')
+                .removeClass('button button--primary')
+                .addClass('button-link')
+                .text(Drupal.t('Regenerate'));
+        },
+
+        /**
+         * Render the 2-column layout with keywords on top
          */
         render: function() {
             const html = `
                 <div class="ttd-meta-generator">
-                    <div class="ttd-meta-steps">
-                        <div class="ttd-meta-step-indicator">
-                            <span class="ttd-step-dot active" data-step="1">1</span>
-                            <span class="ttd-step-line"></span>
-                            <span class="ttd-step-dot" data-step="2">2</span>
-                            <span class="ttd-step-line"></span>
-                            <span class="ttd-step-dot" data-step="3">3</span>
+                    <!-- Keywords Row -->
+                    <div class="ttd-meta-keywords-row">
+                        <span class="ttd-meta-keywords-label">${Drupal.t('Focus topic:')}</span>
+                        <div class="ttd-meta-keywords-chips" id="ttd-keywords-list">
+                            <span class="ttd-meta-loading-inline">${Drupal.t('Loading...')}</span>
+                        </div>
+                        <div class="ttd-meta-keywords-actions">
+                            <button type="button" class="button button--primary ttd-meta-generate-btn" disabled>
+                                ${Drupal.t('Generate')}
+                            </button>
                         </div>
                     </div>
 
-                    <div class="ttd-meta-step-container" data-step="1">
-                        ${this.renderStep1()}
+                    <!-- Two Column Layout -->
+                    <div class="ttd-meta-two-columns">
+                        <!-- Titles Column -->
+                        <div class="ttd-meta-column ttd-meta-column-titles">
+                            <div class="ttd-meta-column-header">${Drupal.t('Title')}</div>
+                            <div class="ttd-meta-column-content" id="ttd-titles-list">
+                                <div class="ttd-meta-column-empty">
+                                    ${Drupal.t('Select keyword and click Generate')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Descriptions Column -->
+                        <div class="ttd-meta-column ttd-meta-column-descriptions">
+                            <div class="ttd-meta-column-header">${Drupal.t('Description')}</div>
+                            <div class="ttd-meta-column-content" id="ttd-descriptions-list">
+                                <div class="ttd-meta-column-empty">
+                                    ${Drupal.t('Select keyword and click Generate')}
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="ttd-meta-step-container" data-step="2" style="display: none;">
-                        ${this.renderStep2()}
+                    <!-- Inline Preview (shown after auto-save) -->
+                    <div class="ttd-meta-inline-preview" id="ttd-inline-preview" style="display: none;">
                     </div>
 
-                    <div class="ttd-meta-step-container" data-step="3" style="display: none;">
-                        ${this.renderStep3()}
-                    </div>
                 </div>
             `;
 
             this.$container.html(html);
-            this.cacheElements();
-        },
-
-        /**
-         * Cache DOM elements for performance
-         */
-        cacheElements: function() {
-            this.$stepContainers = {
-                1: this.$container.find('[data-step="1"]'),
-                2: this.$container.find('[data-step="2"]'),
-                3: this.$container.find('[data-step="3"]')
-            };
-        },
-
-        /**
-         * Render Step 1: Keyword Selection
-         */
-        renderStep1: function() {
-            return `
-                <div class="ttd-meta-step ttd-meta-step-keywords">
-                    <h4 class="ttd-meta-step-title">${Drupal.t('Select Target Keywords')}</h4>
-                    <p class="ttd-meta-help-text">${Drupal.t('Select keywords you want to rank for. Green = easier, Red = more competitive.')}</p>
-
-                    <div class="ttd-meta-keywords-list" id="ttd-meta-keywords-list">
-                        <div class="ttd-meta-loading">
-                            <span class="ttd-spinner"></span>
-                            ${Drupal.t('Loading topics...')}
-                        </div>
-                    </div>
-
-                    <div class="ttd-meta-step-footer">
-                        <span class="ttd-meta-selection-count">${Drupal.t('0 keywords selected (min @min)', {'@min': this.options.minKeywords})}</span>
-                        <button type="button" class="button button--primary ttd-meta-generate-btn" disabled>
-                            ${Drupal.t('Generate SEO Options')}
-                        </button>
-                    </div>
-                </div>
-            `;
-        },
-
-        /**
-         * Render Step 2: Review Generated Options
-         */
-        renderStep2: function() {
-            return `
-                <div class="ttd-meta-step ttd-meta-step-options">
-                    <h4 class="ttd-meta-step-title">${Drupal.t('Review Generated Options')}</h4>
-                    <p class="ttd-meta-help-text">${Drupal.t('Select your preferred title and description combination.')}</p>
-
-                    <div class="ttd-meta-options-list" id="ttd-meta-options-list">
-                        <!-- Options will be rendered here -->
-                    </div>
-
-                    <div class="ttd-meta-step-footer">
-                        <button type="button" class="button ttd-meta-back-btn" data-step="1">
-                            ${Drupal.t('Back')}
-                        </button>
-                        <button type="button" class="button button--primary ttd-meta-edit-btn" disabled>
-                            ${Drupal.t('Edit & Finalize')}
-                        </button>
-                    </div>
-                </div>
-            `;
-        },
-
-        /**
-         * Render Step 3: Inline Edit with Live Validation
-         */
-        renderStep3: function() {
-            return `
-                <div class="ttd-meta-step ttd-meta-step-edit">
-                    <h4 class="ttd-meta-step-title">${Drupal.t('Edit & Finalize')}</h4>
-
-                    <div class="ttd-meta-edit-fields">
-                        <div class="ttd-meta-field-group">
-                            <label for="ttd-meta-title">${Drupal.t('Meta Title')}</label>
-                            <div class="ttd-meta-input-wrapper">
-                                <input type="text" id="ttd-meta-title" class="ttd-meta-input form-text" maxlength="70" />
-                                <span class="ttd-meta-char-count" data-field="title">
-                                    <span class="count">0</span>/${this.options.titleMaxLength}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="ttd-meta-field-group">
-                            <label for="ttd-meta-description">${Drupal.t('Meta Description')}</label>
-                            <div class="ttd-meta-input-wrapper">
-                                <textarea id="ttd-meta-description" class="ttd-meta-input form-textarea" rows="3" maxlength="170"></textarea>
-                                <span class="ttd-meta-char-count" data-field="description">
-                                    <span class="count">0</span>/${this.options.descriptionMaxLength}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="ttd-meta-validation-panel">
-                        <h5>${Drupal.t('SEO Analysis')}</h5>
-                        <div class="ttd-meta-detected-keywords" id="ttd-meta-detected-keywords">
-                            <!-- Detected keywords will be shown here -->
-                        </div>
-                        <div class="ttd-meta-serp-preview">
-                            <h5>${Drupal.t('SERP Preview')}</h5>
-                            <div class="ttd-serp-result">
-                                <div class="ttd-serp-title" id="ttd-serp-title"></div>
-                                <div class="ttd-serp-url" id="ttd-serp-url"></div>
-                                <div class="ttd-serp-description" id="ttd-serp-description"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="ttd-meta-step-footer">
-                        <button type="button" class="button ttd-meta-back-btn" data-step="2">
-                            ${Drupal.t('Back')}
-                        </button>
-                        <button type="button" class="button button--primary ttd-meta-save-btn">
-                            ${Drupal.t('Save to Post')}
-                        </button>
-                    </div>
-                </div>
-            `;
         },
 
         /**
@@ -217,8 +193,8 @@
         bindEvents: function() {
             const self = this;
 
-            // Keyword checkbox changes
-            this.$container.on('change', '.ttd-meta-keyword-checkbox', function() {
+            // Keyword radio changes (single selection)
+            this.$container.on('change', '.ttd-meta-keyword-radio', function() {
                 self.handleKeywordChange();
             });
 
@@ -229,32 +205,51 @@
                 }
             });
 
-            // Option selection
-            this.$container.on('change', '.ttd-meta-option-radio', function() {
-                self.handleOptionSelect($(this).val());
+            // Title option selection
+            this.$container.on('change', '.ttd-title-radio', function() {
+                self.state.selectedTitleIndex = parseInt($(this).val(), 10);
+                self.checkAutoSave();
             });
 
-            // Edit button click
-            this.$container.on('click', '.ttd-meta-edit-btn', function() {
-                if (!$(this).prop('disabled')) {
-                    self.goToStep(3);
+            // Description option selection
+            this.$container.on('change', '.ttd-desc-radio', function() {
+                self.state.selectedDescIndex = parseInt($(this).val(), 10);
+                self.checkAutoSave();
+            });
+
+            // Debounced auto-save check
+            const debouncedAutoSave = debounce(function() {
+                self.checkAutoSave();
+            }, 500);
+
+            // Title input changes - update stored value and char count
+            this.$container.on('input', '.ttd-title-input', function() {
+                const index = parseInt($(this).data('index'), 10);
+                const value = $(this).val();
+                self.state.titleOptions[index] = value;
+                self.updateCharCount($(this).closest('.ttd-meta-option-editable').find('.ttd-meta-option-char-count'), value.length, self.options.titleMaxLength, self.options.titleWarningLength);
+                // Auto-resize textarea
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+                // Re-check auto-save if editing selected option (debounced)
+                if (index === self.state.selectedTitleIndex) {
+                    debouncedAutoSave();
                 }
             });
 
-            // Back button clicks
-            this.$container.on('click', '.ttd-meta-back-btn', function() {
-                const step = parseInt($(this).data('step'), 10);
-                self.goToStep(step);
-            });
-
-            // Title/Description input changes (live validation)
-            this.$container.on('input', '#ttd-meta-title, #ttd-meta-description', function() {
-                self.handleInputChange();
-            });
-
-            // Save button click
-            this.$container.on('click', '.ttd-meta-save-btn', function() {
-                self.saveMetaToPost();
+            // Description input changes - update stored value and char count
+            this.$container.on('input', '.ttd-desc-input', function() {
+                const index = parseInt($(this).data('index'), 10);
+                const value = $(this).val();
+                self.state.descriptionOptions[index] = value;
+                self.updateCharCount($(this).closest('.ttd-meta-option-editable').find('.ttd-meta-option-char-count'), value.length, self.options.descriptionMaxLength, self.options.descriptionWarningLength);
+                // Auto-resize textarea
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+                // Re-check auto-save if editing selected option (debounced)
+                if (index === self.state.selectedDescIndex) {
+                    debouncedAutoSave();
+                }
             });
         },
 
@@ -262,35 +257,86 @@
          * Load topics/keywords from the post
          */
         loadKeywords: function(topics) {
-            const $list = this.$container.find('#ttd-meta-keywords-list');
+            const $list = this.$container.find('#ttd-keywords-list');
+            const $columns = this.$container.find('.ttd-meta-two-columns');
+            const $keywordsRow = this.$container.find('.ttd-meta-keywords-row');
 
             if (!topics || topics.length === 0) {
-                $list.html('<p class="ttd-meta-no-topics">' + Drupal.t('No topics available. Run analysis first to detect topics.') + '</p>');
+                $list.html('<span class="ttd-meta-no-keywords">' + Drupal.t('No Main/About topics. Add manually or drag from mentions.') + '</span>');
+                $columns.hide();
+                $keywordsRow.addClass('ttd-meta-keywords-standalone');
                 return;
             }
 
-            let html = '';
-            topics.forEach((topic, index) => {
-                const kdBadge = this.getKDBadge(topic.keyword_difficulty);
-                const checked = index < this.options.minKeywords ? 'checked' : '';
+            $columns.show();
+            $keywordsRow.removeClass('ttd-meta-keywords-standalone');
 
-                html += `
-                    <label class="ttd-meta-keyword-item">
-                        <input type="checkbox" class="ttd-meta-keyword-checkbox"
-                            value="${this.escapeHtml(topic.name)}"
-                            data-ttd-id="${topic.ttd_id || ''}"
-                            data-kd="${topic.keyword_difficulty || ''}"
-                            data-volume="${topic.search_volume || ''}"
-                            ${checked} />
-                        <span class="ttd-meta-keyword-badge ${kdBadge.class}" title="KD: ${topic.keyword_difficulty || 'N/A'}">${kdBadge.label}</span>
-                        <span class="ttd-meta-keyword-name">${this.escapeHtml(topic.name)}</span>
-                        ${topic.search_volume ? `<span class="ttd-meta-keyword-volume">${this.formatVolume(topic.search_volume)}</span>` : ''}
-                    </label>
-                `;
+            // Separate mainEntity from about topics
+            const mainEntity = topics.filter(t => t.tier === 'mainEntity');
+            const aboutTopics = topics.filter(t => t.tier === 'about');
+            const allTopics = [...mainEntity, ...aboutTopics];
+            const displayTopics = allTopics.length > 0 ? allTopics : topics;
+
+            // Find best keyword to pre-select (lowest KD, or main entity)
+            let bestIndex = 0;
+            if (mainEntity.length > 0) {
+                bestIndex = 0; // Main entity is first
+            } else {
+                // Find lowest KD among about topics
+                let lowestKD = Infinity;
+                displayTopics.forEach((topic, index) => {
+                    const kd = parseFloat(topic.keyword_difficulty) || 100;
+                    if (kd < lowestKD) {
+                        lowestKD = kd;
+                        bestIndex = index;
+                    }
+                });
+            }
+
+            let html = '';
+
+            displayTopics.forEach((topic, index) => {
+                const isMainEntity = topic.tier === 'mainEntity';
+                const preChecked = (index === bestIndex);
+
+                html += this.renderKeywordChip(topic, preChecked, isMainEntity);
             });
 
             $list.html(html);
             this.handleKeywordChange();
+        },
+
+        /**
+         * Render a single keyword chip (radio button for single selection)
+         */
+        renderKeywordChip: function(topic, preChecked, isMainEntity) {
+            const kdInfo = this.getKDBadge(topic.keyword_difficulty);
+            // Only use traffic_potential (no fallback to search_volume)
+            const volume = topic.traffic_potential || 0;
+            const volumeStr = volume ? this.formatVolume(volume) : '';
+            const kdNum = topic.keyword_difficulty !== null && topic.keyword_difficulty !== undefined ? Math.round(topic.keyword_difficulty) : null;
+
+            // Difficulty dot tooltip - only shows difficulty (volume is already visible in chip)
+            const kdTooltip = kdNum !== null
+                ? Drupal.t('Difficulty: @kd/100 (@label)', {'@kd': kdNum, '@label': kdInfo.label})
+                : Drupal.t('No difficulty data');
+
+            const chipClasses = ['ttd-meta-keyword-chip'];
+            if (preChecked) chipClasses.push('is-checked');
+            if (isMainEntity) chipClasses.push('is-main-entity');
+
+            return `
+                <label class="${chipClasses.join(' ')}">
+                    <input type="radio" name="ttd-target-keyword" class="ttd-meta-keyword-radio"
+                        value="${this.escapeAttr(topic.name)}"
+                        data-kd="${topic.keyword_difficulty || ''}"
+                        data-volume="${volume || ''}"
+                        ${preChecked ? 'checked' : ''} />
+                    <span class="ttd-chip-name">${this.escapeHtml(topic.name)}</span>
+                    ${volumeStr ? '<span class="ttd-chip-volume" title="' + Drupal.t('Traffic Potential') + '">' + volumeStr + '</span>' : ''}
+                    <span class="ttd-chip-kd ${kdInfo.class}" title="${kdTooltip}"></span>
+                </label>
+            `;
         },
 
         /**
@@ -300,14 +346,15 @@
             if (kd === null || kd === undefined || kd === '') {
                 return { class: 'ttd-kd-unknown', label: '?' };
             }
-
             const kdNum = parseFloat(kd);
-            if (kdNum < 30) {
+            if (kdNum <= 30) {
                 return { class: 'ttd-kd-easy', label: Drupal.t('Easy') };
-            } else if (kdNum <= 50) {
-                return { class: 'ttd-kd-medium', label: Drupal.t('Medium') };
-            } else {
+            } else if (kdNum <= 60) {
+                return { class: 'ttd-kd-medium', label: Drupal.t('Med.') };
+            } else if (kdNum <= 80) {
                 return { class: 'ttd-kd-hard', label: Drupal.t('Hard') };
+            } else {
+                return { class: 'ttd-kd-very-hard', label: Drupal.t('Very Hard') };
             }
         },
 
@@ -318,42 +365,39 @@
             if (!volume) return '';
             const num = parseInt(volume, 10);
             if (num >= 1000000) {
-                return (num / 1000000).toFixed(1) + 'M';
+                const val = num / 1000000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'M/mo';
             } else if (num >= 1000) {
-                return (num / 1000).toFixed(1) + 'K';
+                const val = num / 1000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'K/mo';
             }
-            return num.toString();
+            return num + '/mo';
         },
 
         /**
-         * Handle keyword checkbox change
+         * Handle keyword radio change (single selection)
          */
         handleKeywordChange: function() {
-            const $checked = this.$container.find('.ttd-meta-keyword-checkbox:checked');
+            const $radios = this.$container.find('.ttd-meta-keyword-radio');
+            const $chips = this.$container.find('.ttd-meta-keyword-chip');
             this.state.selectedKeywords = [];
 
-            $checked.each((i, el) => {
+            // Remove checked class from all chips
+            $chips.removeClass('is-checked');
+
+            // Find the selected radio
+            const $selected = $radios.filter(':checked');
+            if ($selected.length) {
+                $selected.closest('.ttd-meta-keyword-chip').addClass('is-checked');
                 this.state.selectedKeywords.push({
-                    name: $(el).val(),
-                    ttd_id: $(el).data('ttd-id'),
-                    kd: $(el).data('kd'),
-                    volume: $(el).data('volume')
+                    name: $selected.val(),
+                    kd: $selected.data('kd'),
+                    volume: $selected.data('volume')
                 });
-            });
-
-            const count = this.state.selectedKeywords.length;
-            const $countText = this.$container.find('.ttd-meta-selection-count');
-            const $generateBtn = this.$container.find('.ttd-meta-generate-btn');
-
-            $countText.text(Drupal.t('@count keyword(s) selected (min @min)', {'@count': count, '@min': this.options.minKeywords}));
-
-            if (count >= this.options.minKeywords) {
-                $generateBtn.prop('disabled', false);
-                $countText.removeClass('ttd-meta-count-warning');
-            } else {
-                $generateBtn.prop('disabled', true);
-                $countText.addClass('ttd-meta-count-warning');
             }
+
+            const $generateBtn = this.$container.find('.ttd-meta-generate-btn');
+            $generateBtn.prop('disabled', this.state.selectedKeywords.length === 0);
         },
 
         /**
@@ -364,52 +408,69 @@
 
             this.state.isGenerating = true;
             const $btn = this.$container.find('.ttd-meta-generate-btn');
-            const originalText = $btn.text();
+            const $titlesCol = this.$container.find('#ttd-titles-list');
+            const $descsCol = this.$container.find('#ttd-descriptions-list');
 
-            $btn.prop('disabled', true).html('<span class="ttd-spinner"></span> ' + Drupal.t('Generating...'));
+            $btn.prop('disabled', true).text(Drupal.t('Generating...'));
+
+            // Show inline loading state in each column
+            $titlesCol.html('<div class="ttd-meta-column-loading"><span class="ttd-spinner"></span></div>');
+            $descsCol.html('<div class="ttd-meta-column-loading"><span class="ttd-spinner"></span></div>');
 
             const keywords = this.state.selectedKeywords.map(k => k.name);
 
-            // Call the API (platform-specific implementation via callback)
             if (typeof this.options.onGenerate === 'function') {
                 this.options.onGenerate(keywords, (response) => {
                     this.state.isGenerating = false;
-                    $btn.prop('disabled', false).text(originalText);
 
                     if (response.success && response.data && response.data.variations) {
-                        this.state.generatedVariations = response.data.variations;
-                        this.renderOptions();
-                        this.goToStep(2);
+                        this.state.hasGenerated = true;
+                        $btn.prop('disabled', false)
+                            .removeClass('button button--primary')
+                            .addClass('button-link')
+                            .text(Drupal.t('Regenerate'));
+
+                        // Unescape any backslash-escaped quotes from API response
+                        this.state.titleOptions = response.data.variations.map(v => this.unescapeText(v.title));
+                        this.state.descriptionOptions = response.data.variations.map(v => this.unescapeText(v.description));
+
+                        this.renderTitleOptions();
+                        this.renderDescriptionOptions();
+
+                        // Save generated options to localStorage immediately
+                        this.saveToLocalStorage();
+
+                        // No auto-selection - user must actively choose
+                        this.updateSaveButton();
                     } else {
+                        $btn.prop('disabled', false).text(Drupal.t('Generate'));
                         this.showError(response.data?.message || Drupal.t('Failed to generate meta options'));
+                        $titlesCol.html('<div class="ttd-meta-column-empty">' + Drupal.t('Generation failed. Try again.') + '</div>');
+                        $descsCol.html('<div class="ttd-meta-column-empty">' + Drupal.t('Generation failed. Try again.') + '</div>');
                     }
                 });
             }
         },
 
         /**
-         * Render generated options in Step 2
+         * Render title options with editable textareas
          */
-        renderOptions: function() {
-            const $list = this.$container.find('#ttd-meta-options-list');
+        renderTitleOptions: function() {
+            const $list = this.$container.find('#ttd-titles-list');
             let html = '';
 
-            this.state.generatedVariations.forEach((variation, index) => {
-                const highlightedTitle = this.highlightKeywords(variation.title);
-                const highlightedDesc = this.highlightKeywords(variation.description);
+            this.state.titleOptions.forEach((title, index) => {
+                const charCount = title.length;
+                const charClass = this.getCharCountClass(charCount, this.options.titleMaxLength, this.options.titleWarningLength);
 
                 html += `
-                    <label class="ttd-meta-option-item">
-                        <input type="radio" name="ttd-meta-option" class="ttd-meta-option-radio" value="${index}" />
-                        <div class="ttd-meta-option-content">
-                            <div class="ttd-meta-option-title">${highlightedTitle}</div>
-                            <div class="ttd-meta-option-description">${highlightedDesc}</div>
-                            <div class="ttd-meta-option-meta">
-                                <span class="ttd-meta-char-info">${Drupal.t('Title')}: ${variation.title.length}/${this.options.titleMaxLength}</span>
-                                <span class="ttd-meta-char-info">${Drupal.t('Desc')}: ${variation.description.length}/${this.options.descriptionMaxLength}</span>
-                            </div>
+                    <div class="ttd-meta-option-editable">
+                        <input type="radio" name="ttd-title-select" class="ttd-title-radio" value="${index}" />
+                        <div class="ttd-meta-option-input-wrapper">
+                            <textarea class="ttd-meta-option-input ttd-title-input" data-index="${index}">${this.escapeHtml(title)}</textarea>
+                            <span class="ttd-meta-option-char-count ${charClass}">${charCount}/${this.options.titleMaxLength}</span>
                         </div>
-                    </label>
+                    </div>
                 `;
             });
 
@@ -417,239 +478,384 @@
         },
 
         /**
-         * Highlight keywords in text
+         * Render description options with editable textareas
          */
-        highlightKeywords: function(text) {
-            let result = this.escapeHtml(text);
+        renderDescriptionOptions: function() {
+            const $list = this.$container.find('#ttd-descriptions-list');
+            let html = '';
 
-            this.state.selectedKeywords.forEach(keyword => {
-                const regex = new RegExp('(' + this.escapeRegex(keyword.name) + ')', 'gi');
-                result = result.replace(regex, '<mark class="ttd-keyword-highlight">$1</mark>');
+            this.state.descriptionOptions.forEach((desc, index) => {
+                const charCount = desc.length;
+                const charClass = this.getCharCountClass(charCount, this.options.descriptionMaxLength, this.options.descriptionWarningLength);
+
+                html += `
+                    <div class="ttd-meta-option-editable">
+                        <input type="radio" name="ttd-desc-select" class="ttd-desc-radio" value="${index}" />
+                        <div class="ttd-meta-option-input-wrapper">
+                            <textarea class="ttd-meta-option-input ttd-desc-input" data-index="${index}">${this.escapeHtml(desc)}</textarea>
+                            <span class="ttd-meta-option-char-count ${charClass}">${charCount}/${this.options.descriptionMaxLength}</span>
+                        </div>
+                    </div>
+                `;
             });
 
-            return result;
+            $list.html(html);
         },
 
         /**
-         * Handle option selection
+         * Get character count CSS class
          */
-        handleOptionSelect: function(index) {
-            this.state.selectedVariation = parseInt(index, 10);
-            this.$container.find('.ttd-meta-edit-btn').prop('disabled', false);
+        getCharCountClass: function(count, max, warning) {
+            if (count > max) return 'ttd-char-danger';
+            if (count > warning) return 'ttd-char-warning';
+            return '';
         },
 
         /**
-         * Navigate to a specific step
+         * Count how many selected keywords appear in text
          */
-        goToStep: function(step) {
-            this.state.currentStep = step;
+        countKeywordsInText: function(text) {
+            if (!text || this.state.selectedKeywords.length === 0) return 0;
 
-            // Update step indicators
-            this.$container.find('.ttd-step-dot').removeClass('active completed');
-            for (let i = 1; i <= 3; i++) {
-                const $dot = this.$container.find(`.ttd-step-dot[data-step="${i}"]`);
-                if (i < step) {
-                    $dot.addClass('completed');
-                } else if (i === step) {
-                    $dot.addClass('active');
+            let count = 0;
+            const lowerText = text.toLowerCase();
+
+            this.state.selectedKeywords.forEach(keyword => {
+                if (lowerText.includes(keyword.name.toLowerCase())) {
+                    count++;
                 }
-            }
+            });
 
-            // Show/hide step containers
-            this.$container.find('.ttd-meta-step-container').hide();
-            this.$stepContainers[step].show();
-
-            // If going to step 3, populate the edit fields
-            if (step === 3 && this.state.selectedVariation !== null) {
-                const variation = this.state.generatedVariations[this.state.selectedVariation];
-                this.state.editedTitle = variation.title;
-                this.state.editedDescription = variation.description;
-
-                this.$container.find('#ttd-meta-title').val(variation.title);
-                this.$container.find('#ttd-meta-description').val(variation.description);
-
-                this.updateValidation();
-            }
-        },
-
-        /**
-         * Handle input changes in Step 3
-         */
-        handleInputChange: function() {
-            clearTimeout(this.debounceTimer);
-
-            this.debounceTimer = setTimeout(() => {
-                this.state.editedTitle = this.$container.find('#ttd-meta-title').val();
-                this.state.editedDescription = this.$container.find('#ttd-meta-description').val();
-                this.updateValidation();
-            }, this.options.debounceDelay);
-        },
-
-        /**
-         * Update live validation panel
-         */
-        updateValidation: function() {
-            const title = this.state.editedTitle;
-            const description = this.state.editedDescription;
-
-            // Update character counts
-            this.updateCharCount('title', title.length);
-            this.updateCharCount('description', description.length);
-
-            // Detect keywords
-            this.detectKeywords(title, description);
-
-            // Update SERP preview
-            this.updateSerpPreview(title, description);
+            return count;
         },
 
         /**
          * Update character count display
          */
-        updateCharCount: function(field, count) {
-            const $counter = this.$container.find(`.ttd-meta-char-count[data-field="${field}"]`);
-            const $count = $counter.find('.count');
-            const maxLength = field === 'title' ? this.options.titleMaxLength : this.options.descriptionMaxLength;
-            const warningLength = field === 'title' ? this.options.titleWarningLength : this.options.descriptionWarningLength;
-
-            $count.text(count);
-
-            $counter.removeClass('ttd-count-ok ttd-count-warning ttd-count-danger');
-            if (count > warningLength) {
-                $counter.addClass('ttd-count-danger');
-            } else if (count > maxLength) {
-                $counter.addClass('ttd-count-warning');
-            } else {
-                $counter.addClass('ttd-count-ok');
-            }
+        updateCharCount: function($el, count, max, warning) {
+            $el.text(count + '/' + max)
+               .removeClass('ttd-char-warning ttd-char-danger')
+               .addClass(this.getCharCountClass(count, max, warning));
         },
 
         /**
-         * Detect keywords in title and description
+         * Update Save button state
          */
-        detectKeywords: function(title, description) {
-            const $container = this.$container.find('#ttd-meta-detected-keywords');
-            const combined = (title + ' ' + description).toLowerCase();
-            let html = '';
-            let foundAny = false;
+        updateSaveButton: function() {
+            const canSave = this.state.selectedTitleIndex !== null &&
+                           this.state.selectedDescIndex !== null &&
+                           this.state.titleOptions.length > 0 &&
+                           this.state.descriptionOptions.length > 0;
 
-            this.state.selectedKeywords.forEach(keyword => {
-                const keywordLower = keyword.name.toLowerCase();
-                const matchType = this.getMatchType(combined, keywordLower);
-
-                if (matchType) {
-                    foundAny = true;
-                    const kdBadge = this.getKDBadge(keyword.kd);
-                    html += `
-                        <div class="ttd-meta-detected-keyword">
-                            <span class="ttd-meta-keyword-badge ${kdBadge.class}">${kdBadge.label}</span>
-                            <span class="ttd-meta-keyword-name">${this.escapeHtml(keyword.name)}</span>
-                            <span class="ttd-meta-match-type ttd-match-${matchType.type}">${matchType.label}</span>
-                        </div>
-                    `;
-                }
-            });
-
-            if (!foundAny) {
-                html = '<div class="ttd-meta-keyword-warning">' + Drupal.t('No target keywords detected in your meta content') + '</div>';
-            }
-
-            $container.html(html);
+            const $saveBtn = this.$container.find('.ttd-meta-save-btn');
+            $saveBtn.prop('disabled', !canSave);
         },
 
         /**
-         * Get match type for keyword detection
+         * Check if we can auto-save (both selections made) and do so
          */
-        getMatchType: function(text, keyword) {
-            // Exact match
-            if (text.includes(keyword)) {
-                return { type: 'exact', label: Drupal.t('Exact') };
-            }
-
-            // Plural/singular match
-            const plural = keyword + 's';
-            const singular = keyword.endsWith('s') ? keyword.slice(0, -1) : null;
-            if (text.includes(plural) || (singular && text.includes(singular))) {
-                return { type: 'plural', label: Drupal.t('Plural') };
-            }
-
-            // Word order match (all words present but different order)
-            const words = keyword.split(' ').filter(w => w.length > 2);
-            if (words.length > 1) {
-                const allPresent = words.every(word => text.includes(word));
-                if (allPresent) {
-                    return { type: 'word-order', label: Drupal.t('Word Order') };
-                }
-            }
-
-            // Stemmed match (basic stemming)
-            const stemmedWords = words.map(w => w.replace(/(ing|ed|s|ly)$/, ''));
-            const stemmedPresent = stemmedWords.every(word => text.includes(word));
-            if (stemmedPresent && stemmedWords.some(w => w !== keyword)) {
-                return { type: 'stemmed', label: Drupal.t('Stemmed') };
-            }
-
-            return null;
-        },
-
-        /**
-         * Update SERP preview
-         */
-        updateSerpPreview: function(title, description) {
-            const $title = this.$container.find('#ttd-serp-title');
-            const $url = this.$container.find('#ttd-serp-url');
-            const $desc = this.$container.find('#ttd-serp-description');
-
-            // Truncate title at ~60 chars for SERP display
-            let displayTitle = title;
-            if (title.length > 60) {
-                displayTitle = title.substring(0, 57) + '...';
-            }
-
-            // Truncate description at ~160 chars
-            let displayDesc = description;
-            if (description.length > 160) {
-                displayDesc = description.substring(0, 157) + '...';
-            }
-
-            $title.text(displayTitle || Drupal.t('Page Title'));
-            $desc.text(displayDesc || Drupal.t('Meta description will appear here...'));
-
-            // Set URL from options or fallback
-            const url = this.options.postUrl || window.location.origin + '/example-post/';
-            $url.text(url);
-        },
-
-        /**
-         * Save meta to post
-         */
-        saveMetaToPost: function() {
-            const title = this.state.editedTitle;
-            const description = this.state.editedDescription;
-
-            if (!title || !description) {
-                this.showError(Drupal.t('Please enter both title and description'));
+        checkAutoSave: function() {
+            // Both must be selected
+            if (this.state.selectedTitleIndex === null || this.state.selectedDescIndex === null) {
+                // Hide preview if only one is selected
+                this.$container.find('#ttd-inline-preview').hide();
                 return;
             }
 
-            const $btn = this.$container.find('.ttd-meta-save-btn');
-            const originalText = $btn.text();
-            $btn.prop('disabled', true).html('<span class="ttd-spinner"></span> ' + Drupal.t('Saving...'));
+            const title = this.state.titleOptions[this.state.selectedTitleIndex];
+            const description = this.state.descriptionOptions[this.state.selectedDescIndex];
+
+            if (!title || !description) return;
+
+            // Check character limits - don't auto-save if over
+            const titleOver = title.length > this.options.titleMaxLength;
+            const descOver = description.length > this.options.descriptionMaxLength;
+
+            if (titleOver || descOver) {
+                // Show warning preview but don't save
+                this.renderInlinePreview(title, description, false);
+                return;
+            }
+
+            // Auto-save
+            this.autoSaveMetaToPost(title, description);
+        },
+
+        /**
+         * Auto-save meta to post (silent save without replacing UI)
+         */
+        autoSaveMetaToPost: function(title, description) {
+            const self = this;
 
             if (typeof this.options.onSave === 'function') {
                 this.options.onSave({ title, description }, (response) => {
-                    $btn.prop('disabled', false).text(originalText);
-
                     if (response.success) {
-                        this.showSuccess(Drupal.t('Meta saved successfully!'));
-                        if (typeof this.options.onSaveComplete === 'function') {
-                            this.options.onSaveComplete({ title, description });
+                        // Clear localStorage draft
+                        self.clearLocalStorage();
+
+                        // Update the form's changed timestamp to prevent "modified by another user" errors
+                        // The node was saved programmatically, so we need to sync the form's timestamp
+                        if (response.data && response.data.changed) {
+                            const $changedField = $('input[name="changed"]');
+                            if ($changedField.length) {
+                                $changedField.val(response.data.changed);
+                            }
+                        }
+
+                        // Show inline preview with saved state
+                        self.renderInlinePreview(title, description, true);
+
+                        if (typeof self.options.onSaveComplete === 'function') {
+                            self.options.onSaveComplete({ title, description });
                         }
                     } else {
-                        this.showError(response.data?.message || Drupal.t('Failed to save meta'));
+                        // Show preview with error state
+                        self.renderInlinePreview(title, description, false, response.data?.message || Drupal.t('Save failed'));
                     }
                 });
             }
+        },
+
+        /**
+         * Render inline preview below the columns
+         */
+        renderInlinePreview: function(title, description, isSaved, errorMsg) {
+            const $preview = this.$container.find('#ttd-inline-preview');
+            // Look for visible PHP-rendered preview as sibling
+            const $existingPreview = this.$container.siblings('.ttd-meta-existing').filter(':visible');
+
+            const titleLen = title.length;
+            const descLen = description.length;
+            const titleOver = titleLen > this.options.titleMaxLength;
+            const descOver = descLen > this.options.descriptionMaxLength;
+
+            // Show status indicator in keywords row (higher visibility)
+            this.showStatusIndicator(isSaved, errorMsg, titleOver, descOver, titleLen, descLen);
+
+            // If there's a visible "Current Generated Meta" section, update that instead of showing SERP preview
+            if ($existingPreview.length) {
+                $existingPreview.find('.ttd-meta-preview-title').text(title);
+                $existingPreview.find('.ttd-meta-preview-desc').text(description);
+                // Hide the inline SERP preview since we have the existing preview
+                $preview.hide();
+                return;
+            }
+
+            // Highlight keywords in title and description
+            const highlightedTitle = this.highlightKeywords(title);
+            const highlightedDesc = this.highlightKeywords(description);
+
+            // Get site info for realistic preview
+            const siteUrl = this.options.postUrl || window.location.hostname;
+            const siteName = siteUrl.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+            const breadcrumb = siteName + ' › ' + (this.options.postSlug || 'article');
+
+            const html = `
+                <div class="ttd-preview-serp">
+                    <div class="ttd-preview-serp-header">
+                        <span class="ttd-preview-serp-favicon"></span>
+                        <div class="ttd-preview-serp-site">
+                            <span class="ttd-preview-serp-sitename">${this.escapeHtml(siteName)}</span>
+                            <span class="ttd-preview-serp-breadcrumb">${this.escapeHtml(breadcrumb)}</span>
+                        </div>
+                    </div>
+                    <div class="ttd-preview-serp-title">${highlightedTitle}</div>
+                    <div class="ttd-preview-serp-desc">${highlightedDesc}</div>
+                </div>
+            `;
+
+            $preview.html(html).show();
+        },
+
+        /**
+         * Show status indicator in keywords row
+         */
+        showStatusIndicator: function(isSaved, errorMsg, titleOver, descOver, titleLen, descLen) {
+            let $indicator = this.$container.find('.ttd-status-indicator');
+
+            if (!$indicator.length) {
+                $indicator = $('<span class="ttd-status-indicator"></span>');
+                this.$container.find('.ttd-meta-keywords-actions').prepend($indicator);
+            }
+
+            // Determine status
+            if (errorMsg) {
+                $indicator.attr('class', 'ttd-status-indicator ttd-status-error').text(errorMsg);
+            } else if (titleOver || descOver) {
+                let overMsg = [];
+                if (titleOver) overMsg.push(Drupal.t('Title @over over', {'@over': titleLen - this.options.titleMaxLength}));
+                if (descOver) overMsg.push(Drupal.t('Desc @over over', {'@over': descLen - this.options.descriptionMaxLength}));
+                $indicator.attr('class', 'ttd-status-indicator ttd-status-warning').text(overMsg.join(', '));
+            } else if (isSaved) {
+                $indicator.attr('class', 'ttd-status-indicator ttd-status-saved').text(Drupal.t('Saved'));
+            }
+
+            // Fade out after delay for saved state
+            if (isSaved && !titleOver && !descOver) {
+                $indicator.stop(true).css('opacity', 1);
+                setTimeout(function() {
+                    $indicator.animate({ opacity: 0.6 }, 1500);
+                }, 2000);
+            }
+        },
+
+        /**
+         * Highlight keywords in text
+         */
+        highlightKeywords: function(text) {
+            if (!text || this.state.selectedKeywords.length === 0) {
+                return this.escapeHtml(text);
+            }
+
+            let html = this.escapeHtml(text);
+
+            // Sort by length (longest first) to avoid partial matches
+            const sorted = this.state.selectedKeywords.slice().sort((a, b) => b.name.length - a.name.length);
+
+            sorted.forEach(kw => {
+                const escaped = this.escapeHtml(kw.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('\\b' + escaped + '\\b', 'gi');
+                const kd = parseFloat(kw.kd) || 50;
+                let diffClass = 'ttd-kd-medium';
+                if (kd <= 30) diffClass = 'ttd-kd-easy';
+                else if (kd <= 60) diffClass = 'ttd-kd-medium';
+                else if (kd <= 80) diffClass = 'ttd-kd-hard';
+                else diffClass = 'ttd-kd-very-hard';
+
+                html = html.replace(regex, function(match) {
+                    return '<span class="ttd-keyword-highlight-span ' + diffClass + '">' + match + '</span>';
+                });
+            });
+
+            return html;
+        },
+
+        /**
+         * Save current state to localStorage
+         */
+        saveToLocalStorage: function() {
+            if (!this.options.nodeId || !window.localStorage) return;
+
+            const data = {
+                titleOptions: this.state.titleOptions,
+                descriptionOptions: this.state.descriptionOptions,
+                selectedTitleIndex: this.state.selectedTitleIndex,
+                selectedDescIndex: this.state.selectedDescIndex,
+                selectedKeywords: this.state.selectedKeywords,
+                timestamp: Date.now()
+            };
+
+            try {
+                localStorage.setItem('ttd_meta_draft_' + this.options.nodeId, JSON.stringify(data));
+                // Show brief save indicator
+                this.showAutoSaveIndicator();
+            } catch (e) {
+                // localStorage might be full or disabled
+            }
+        },
+
+        /**
+         * Show brief auto-save indicator
+         */
+        showAutoSaveIndicator: function() {
+            let $indicator = this.$container.find('.ttd-autosave-indicator');
+
+            if (!$indicator.length) {
+                $indicator = $('<span class="ttd-autosave-indicator"></span>');
+                this.$container.find('.ttd-meta-keywords-actions').prepend($indicator);
+            }
+
+            // Show text and fade out
+            $indicator.text(Drupal.t('Draft saved')).stop(true).css('opacity', 1);
+            setTimeout(function() {
+                $indicator.animate({ opacity: 0 }, 400, function() {
+                    $(this).text('');
+                });
+            }, 1500);
+        },
+
+        /**
+         * Restore state from localStorage if available
+         */
+        restoreFromLocalStorage: function() {
+            if (!this.options.nodeId || !window.localStorage) return false;
+
+            try {
+                const saved = localStorage.getItem('ttd_meta_draft_' + this.options.nodeId);
+                if (!saved) return false;
+
+                const data = JSON.parse(saved);
+
+                // Check if data is less than 7 days old
+                if (data.timestamp && (Date.now() - data.timestamp) > 7 * 24 * 60 * 60 * 1000) {
+                    this.clearLocalStorage();
+                    return false;
+                }
+
+                // Restore state - but don't restore selections, user must re-select
+                if (data.titleOptions && data.titleOptions.length > 0) {
+                    this.state.titleOptions = data.titleOptions;
+                    this.state.descriptionOptions = data.descriptionOptions || [];
+                    this.state.selectedTitleIndex = null;
+                    this.state.selectedDescIndex = null;
+                    this.state.selectedKeywords = data.selectedKeywords || [];
+                    this.state.hasGenerated = true;
+                    return true;
+                }
+            } catch (e) {
+                // Invalid JSON or other error
+            }
+
+            return false;
+        },
+
+        /**
+         * Clear localStorage for this node
+         */
+        clearLocalStorage: function() {
+            if (!this.options.nodeId || !window.localStorage) return;
+            try {
+                localStorage.removeItem('ttd_meta_draft_' + this.options.nodeId);
+            } catch (e) {}
+        },
+
+        /**
+         * Update metrics for a specific topic chip (called when sidebar fetches new data)
+         */
+        updateTopicMetrics: function(topicName, trafficPotential, keywordDifficulty) {
+            if (!this.$container) return;
+
+            const $chip = this.$container.find('.ttd-meta-keyword-radio[value="' + this.escapeAttr(topicName) + '"]').closest('.ttd-meta-keyword-chip');
+            if (!$chip.length) return;
+
+            // Update data attributes
+            const $radio = $chip.find('.ttd-meta-keyword-radio');
+            $radio.attr('data-volume', trafficPotential || '');
+            $radio.attr('data-kd', keywordDifficulty || '');
+
+            // Update volume display
+            const volumeStr = trafficPotential ? this.formatVolume(trafficPotential) : '';
+            let $volume = $chip.find('.ttd-chip-volume');
+            if (volumeStr) {
+                if ($volume.length) {
+                    $volume.text(volumeStr);
+                } else {
+                    // Insert after chip name
+                    $chip.find('.ttd-chip-name').after('<span class="ttd-chip-volume" title="' + Drupal.t('Traffic Potential') + '">' + volumeStr + '</span>');
+                }
+            } else if ($volume.length) {
+                $volume.remove();
+            }
+
+            // Update KD dot
+            const kdInfo = this.getKDBadge(keywordDifficulty);
+            const kdNum = keywordDifficulty !== null && keywordDifficulty !== undefined ? Math.round(keywordDifficulty) : null;
+            const kdTooltip = kdNum !== null
+                ? Drupal.t('Difficulty: @kd/100 (@label)', {'@kd': kdNum, '@label': kdInfo.label})
+                : Drupal.t('No difficulty data');
+
+            const $kdDot = $chip.find('.ttd-chip-kd');
+            $kdDot.attr('class', 'ttd-chip-kd ' + kdInfo.class).attr('title', kdTooltip);
         },
 
         /**
@@ -658,7 +864,7 @@
         showError: function(message) {
             const $error = $('<div class="ttd-meta-message ttd-meta-error"></div>').text(message);
             this.$container.find('.ttd-meta-generator').prepend($error);
-            setTimeout(() => $error.fadeOut(() => $error.remove()), 5000);
+            setTimeout(function() { $error.fadeOut(function() { $error.remove(); }); }, 5000);
         },
 
         /**
@@ -667,7 +873,7 @@
         showSuccess: function(message) {
             const $success = $('<div class="ttd-meta-message ttd-meta-success"></div>').text(message);
             this.$container.find('.ttd-meta-generator').prepend($success);
-            setTimeout(() => $success.fadeOut(() => $success.remove()), 3000);
+            setTimeout(function() { $success.fadeOut(function() { $success.remove(); }); }, 3000);
         },
 
         /**
@@ -683,10 +889,23 @@
         },
 
         /**
-         * Escape regex special characters
+         * Escape attribute value
          */
-        escapeRegex: function(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        escapeAttr: function(text) {
+            if (typeof text !== 'string') {
+                text = String(text || '');
+            }
+            return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        },
+
+        /**
+         * Unescape backslash-escaped characters from API responses
+         */
+        unescapeText: function(text) {
+            if (typeof text !== 'string') {
+                return text;
+            }
+            return text.replace(/\\"/g, '"').replace(/\\'/g, "'");
         }
     };
 
@@ -707,6 +926,7 @@
             const config = settings.ttdMetaGenerator || {};
             const nodeId = config.nodeId || $container.data('node-id');
             const postUrl = config.postUrl || window.location.href;
+            const postSlug = config.postSlug || '';
             const apiBase = config.apiBase || '/api/topicalboost/meta';
             const csrfToken = config.nonce || '';
 
@@ -717,8 +937,11 @@
             // Initialize the meta generator
             function initMetaGenerator() {
                 MetaGenerator.init($container, {
+                    nodeId: nodeId,
                     postUrl: postUrl,
-                    minKeywords: 2,
+                    postSlug: postSlug,
+                    minKeywords: 1,
+                    existingMeta: config.existingMeta || null,
                     onGenerate: function(keywords, callback) {
                         $.ajax({
                             url: apiBase + '/generate',
