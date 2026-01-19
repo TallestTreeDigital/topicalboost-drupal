@@ -179,11 +179,15 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
     $term_ids = $node->get('field_ttd_topics')->getValue();
     $rejected_term_ids = $node->get('field_ttd_rejected_topics')->getValue();
+    $has_been_analyzed = !$node->get('field_ttd_last_analyzed')->isEmpty();
 
     if (empty($term_ids) && !$analysis_in_progress) {
-      $form['ttd_topics']['empty'] = [
-        '#markup' => t('No topics available for this node.'),
-      ];
+      if ($has_been_analyzed) {
+        // Analyzed but no topics found
+        $form['ttd_topics']['empty'] = [
+          '#markup' => t('No topics available for this node.'),
+        ];
+      }
     }
     else {
       // Extract term IDs.
