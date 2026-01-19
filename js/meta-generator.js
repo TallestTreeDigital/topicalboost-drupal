@@ -173,7 +173,7 @@
                     <div class="ttd-meta-two-columns">
                         <!-- Titles Column -->
                         <div class="ttd-meta-column ttd-meta-column-titles">
-                            <div class="ttd-meta-column-header">${Drupal.t('Title')} <span class="ttd-meta-info-icon" title="${Drupal.t('Google may rewrite page titles that are too long or lack keywords. Keep under 60 characters to control how your title appears in search results.')}">[?]</span></div>
+                            <div class="ttd-meta-column-header">${Drupal.t('Title')} <span class="ttd-meta-info-icon" title="${Drupal.t('This appears in Google search results and browser tabs, not on your page. Your article headline stays unchanged. Keep under 60 characters or Google may rewrite it.')}">[?]</span></div>
                             <div class="ttd-meta-column-content" id="ttd-titles-list">
                                 <div class="ttd-meta-column-empty">
                                     ${Drupal.t('Select keyword and click Generate')}
