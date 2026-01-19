@@ -407,6 +407,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         $settings = [
           'nodeId' => $node->id(),
           'postUrl' => $node->toUrl()->setAbsolute()->toString(),
+          'postTitle' => $node->getTitle(),
           'apiBase' => '/api/topicalboost/meta',
           'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
         ];

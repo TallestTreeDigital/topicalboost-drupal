@@ -58,6 +58,7 @@
                 descriptionOptions: [],
                 selectedTitleIndex: null,
                 selectedDescIndex: null,
+                originalTitleIndex: null,
                 isGenerating: false,
                 hasGenerated: false
             };
@@ -94,6 +95,20 @@
             // Render the options
             this.renderTitleOptions();
             this.renderDescriptionOptions();
+
+            // Add original post title as reference (if different from saved)
+            if (this.options.postTitle && this.options.postTitle !== existingMeta.title) {
+                const originalCharCount = this.options.postTitle.length;
+                const originalCharClass = this.getCharCountClass(originalCharCount, this.options.titleMaxLength, this.options.titleWarningLength);
+                const referenceHtml = `
+                    <div class="ttd-meta-option-reference">
+                        <span class="ttd-meta-option-label">${Drupal.t('Original (for reference)')}</span>
+                        <div class="ttd-meta-option-reference-text">${this.escapeHtml(this.options.postTitle)}</div>
+                        <span class="ttd-meta-option-char-count ${originalCharClass}">${originalCharCount}/${this.options.titleMaxLength}</span>
+                    </div>
+                `;
+                this.$container.find('#ttd-titles-list').prepend(referenceHtml);
+            }
 
             // Pre-select the options
             this.$container.find('.ttd-title-radio[value="0"]').prop('checked', true);
@@ -158,7 +173,7 @@
                     <div class="ttd-meta-two-columns">
                         <!-- Titles Column -->
                         <div class="ttd-meta-column ttd-meta-column-titles">
-                            <div class="ttd-meta-column-header">${Drupal.t('Title')}</div>
+                            <div class="ttd-meta-column-header">${Drupal.t('Title')} <span class="ttd-meta-info-icon" title="${Drupal.t('Google may rewrite page titles that are too long or lack keywords. Keep under 60 characters to control how your title appears in search results.')}">[?]</span></div>
                             <div class="ttd-meta-column-content" id="ttd-titles-list">
                                 <div class="ttd-meta-column-empty">
                                     ${Drupal.t('Select keyword and click Generate')}
@@ -431,8 +446,17 @@
                             .text(Drupal.t('Regenerate'));
 
                         // Unescape any backslash-escaped quotes from API response
-                        this.state.titleOptions = response.data.variations.map(v => this.unescapeText(v.title));
+                        const generatedTitles = response.data.variations.map(v => this.unescapeText(v.title));
                         this.state.descriptionOptions = response.data.variations.map(v => this.unescapeText(v.description));
+
+                        // Prepend original post title as first option (so users can compare)
+                        if (this.options.postTitle) {
+                            this.state.titleOptions = [this.options.postTitle, ...generatedTitles];
+                            this.state.originalTitleIndex = 0; // Track which is the original
+                        } else {
+                            this.state.titleOptions = generatedTitles;
+                            this.state.originalTitleIndex = null;
+                        }
 
                         this.renderTitleOptions();
                         this.renderDescriptionOptions();
@@ -462,11 +486,15 @@
             this.state.titleOptions.forEach((title, index) => {
                 const charCount = title.length;
                 const charClass = this.getCharCountClass(charCount, this.options.titleMaxLength, this.options.titleWarningLength);
+                const isOriginal = (index === this.state.originalTitleIndex);
+                const optionClass = isOriginal ? 'ttd-meta-option-editable ttd-meta-option-original' : 'ttd-meta-option-editable';
+                const label = isOriginal ? '<span class="ttd-meta-option-label">' + Drupal.t('Original') + '</span>' : '';
 
                 html += `
-                    <div class="ttd-meta-option-editable">
+                    <div class="${optionClass}">
                         <input type="radio" name="ttd-title-select" class="ttd-title-radio" value="${index}" />
                         <div class="ttd-meta-option-input-wrapper">
+                            ${label}
                             <textarea class="ttd-meta-option-input ttd-title-input" data-index="${index}">${this.escapeHtml(title)}</textarea>
                             <span class="ttd-meta-option-char-count ${charClass}">${charCount}/${this.options.titleMaxLength}</span>
                         </div>
@@ -927,6 +955,7 @@
             const nodeId = config.nodeId || $container.data('node-id');
             const postUrl = config.postUrl || window.location.href;
             const postSlug = config.postSlug || '';
+            const postTitle = config.postTitle || '';
             const apiBase = config.apiBase || '/api/topicalboost/meta';
             const csrfToken = config.nonce || '';
 
@@ -940,6 +969,7 @@
                     nodeId: nodeId,
                     postUrl: postUrl,
                     postSlug: postSlug,
+                    postTitle: postTitle,
                     minKeywords: 1,
                     existingMeta: config.existingMeta || null,
                     onGenerate: function(keywords, callback) {
