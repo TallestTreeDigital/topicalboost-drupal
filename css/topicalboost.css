@@ -605,3 +605,148 @@ fieldset .form-radios > div > div {
   pointer-events: none;
 }
 
+/* TopicalBoost Form Styling - Light and Dark Mode Support */
+
+/* Main form container */
+.ttd-topics-field-group,
+.ttd-topics-tabs-container {
+  background: #ffffff;
+  color: #1d2327;
+}
+
+.gin--dark-mode .ttd-topics-field-group,
+.gin--dark-mode .ttd-topics-tabs-container {
+  background: var(--gin-bg-layer);
+  color: var(--gin-color-text);
+}
+
+/* Input fields - "Add topics..." and similar */
+.ttd-topics-field-group input[type="text"],
+.ttd-topics-field-group textarea,
+.ttd-topics-tabs-container input[type="text"],
+.ttd-topics-tabs-container textarea {
+  background: #ffffff;
+  color: #1d2327;
+  border-color: #8c8f94;
+}
+
+.gin--dark-mode .ttd-topics-field-group input[type="text"],
+.gin--dark-mode .ttd-topics-field-group textarea,
+.gin--dark-mode .ttd-topics-tabs-container input[type="text"],
+.gin--dark-mode .ttd-topics-tabs-container textarea {
+  background: var(--gin-bg-layer2);
+  color: var(--gin-color-text);
+  border-color: var(--gin-border-color);
+}
+
+.gin--dark-mode .ttd-topics-field-group input[type="text"]::placeholder,
+.gin--dark-mode .ttd-topics-field-group textarea::placeholder,
+.gin--dark-mode .ttd-topics-tabs-container input[type="text"]::placeholder,
+.gin--dark-mode .ttd-topics-tabs-container textarea::placeholder {
+  color: var(--gin-color-text-light);
+  opacity: 0.6;
+}
+
+/* Topic sections - Main Topic, Also About, Below Threshold */
+.ttd-topic-section-wrapper,
+.ttd-main-topic-section,
+.ttd-also-about-section,
+.ttd-below-threshold-section {
+  background: #f9f9f9;
+  border: 1px solid #dcdcdc;
+  color: #1d2327;
+}
+
+.gin--dark-mode .ttd-topic-section-wrapper,
+.gin--dark-mode .ttd-main-topic-section,
+.gin--dark-mode .ttd-also-about-section,
+.gin--dark-mode .ttd-below-threshold-section {
+  background: var(--gin-bg-layer2);
+  border-color: var(--gin-border-color);
+  color: var(--gin-color-text);
+}
+
+/* Section headers */
+.ttd-section-header,
+.ttd-topic-section-header {
+  background: #f0f0f1;
+  color: #1d2327;
+  border-bottom: 1px solid #dcdcdc;
+}
+
+.gin--dark-mode .ttd-section-header,
+.gin--dark-mode .ttd-topic-section-header {
+  background: var(--gin-bg-layer3);
+  color: var(--gin-color-text);
+  border-bottom-color: var(--gin-border-color);
+}
+
+/* Drag and drop areas */
+.ttd-drop-zone,
+.ttd-drag-area {
+  background: #f9f9f9;
+  border: 2px dashed #c3c4c7;
+  color: #646970;
+}
+
+.gin--dark-mode .ttd-drop-zone,
+.gin--dark-mode .ttd-drag-area {
+  background: var(--gin-bg-layer2);
+  border-color: var(--gin-border-color-dark);
+  color: var(--gin-color-text-light);
+}
+
+/* Topic items/tags within sections */
+.ttd-topic-tag,
+.ttd-topic-item-tag {
+  background: #e5e7eb;
+  color: #1d2327;
+  border: 1px solid #c3c4c7;
+}
+
+.gin--dark-mode .ttd-topic-tag,
+.gin--dark-mode .ttd-topic-item-tag {
+  background: var(--gin-bg-app);
+  color: var(--gin-color-text);
+  border-color: var(--gin-border-color);
+}
+
+/* Help text and descriptions */
+.ttd-help-text,
+.ttd-description,
+.description {
+  color: #646970;
+}
+
+.gin--dark-mode .ttd-help-text,
+.gin--dark-mode .ttd-description,
+.gin--dark-mode .description {
+  color: var(--gin-color-text-light);
+}
+
+/* Buttons */
+.ttd-button,
+.ttd-topics-button {
+  background: #0073aa;
+  color: #ffffff;
+  border: 1px solid #0073aa;
+}
+
+.ttd-button:hover,
+.ttd-topics-button:hover {
+  background: #005a87;
+  border-color: #005a87;
+}
+
+.gin--dark-mode .ttd-button,
+.gin--dark-mode .ttd-topics-button {
+  background: rgb(var(--gin-color-primary-rgb));
+  border-color: rgb(var(--gin-color-primary-rgb));
+}
+
+.gin--dark-mode .ttd-button:hover,
+.gin--dark-mode .ttd-topics-button:hover {
+  background: rgb(var(--gin-color-primary-hover-rgb));
+  border-color: rgb(var(--gin-color-primary-hover-rgb));
+}
+

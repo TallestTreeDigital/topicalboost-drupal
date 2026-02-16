@@ -914,8 +914,72 @@ function ttd_topics_update_8003() {
   return t('Added field storage for SEO meta title and description fields.');
 }
 
+/**
+ * Add tier_overrides and manual_topics field storage for WP beta features.
+ */
+function ttd_topics_update_9001() {
+  // Add tier_overrides field (stores user-controlled tier assignments)
+  if (!FieldStorageConfig::loadByName('node', 'field_tier_overrides')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_tier_overrides',
+      'entity_type' => 'node',
+      'type' => 'map',
+      'cardinality' => 1,
+    ])->save();
+  }
 
+  // Add manual_topics field (stores manually added topics)
+  if (!FieldStorageConfig::loadByName('node', 'field_manual_topics')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_manual_topics',
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => [
+        'target_type' => 'taxonomy_term',
+        'handler' => 'default:taxonomy_term',
+        'handler_settings' => [
+          'target_bundles' => [
+            'ttd_topics' => 'ttd_topics',
+          ],
+          'auto_create' => FALSE,
+        ],
+      ],
+      'cardinality' => -1,
+    ])->save();
+  }
 
+  // Add field instances to all enabled content types
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
 
+  foreach ($enabled_content_types as $content_type) {
+    // Check if content type exists
+    if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($content_type)) {
+      continue;
+    }
+
+    // Add tier_overrides field
+    if (!FieldConfig::loadByName('node', $content_type, 'field_tier_overrides')) {
+      FieldConfig::create([
+        'field_name' => 'field_tier_overrides',
+        'entity_type' => 'node',
+        'bundle' => $content_type,
+        'label' => 'Topic Tier Overrides',
+      ])->save();
+    }
+
+    // Add manual_topics field
+    if (!FieldConfig::loadByName('node', $content_type, 'field_manual_topics')) {
+      FieldConfig::create([
+        'field_name' => 'field_manual_topics',
+        'entity_type' => 'node',
+        'bundle' => $content_type,
+        'label' => 'Manual Topics',
+      ])->save();
+    }
+  }
+
+  return t('Added tier_overrides and manual_topics field storage for enhanced topic management.');
+}
 
 

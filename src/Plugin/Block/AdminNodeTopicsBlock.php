@@ -66,29 +66,88 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
    */
   public function build() {
     $node = $this->routeMatch->getParameter('node');
-    $terms = [];
 
-    if ($node && $node->hasField('field_ttd_topics')) {
-      $term_ids = $node->get('field_ttd_topics')->getValue();
-      foreach ($term_ids as $term_id) {
-        $term = Term::load($term_id['target_id']);
-        if ($term) {
-          $terms[] = [
-            'term' => [
-              '#type' => 'checkbox',
-              '#title' => $term->getName(),
-              '#checked' => TRUE,
-            ],
-          ];
+    if (!$node || !$node->hasField('field_ttd_topics')) {
+      return [];
+    }
+
+    $config = \Drupal::config('ttd_topics.settings');
+    $threshold_count = $config->get('post_topic_minimum_display_count') ?: 10;
+
+    // Get all topics for this node
+    $topics = $node->get('field_ttd_topics')->referencedEntities();
+    $manual_topic_ids = array_column($node->get('field_manual_topics')->getValue(), 'target_id');
+    $rejected_topic_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
+    $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+
+    // Get post counts for all topics
+    $term_ids = array_map(function($topic) { return $topic->id(); }, $topics);
+    $post_counts = ttd_topics_get_topic_node_counts($term_ids);
+
+    // Classify topics into tiers
+    $main_entity = NULL;
+    $about_topics = [];
+    $mentions_topics = [];
+    $below_threshold_topics = [];
+
+    foreach ($topics as $term) {
+      $term_id = $term->id();
+      $tier = ttd_get_topic_tier($term_id, $node->id());
+      $count = $post_counts[$term_id] ?? 0;
+      $is_manual = in_array($term_id, $manual_topic_ids);
+      $is_rejected = in_array($term_id, $rejected_topic_ids);
+
+      $topic_data = [
+        'term' => $term,
+        'count' => $count,
+        'is_manual' => $is_manual,
+        'is_rejected' => $is_rejected,
+        'tier' => $tier,
+      ];
+
+      // Classify by tier
+      if ($tier === 'mainEntity') {
+        $main_entity = $topic_data;
+      } elseif ($tier === 'about') {
+        if ($count >= $threshold_count) {
+          $about_topics[] = $topic_data;
+        } else {
+          $below_threshold_topics[] = $topic_data;
         }
+      } elseif ($tier === 'mentions') {
+        if ($count >= $threshold_count) {
+          $mentions_topics[] = $topic_data;
+        } else {
+          $below_threshold_topics[] = $topic_data;
+        }
+      } elseif ($tier === 'below-threshold') {
+        $below_threshold_topics[] = $topic_data;
       }
     }
 
-    $form = new GetTopicsForm();
-    $form_state = new FormState();
-    $form = $form->buildForm([], $form_state);
+    // Sort by count descending
+    usort($about_topics, function($a, $b) { return $b['count'] - $a['count']; });
+    usort($mentions_topics, function($a, $b) { return $b['count'] - $a['count']; });
+    usort($below_threshold_topics, function($a, $b) { return $b['count'] - $a['count']; });
 
-    return $form;
+    return [
+      '#theme' => 'ttd_admin_topics',
+      '#node' => $node,
+      '#main_entity' => $main_entity,
+      '#about_topics' => $about_topics,
+      '#mentions_topics' => $mentions_topics,
+      '#below_threshold_topics' => $below_threshold_topics,
+      '#threshold_count' => $threshold_count,
+      '#attached' => [
+        'library' => ['ttd_topics/admin_topics'],
+        'drupalSettings' => [
+          'ttdTopics' => [
+            'nodeId' => $node->id(),
+            'thresholdCount' => $threshold_count,
+          ],
+        ],
+      ],
+    ];
   }
 
 }

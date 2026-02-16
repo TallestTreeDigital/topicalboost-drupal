@@ -168,3 +168,52 @@ topicalboost.api.meta.save:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+
+# Topic editor AJAX endpoints (WP beta features)
+ttd_topics.search:
+  path: '/api/topicalboost/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::searchTopics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.lookup_api:
+  path: '/api/topicalboost/lookup'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::lookupApi'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.update_tier:
+  path: '/api/topicalboost/tier/update'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::updateTopicTier'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.remove_tier:
+  path: '/api/topicalboost/tier/remove'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::removeTopicTierOverride'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.update_topics:
+  path: '/api/topicalboost/topics/update'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::updateTopics'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.demand_metrics:
+  path: '/api/topicalboost/demand'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getDemandMetrics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'

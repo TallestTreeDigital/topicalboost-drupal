@@ -184,3 +184,17 @@ meta_generator:
     - core/drupal
     - core/once
     - ttd_topics/jquery_once_polyfill
+
+admin_topics:
+  css:
+    theme:
+      css/admin-topics.css: {}
+  js:
+    js/utils.js: {}
+    js/post-editor.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - ttd_topics/jquery_once_polyfill

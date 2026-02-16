@@ -54,6 +54,17 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
       ],
       'template' => 'ttd-coverage-page',
     ],
+    'ttd_admin_topics' => [
+      'variables' => [
+        'node' => NULL,
+        'main_entity' => NULL,
+        'about_topics' => [],
+        'mentions_topics' => [],
+        'below_threshold_topics' => [],
+        'threshold_count' => 10,
+      ],
+      'template' => 'ttd-admin-topics',
+    ],
   ];
 }
 
@@ -177,148 +188,24 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Add custom CSS to style the explanation.
     $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
 
-    $term_ids = $node->get('field_ttd_topics')->getValue();
-    $rejected_term_ids = $node->get('field_ttd_rejected_topics')->getValue();
-    $has_been_analyzed = !$node->get('field_ttd_last_analyzed')->isEmpty();
+    // Render the new Admin Topics Block (WP beta features).
+    if ($node->id() && !$analysis_in_progress) {
+      $block_manager = \Drupal::service('plugin.manager.block');
+      $plugin_block = $block_manager->createInstance('admin_node_topics_block', []);
 
-    if (empty($term_ids) && !$analysis_in_progress) {
-      if ($has_been_analyzed) {
-        // Analyzed but no topics found
-        $form['ttd_topics']['empty'] = [
-          '#markup' => t('No topics available for this node.'),
-        ];
+      // Build the block
+      $build = $plugin_block->build();
+
+      if (!empty($build)) {
+        $form['ttd_topics']['editor'] = $build;
+        $form['ttd_topics']['editor']['#weight'] = 10;
       }
     }
-    else {
-      // Extract term IDs.
-      $term_ids = array_column($term_ids, 'target_id');
-
-      // Get the count of nodes for each term only if there are terms.
-      $term_counts = !empty($term_ids) ? ttd_topics_get_topic_node_counts($term_ids) : [];
-
-      // Create arrays for About and Mentions topics.
-      $about_topics = [];
-      $mentions_topics = [];
-
-      foreach ($term_ids as $term_id) {
-        $term = Term::load($term_id);
-        if ($term && !$term->get('field_hide')->value) {
-          $count = $term_counts[$term_id] ?? 0;
-          $term_data = [
-            'term' => $term,
-            'count' => $count,
-          ];
-
-          // Check salience category if node is saved.
-          if ($node->id()) {
-            $salience = ttd_get_term_salience_category($term_id, $node->id());
-            if ($salience === 'about') {
-              $about_topics[] = $term_data;
-            }
-            else {
-              $mentions_topics[] = $term_data;
-            }
-          }
-          else {
-            // For new nodes, put all in mentions.
-            $mentions_topics[] = $term_data;
-          }
-        }
-      }
-
-      // Sort both arrays by count in descending order.
-      usort($about_topics, function ($a, $b) {
-        return $b['count'] - $a['count'];
-      });
-      usort($mentions_topics, function ($a, $b) {
-        return $b['count'] - $a['count'];
-      });
-
-      $about_count = count($about_topics);
-      $mentions_count = count($mentions_topics);
-
-      // Also About section (always visible, not collapsible).
-      $form['ttd_topics']['about_section'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['ttd-topics-section', 'ttd-about-section']],
+    elseif (!$node->id() && !$analysis_in_progress) {
+      $form['ttd_topics']['empty'] = [
+        '#markup' => '<p>' . t('Topics will appear here after the first analysis.') . '</p>',
         '#weight' => 10,
       ];
-
-      $form['ttd_topics']['about_section']['header'] = [
-        '#markup' => '<div class="ttd-section-header ttd-section-static"><span class="ttd-section-title">' . t('Also About') . '</span> <span class="ttd-section-count">(' . $about_count . ')</span></div>',
-      ];
-
-      if ($about_count > 0) {
-        foreach ($about_topics as $term_data) {
-          $term = $term_data['term'];
-          $count = $term_data['count'];
-          $is_below_threshold = $count < $min_display_count;
-
-          // Get KD badge for About topics.
-          $kd_badge = '';
-          if ($node->id()) {
-            $kd_badge = ttd_get_kd_badge($term->id(), $node->id());
-          }
-
-          // Build title with optional KD badge.
-          $title = $term->getName() . ' (' . $count . ')';
-          if ($kd_badge) {
-            $title = $kd_badge . ' ' . $title;
-          }
-
-          $form['ttd_topics']['about_section'][$term->id()] = [
-            '#type' => 'checkbox',
-            '#title' => Markup::create($title),
-            '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
-            '#disabled' => $is_below_threshold,
-            '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
-            '#wrapper_attributes' => [
-              'data-tooltip' => t('Primary topic: This post is mainly about this subject'),
-              'class' => ['ttd-topic-item', 'ttd-about-topic'],
-            ],
-          ];
-        }
-      }
-      else {
-        $form['ttd_topics']['about_section']['empty'] = [
-          '#markup' => '<p class="ttd-no-topics-message">' . t('No primary topics detected.') . '</p>',
-        ];
-      }
-
-      // Mentions section (collapsed by default).
-      if ($mentions_count > 0) {
-        $form['ttd_topics']['mentions_section'] = [
-          '#type' => 'details',
-          '#title' => t('Mentions (@count)', ['@count' => $mentions_count]),
-          '#open' => FALSE,
-          '#attributes' => ['class' => ['ttd-topics-section', 'ttd-mentions-section']],
-          '#weight' => 20,
-        ];
-
-        foreach ($mentions_topics as $term_data) {
-          $term = $term_data['term'];
-          $count = $term_data['count'];
-          $is_below_threshold = $count < $min_display_count;
-
-          // Build title (no KD badge for mentions).
-          $title = $term->getName() . ' (' . $count . ')';
-
-          $form['ttd_topics']['mentions_section'][$term->id()] = [
-            '#type' => 'checkbox',
-            '#title' => Markup::create($title),
-            '#default_value' => !in_array(['target_id' => $term->id()], $rejected_term_ids),
-            '#disabled' => $is_below_threshold,
-            '#attributes' => $is_below_threshold ? ['class' => ['ttd-topic-below-threshold']] : [],
-            '#wrapper_attributes' => [
-              'data-tooltip' => t('Mentioned: Referenced in the post but not the main focus'),
-              'class' => ['ttd-topic-item', 'ttd-mentions-topic'],
-            ],
-          ];
-        }
-      }
-
-      // Add custom CSS to style the below-threshold topics.
-      $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
     }
 
     // Add the entity builder to process form values before saving the entity.
@@ -1645,4 +1532,150 @@ function ttd_topics_modules_installed($modules) {
   if (in_array('pathauto', $modules, TRUE)) {
     ttd_topics_ensure_pathauto_pattern();
   }
+}
+
+/**
+ * Get the effective tier for a topic on a node (WP beta features).
+ *
+ * Priority: tier_overrides > salience_category > default ('mentions').
+ *
+ * @param int $term_id
+ *   The taxonomy term ID.
+ * @param int $node_id
+ *   The node ID.
+ *
+ * @return string
+ *   The tier: 'mainEntity', 'about', 'mentions', or 'below-threshold'.
+ */
+function ttd_get_topic_tier($term_id, $node_id) {
+  $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  if (!$node) {
+    return 'mentions';
+  }
+
+  // Get term's ttd_id
+  $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+  if (!$term || !$term->hasField('field_ttd_id')) {
+    return 'mentions';
+  }
+  $ttd_id = $term->get('field_ttd_id')->value;
+
+  // Check tier_overrides first (highest priority)
+  $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+  if (is_array($tier_overrides)) {
+    // Check by ttd_id
+    if ($ttd_id && isset($tier_overrides[(string) $ttd_id])) {
+      return $tier_overrides[(string) $ttd_id];
+    }
+    // Check by term_id
+    $term_key = 'term_' . $term_id;
+    if (isset($tier_overrides[$term_key])) {
+      return $tier_overrides[$term_key];
+    }
+  }
+
+  // Fall back to salience_category from database
+  if ($ttd_id) {
+    $database = \Drupal::database();
+    $salience_category = $database->select('ttd_entity_post_ids', 'ep')
+      ->fields('ep', ['salience_category'])
+      ->condition('entity_id', $ttd_id)
+      ->condition('post_id', $node_id)
+      ->execute()
+      ->fetchField();
+
+    if ($salience_category) {
+      return $salience_category;
+    }
+  }
+
+  // Default to 'mentions'
+  return 'mentions';
+}
+
+/**
+ * Format count with K/M notation (WP beta features).
+ *
+ * @param int $count
+ *   The count value.
+ *
+ * @return string
+ *   Formatted count string.
+ */
+function ttd_format_count($count) {
+  if (!$count && $count !== 0) {
+    return '--';
+  }
+  $num = (int) $count;
+  if ($num >= 1000000) {
+    $val = $num / 1000000;
+    return rtrim(rtrim(number_format($val, 1), '0'), '.') . 'M';
+  }
+  if ($num >= 1000) {
+    $val = $num / 1000;
+    return rtrim(rtrim(number_format($val, 1), '0'), '.') . 'K';
+  }
+  return (string) $num;
+}
+
+/**
+ * Get CSS class for keyword difficulty (WP beta features).
+ *
+ * @param int $difficulty
+ *   Keyword difficulty value (0-100).
+ *
+ * @return string
+ *   CSS class name.
+ */
+function ttd_get_kd_class($difficulty) {
+  if ($difficulty <= 30) {
+    return 'ttd-kd-easy';
+  }
+  if ($difficulty <= 60) {
+    return 'ttd-kd-medium';
+  }
+  if ($difficulty <= 80) {
+    return 'ttd-kd-hard';
+  }
+  return 'ttd-kd-very-hard';
+}
+
+/**
+ * Render KD badge for focus topics (WP beta features).
+ *
+ * @param int $term_id
+ *   The taxonomy term ID.
+ * @param int $node_id
+ *   The node ID.
+ *
+ * @return string
+ *   HTML markup for the KD badge, or empty string.
+ */
+function ttd_render_kd_badge($term_id, $node_id) {
+  $tier = ttd_get_topic_tier($term_id, $node_id);
+
+  // Only show badges for mainEntity and about tiers
+  if (!in_array($tier, ['mainEntity', 'about'])) {
+    return '';
+  }
+
+  // Get cached demand metrics
+  $metrics = ttd_get_demand_metrics($term_id);
+  if (!$metrics || !isset($metrics['keyword_difficulty'], $metrics['traffic_potential'])) {
+    return '<span class="ttd-kd-badge ttd-kd-no-data" title="Click to fetch demand data">--</span>';
+  }
+
+  $kd = (int) $metrics['keyword_difficulty'];
+  $tp = (int) $metrics['traffic_potential'];
+  $kd_class = ttd_get_kd_class($kd);
+  $label = ttd_get_kd_label($kd);
+  $tp_formatted = ttd_format_count($tp);
+
+  $tooltip = t('Traffic Potential: @tp | Difficulty: @kd/100 (@label) | Click to refresh', [
+    '@tp' => $tp_formatted,
+    '@kd' => $kd,
+    '@label' => $label,
+  ]);
+
+  return '<span class="ttd-kd-badge ' . $kd_class . '" title="' . $tooltip . '" data-term-id="' . $term_id . '">' . $tp_formatted . '</span>';
 }
