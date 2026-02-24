@@ -308,19 +308,14 @@
                 const tp = response.data.traffic_potential || 0;
                 const kd = response.data.keyword_difficulty || 0;
 
-                if (tp > 0) {
-                  const tpFormatted = window.ttdTopicsUtils.formatCount(tp);
-                  const kdClass = window.ttdTopicsUtils.getKdClass(kd);
-                  const label = window.ttdTopicsUtils.getKdLabel(kd);
+                const tpFormatted = window.ttdTopicsUtils.formatCount(tp);
+                const kdClass = window.ttdTopicsUtils.getKdClass(kd);
+                const label = window.ttdTopicsUtils.getKdLabel(kd);
 
-                  $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
-                        .addClass(kdClass)
-                        .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
-                        .text(tpFormatted);
-                } else {
-                  $badge.removeClass('ttd-kd-loading').addClass('ttd-kd-no-data')
-                        .attr('title', 'No data available').text('--');
-                }
+                $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+                      .addClass(kdClass)
+                      .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
+                      .text(tpFormatted);
               }
             },
             error: function() {
