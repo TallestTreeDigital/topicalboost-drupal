@@ -198,3 +198,45 @@ admin_topics:
     - core/drupalSettings
     - core/once
     - ttd_topics/jquery_once_polyfill
+
+search_clippings:
+  css:
+    theme:
+      css/search-clippings.css: {}
+  js:
+    js/search-clippings.js: {}
+  dependencies:
+    - core/drupal
+
+citations_widget:
+  css:
+    theme:
+      css/citations-widget.css: {}
+  js:
+    js/citations-widget.js: {}
+  dependencies:
+    - core/drupal
+
+pinned_posts:
+  css:
+    theme:
+      css/pinned-posts.css: {}
+  js:
+    js/ttd-pinned-posts.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+overview:
+  css:
+    theme:
+      css/overview-improvements.css: {}
+
+error_telemetry:
+  js:
+    js/error-telemetry.js: {}
+  dependencies:
+    - core/drupal

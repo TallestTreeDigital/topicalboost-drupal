@@ -4,3 +4,39 @@
   text-transform: uppercase;
   letter-spacing: -1px;
 }
+
+/* Skeleton style mode - minimal styling for theme control */
+.ttd-skeleton-style .topicalboost-section {
+  all: unset;
+  display: block;
+}
+
+.ttd-skeleton-style .topicalboost-inline-mentions {
+  all: unset;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.ttd-skeleton-style .mention-tag {
+  all: unset;
+  cursor: pointer;
+}
+
+.ttd-skeleton-style .mentions-label {
+  all: unset;
+}
+
+.ttd-skeleton-style .toggle-mentions-btn {
+  all: unset;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Auto-link styles */
+a.topicalboost-auto-link {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}

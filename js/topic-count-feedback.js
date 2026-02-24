@@ -294,11 +294,7 @@
 
       // Create modern slider structure
       const sliderContainer = $('<div class="frequency-slider-container"></div>');
-      
-      // Create header with value display only (no redundant title)
-      const sliderHeader = $('<div class="slider-header"></div>');
-      const sliderValueDisplay = $('<div class="slider-value-display"></div>');
-      
+
       // Create the actual slider
       const slider = $('<input type="range" class="frequency-slider" min="1" max="100" step="1">');
       
@@ -319,17 +315,12 @@
       // Set initial values
       const currentValue = parseInt(field.val()) || 5;
       slider.val(currentValue);
-      sliderValueDisplay.text(currentValue);
       updateSliderGradient(currentValue);
 
-      // Assemble header
-      sliderHeader.append(sliderValueDisplay);
-      
       // Create integrated feedback area
       const feedbackArea = $('<div class="integrated-feedback-area"></div>');
-      
+
       // Assemble container
-      sliderContainer.append(sliderHeader);
       sliderContainer.append(slider);
       sliderContainer.append(rangeLabels);
       sliderContainer.append(recommendationZones);
@@ -438,14 +429,12 @@
       slider.on('input', function() {
         const value = parseInt($(this).val());
         field.val(value).trigger('change');
-        sliderValueDisplay.text(value);
         updateSliderGradient(value);
       });
 
       field.on('input change', function() {
         const value = parseInt($(this).val()) || 1;
         slider.val(value);
-        sliderValueDisplay.text(value);
         updateSliderGradient(value);
       });
     });

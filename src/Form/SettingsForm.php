@@ -91,7 +91,9 @@ class SettingsForm extends ConfigFormBase {
           <a href="#analytics" class="ttd-topics-tab-button active" data-tab="tab-analytics" data-has-settings="false">
             <span class="ttd-icon ttd-icon-analytics"></span>Analytics
           </a>
-
+          <a href="#setup" class="ttd-topics-tab-button" data-tab="tab-setup" data-has-settings="true">
+            <span class="ttd-icon ttd-icon-api"></span>Setup
+          </a>
           <a href="#settings" class="ttd-topics-tab-button" data-tab="tab-settings" data-has-settings="true">
             <span class="ttd-icon ttd-icon-settings"></span>Settings
           </a>
@@ -100,6 +102,9 @@ class SettingsForm extends ConfigFormBase {
           </a>
           <a href="#schema" class="ttd-topics-tab-button" data-tab="tab-schema" data-has-settings="true">
             <span class="ttd-icon ttd-icon-schema"></span>Schema
+          </a>
+          <a href="#widgets" class="ttd-topics-tab-button" data-tab="tab-widgets" data-has-settings="true">
+            <span class="ttd-icon ttd-icon-display"></span>Widgets
           </a>
           <a href="#bulk-analysis" class="ttd-topics-tab-button" data-tab="tab-bulk-analysis" data-has-settings="false">
             <span class="ttd-icon ttd-icon-bulk-analysis"></span>Bulk Analysis
@@ -113,6 +118,42 @@ class SettingsForm extends ConfigFormBase {
     $form['tabs_container']['content'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-topics-tab-content']],
+    ];
+
+    // Setup Tab.
+    $form['tabs_container']['content']['setup'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-setup'],
+    ];
+
+    $form['tabs_container']['content']['setup']['title'] = [
+      '#markup' => '<div class="ttd-topics-section-title">
+        <span class="ttd-icon ttd-icon-large ttd-icon-api"></span>Meta Generator Prompts
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['setup']['help'] = [
+      '#markup' => '<div class="ttd-topics-help-text">
+        Customize the AI prompts used when generating SEO and social meta tags. Leave blank to use defaults.
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['setup']['meta_seo_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('SEO Meta Prompt'),
+      '#default_value' => $config->get('meta_seo_prompt') ?: '',
+      '#description' => $this->t('Custom prompt for generating SEO meta titles and descriptions. Leave blank for the default prompt.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#rows' => 6,
+    ];
+
+    $form['tabs_container']['content']['setup']['meta_social_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Social Meta Prompt'),
+      '#default_value' => $config->get('meta_social_prompt') ?: '',
+      '#description' => $this->t('Custom prompt for generating social media meta tags (Open Graph, Twitter Cards). Leave blank for the default prompt.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#rows' => 6,
     ];
 
     // Settings Tab.
@@ -212,6 +253,67 @@ class SettingsForm extends ConfigFormBase {
       '#title' => $this->t('Enable SEO Meta Generator'),
       '#default_value' => $config->get('enable_meta_generator') ?? FALSE,
       '#description' => $this->t('Adds an SEO Meta Generator panel to the content edit form. Uses AI to generate optimized meta titles and descriptions based on your content and selected target keywords. Integrates with Metatag module when available.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['frontend_filter_mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Frontend filter mode'),
+      '#options' => [
+        'all' => $this->t('Show all topics'),
+        'mentions_behind_toggle' => $this->t('Show mentions behind toggle'),
+        'high_salience_only' => $this->t('High salience only (mainEntity + about)'),
+      ],
+      '#default_value' => $config->get('frontend_filter_mode') ?: 'all',
+      '#description' => $this->t('Controls which topics are visible on the frontend. "All" shows everything up to max visible. "Mentions behind toggle" shows about/mainEntity openly, mentions behind a Show More button. "High salience only" hides mention-tier topics entirely.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_frontend"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['settings']['frontend_sort_order'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Frontend sort order'),
+      '#options' => [
+        'salience' => $this->t('By salience (most relevant first)'),
+        'alphabetical' => $this->t('Alphabetical'),
+      ],
+      '#default_value' => $config->get('frontend_sort_order') ?: 'salience',
+      '#description' => $this->t('How topics are ordered in the frontend display.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_frontend"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['settings']['taxonomy_label_singular'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Taxonomy label (singular)'),
+      '#default_value' => $config->get('taxonomy_label_singular') ?: 'Topic',
+      '#description' => $this->t('Singular label used for topics throughout the interface (e.g., "Topic", "Tag", "Subject").'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['settings']['taxonomy_label_plural'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Taxonomy label (plural)'),
+      '#default_value' => $config->get('taxonomy_label_plural') ?: 'Topics',
+      '#description' => $this->t('Plural label used for topics throughout the interface (e.g., "Topics", "Tags", "Subjects").'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['settings']['include_excerpt'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Include excerpt in analysis'),
+      '#default_value' => $config->get('include_excerpt') ?: FALSE,
+      '#description' => $this->t('Include the content summary/excerpt (body.summary) field in the text sent for topic analysis.'),
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
       '#prefix' => '<div class="ttd-topics-toggle-field">',
       '#suffix' => '</div>',
@@ -411,6 +513,43 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
+    // Behavior Section
+    $form['tabs_container']['content']['settings']['behavior_section'] = [
+      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
+        <span class="ttd-icon ttd-icon-large ttd-icon-settings"></span>Behavior
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['auto_link_topics'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Auto-link topics in content'),
+      '#default_value' => $config->get('auto_link_topics') ?: FALSE,
+      '#description' => $this->t('Automatically link the first occurrence of each about/mainEntity topic name in the content body to its topic page.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['skeleton_style'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Skeleton style'),
+      '#default_value' => $config->get('skeleton_style') ?: FALSE,
+      '#description' => $this->t('Enable minimal/skeleton styling for TopicalBoost frontend elements, allowing your theme to control most of the appearance.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['block_until_analyzed'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Block publishing until analyzed'),
+      '#default_value' => $config->get('block_until_analyzed') ?: FALSE,
+      '#description' => $this->t('When enabled, newly published content will be held unpublished until TopicalBoost analysis completes. A fallback auto-publishes after 15 minutes if analysis stalls.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
     // Developer Settings Section
     $form['tabs_container']['content']['settings']['developer_section'] = [
       '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
@@ -426,6 +565,61 @@ class SettingsForm extends ConfigFormBase {
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
       '#prefix' => '<div class="ttd-topics-toggle-field">',
       '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['batch_size'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Batch size'),
+      '#default_value' => $config->get('batch_size') ?: 35,
+      '#min' => 5,
+      '#max' => 100,
+      '#description' => $this->t('Number of posts to send per batch during bulk analysis. Lower values are safer for servers with limited resources. Default: 35.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['settings']['beta_channel'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Beta channel'),
+      '#default_value' => $config->get('beta_channel') ?: FALSE,
+      '#description' => $this->t('Enable beta channel for early access to new features and API updates.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['error_telemetry_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Error telemetry'),
+      '#default_value' => $config->get('error_telemetry_enabled') ?? TRUE,
+      '#description' => $this->t('Send anonymous error reports to help improve TopicalBoost. No personal or content data is included.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['new_topic_reanalysis_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Re-analyze on new topic creation'),
+      '#default_value' => $config->get('new_topic_reanalysis_enabled') ?: FALSE,
+      '#description' => $this->t('When a new topic term is created, automatically queue recent content for re-analysis to check if it matches the new topic.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['settings']['new_topic_reanalysis_lookback_days'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Re-analysis lookback (days)'),
+      '#default_value' => $config->get('new_topic_reanalysis_lookback_days') ?: 30,
+      '#min' => 1,
+      '#max' => 365,
+      '#description' => $this->t('How many days back to look for content to re-analyze when a new topic is created.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => [
+        'visible' => [
+          ':input[name="new_topic_reanalysis_enabled"]' => ['checked' => TRUE],
+        ],
+      ],
     ];
 
     // Analytics Tab - API Coverage Comparison
@@ -599,6 +793,36 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
+    // Schema Options Section
+    $form['tabs_container']['content']['schema']['schema_options'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['schema']['schema_options']['title'] = [
+      '#markup' => '<h4><span class="ttd-icon ttd-icon-schema"></span>Schema Options</h4>',
+    ];
+
+    $form['tabs_container']['content']['schema']['disable_event_temporal_properties'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Output events as Things'),
+      '#default_value' => $config->get('disable_event_temporal_properties') ?: FALSE,
+      '#description' => $this->t('When enabled, Event entities will be output as generic "Thing" type in schema markup, without temporal properties (startDate, endDate, location). Useful if event data is outdated or incorrect.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['schema']['hide_seo_module_ui'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Hide SEO module UI on node forms'),
+      '#default_value' => $config->get('hide_seo_module_ui') ?: FALSE,
+      '#description' => $this->t('Hide Metatag, Yoast SEO, and Simple XML Sitemap form elements on node edit forms to reduce clutter.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
     $form['tabs_container']['content']['schema']['branding'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-topics-field-group']],
@@ -643,6 +867,104 @@ class SettingsForm extends ConfigFormBase {
         ],
       ],
       '#upload_location' => 'public://logos/',
+    ];
+
+    // Widgets Tab.
+    $form['tabs_container']['content']['widgets'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-widgets'],
+    ];
+
+    $form['tabs_container']['content']['widgets']['title'] = [
+      '#markup' => '<div class="ttd-topics-section-title">
+        <span class="ttd-icon ttd-icon-large ttd-icon-display"></span>Dashboard Widgets
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['help'] = [
+      '#markup' => '<div class="ttd-topics-help-text">
+        Configure optional dashboard widgets that can be placed on admin pages via Block Layout.
+      </div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['search_clippings_section'] = [
+      '#markup' => '<h4>Search Clippings</h4>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['search_clippings_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable Search Clippings widget'),
+      '#default_value' => $config->get('search_clippings_enabled') ?: FALSE,
+      '#description' => $this->t('Enable the Search Clippings dashboard widget. Place it via Block Layout after enabling.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_section'] = [
+      '#markup' => '<h4>Citations</h4>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_widget_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable Citations widget'),
+      '#default_value' => $config->get('citations_widget_enabled') ?: FALSE,
+      '#description' => $this->t('Enable the Citations dashboard widget. Place it via Block Layout after enabling.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_widget_limit'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Citations limit'),
+      '#default_value' => $config->get('citations_widget_limit') ?: 20,
+      '#min' => 5,
+      '#max' => 100,
+      '#description' => $this->t('Maximum number of citations to display in the widget.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => [
+        'visible' => [
+          ':input[name="citations_widget_enabled"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['widgets']['search_countries_section'] = [
+      '#markup' => '<h4>Search Countries</h4>',
+    ];
+
+    // Build country options
+    $country_options = [
+      'US' => 'United States', 'GB' => 'United Kingdom', 'CA' => 'Canada',
+      'AU' => 'Australia', 'DE' => 'Germany', 'FR' => 'France', 'ES' => 'Spain',
+      'IT' => 'Italy', 'NL' => 'Netherlands', 'BR' => 'Brazil', 'IN' => 'India',
+      'JP' => 'Japan', 'MX' => 'Mexico', 'SE' => 'Sweden', 'NO' => 'Norway',
+      'DK' => 'Denmark', 'FI' => 'Finland', 'PL' => 'Poland', 'BE' => 'Belgium',
+      'AT' => 'Austria', 'CH' => 'Switzerland', 'IE' => 'Ireland', 'NZ' => 'New Zealand',
+      'SG' => 'Singapore', 'ZA' => 'South Africa', 'PT' => 'Portugal',
+      'AR' => 'Argentina', 'CL' => 'Chile', 'CO' => 'Colombia',
+      'KR' => 'South Korea', 'TW' => 'Taiwan', 'HK' => 'Hong Kong',
+      'PH' => 'Philippines', 'TH' => 'Thailand', 'MY' => 'Malaysia',
+      'ID' => 'Indonesia', 'VN' => 'Vietnam', 'IL' => 'Israel',
+      'AE' => 'United Arab Emirates', 'SA' => 'Saudi Arabia',
+      'TR' => 'Turkey', 'RU' => 'Russia', 'UA' => 'Ukraine',
+      'CZ' => 'Czech Republic', 'RO' => 'Romania', 'HU' => 'Hungary',
+      'GR' => 'Greece', 'HR' => 'Croatia', 'BG' => 'Bulgaria',
+    ];
+    asort($country_options);
+
+    $form['tabs_container']['content']['widgets']['search_countries'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Search countries'),
+      '#options' => $country_options,
+      '#default_value' => $config->get('search_countries') ?: ['US'],
+      '#description' => $this->t('Select countries for search demand data. Changes are pushed to the API on save.'),
+      '#multiple' => TRUE,
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group', 'ttd-topics-select2'],
+        'data-placeholder' => 'Select countries...',
+      ],
     ];
 
     // Bulk Analysis Tab
@@ -1643,6 +1965,29 @@ class SettingsForm extends ConfigFormBase {
       }
     }
 
+    // Push search_countries to API if changed.
+    $new_search_countries = array_filter($form_state->getValue('search_countries') ?: []);
+    $old_search_countries = array_filter($config->get('search_countries') ?: []);
+    if ($new_search_countries != $old_search_countries) {
+      $api_key = $form_state->getValue('topicalboost_api_key') ?: $config->get('topicalboost_api_key');
+      if ($api_key) {
+        try {
+          $client = \Drupal::httpClient();
+          $client->put(TOPICALBOOST_API_ENDPOINT . '/site-settings/countries', [
+            'headers' => [
+              'Content-Type' => 'application/json',
+              'x-api-key' => $api_key,
+            ],
+            'json' => ['countries' => array_values($new_search_countries)],
+            'timeout' => 15,
+          ]);
+        }
+        catch (\Exception $e) {
+          \Drupal::logger('topicalboost')->error('Failed to push search countries to API: @message', ['@message' => $e->getMessage()]);
+        }
+      }
+    }
+
     $config
       ->set('enabled_content_types', $new_content_types)
       ->set('enable_frontend', $form_state->getValue('enable_frontend'))
@@ -1655,13 +2000,34 @@ class SettingsForm extends ConfigFormBase {
       ->set('topic_url_path_prefix', $new_path_prefix)
       ->set('debug_mode', $form_state->getValue('debug_mode'))
       ->set('topicalboost_api_key', $form_state->getValue('topicalboost_api_key'))
-
       ->set('organization_facebook_url', $form_state->getValue('organization_facebook_url'))
       ->set('organization_twitter_url', $form_state->getValue('organization_twitter_url'))
       ->set('organization_linkedin_url', $form_state->getValue('organization_linkedin_url'))
       ->set('organization_youtube_url', $form_state->getValue('organization_youtube_url'))
       ->set('organization_wikipedia_url', $form_state->getValue('organization_wikipedia_url'))
       ->set('organization_logo_fid', $logo_fid)
+      // New settings
+      ->set('frontend_filter_mode', $form_state->getValue('frontend_filter_mode'))
+      ->set('frontend_sort_order', $form_state->getValue('frontend_sort_order'))
+      ->set('auto_link_topics', $form_state->getValue('auto_link_topics'))
+      ->set('skeleton_style', $form_state->getValue('skeleton_style'))
+      ->set('taxonomy_label_singular', $form_state->getValue('taxonomy_label_singular'))
+      ->set('taxonomy_label_plural', $form_state->getValue('taxonomy_label_plural'))
+      ->set('include_excerpt', $form_state->getValue('include_excerpt'))
+      ->set('batch_size', (int) $form_state->getValue('batch_size'))
+      ->set('beta_channel', $form_state->getValue('beta_channel'))
+      ->set('error_telemetry_enabled', $form_state->getValue('error_telemetry_enabled'))
+      ->set('disable_event_temporal_properties', $form_state->getValue('disable_event_temporal_properties'))
+      ->set('hide_seo_module_ui', $form_state->getValue('hide_seo_module_ui'))
+      ->set('block_until_analyzed', $form_state->getValue('block_until_analyzed'))
+      ->set('new_topic_reanalysis_enabled', $form_state->getValue('new_topic_reanalysis_enabled'))
+      ->set('new_topic_reanalysis_lookback_days', (int) $form_state->getValue('new_topic_reanalysis_lookback_days'))
+      ->set('search_clippings_enabled', $form_state->getValue('search_clippings_enabled'))
+      ->set('citations_widget_enabled', $form_state->getValue('citations_widget_enabled'))
+      ->set('citations_widget_limit', (int) $form_state->getValue('citations_widget_limit'))
+      ->set('meta_seo_prompt', $form_state->getValue('meta_seo_prompt'))
+      ->set('meta_social_prompt', $form_state->getValue('meta_social_prompt'))
+      ->set('search_countries', array_values($new_search_countries))
       ->save();
 
     parent::submitForm($form, $form_state);

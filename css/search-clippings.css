@@ -1,0 +1,11 @@
+#searchclippings-widget {
+  min-height: 200px;
+}
+
+.topicalboost-widget-error {
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+}

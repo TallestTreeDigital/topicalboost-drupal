@@ -151,12 +151,26 @@ class MetaGeneratorController extends ControllerBase {
       $body = $node->hasField('body') ? $node->get('body')->value : '';
       $content_preview = mb_substr(strip_tags($body), 0, 500);
 
-      // Call TB API to generate meta.
-      $response = $this->callMetaGenerateApi([
+      // Get custom prompts from config.
+      $config = \Drupal::config('ttd_topics.settings');
+      $api_params = [
         'postTitle' => $node->getTitle(),
         'contentPreview' => $content_preview,
         'selectedKeywords' => $keywords,
-      ]);
+      ];
+
+      $meta_seo_prompt = $config->get('meta_seo_prompt');
+      if (!empty($meta_seo_prompt)) {
+        $api_params['seoPrompt'] = $meta_seo_prompt;
+      }
+
+      $meta_social_prompt = $config->get('meta_social_prompt');
+      if (!empty($meta_social_prompt)) {
+        $api_params['socialPrompt'] = $meta_social_prompt;
+      }
+
+      // Call TB API to generate meta.
+      $response = $this->callMetaGenerateApi($api_params);
 
       if ($response && isset($response['variations'])) {
         return new JsonResponse([
@@ -313,7 +327,7 @@ class MetaGeneratorController extends ControllerBase {
    */
   private function callMetaGenerateApi(array $params) {
     $config = \Drupal::config('ttd_topics.settings');
-    $api_key = $config->get('api_key');
+    $api_key = $config->get('topicalboost_api_key');
 
     if (empty($api_key)) {
       throw new \Exception('API key not configured');

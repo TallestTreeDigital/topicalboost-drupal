@@ -234,8 +234,8 @@ class BulkAnalysisController extends ControllerBase {
         \Drupal::state()->set('topicalboost.bulk_analysis.filters', $filters);
         \Drupal::state()->set('topicalboost.bulk_analysis.content_count', $content_count);
 
-        // Calculate pages and batch size (50 nodes per batch like WordPress)
-        $batch_size = 50;
+        // Calculate pages and batch size from config (default 35).
+        $batch_size = (int) $config->get('batch_size') ?: 35;
         $page_count = ceil($content_count / $batch_size);
 
         // Clear any existing bulk analysis jobs.

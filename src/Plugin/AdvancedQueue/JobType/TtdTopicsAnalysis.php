@@ -57,6 +57,14 @@ class TtdTopicsAnalysis extends JobTypeBase {
 
       // Clear analysis in progress.
       $node->set('field_ttd_analysis_in_progress', FALSE);
+
+      // If block_until_analyzed is enabled, publish the node after analysis.
+      $config = \Drupal::config('ttd_topics.settings');
+      if ($config->get('block_until_analyzed') && !$node->isPublished()) {
+        $node->setPublished();
+        \Drupal::logger('topicalboost')->info('Published node @nid after analysis completed (block_until_analyzed).', ['@nid' => $node->id()]);
+      }
+
       $node->save();
 
       return JobResult::success('TopicalBoost analysis completed for node ' . $identifier);

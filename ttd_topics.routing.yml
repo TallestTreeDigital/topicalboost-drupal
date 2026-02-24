@@ -217,3 +217,19 @@ ttd_topics.demand_metrics:
   methods: [GET]
   requirements:
     _permission: 'administer nodes'
+
+topicalboost.api.pinned_posts_search:
+  path: '/api/topicalboost/pinned-posts/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::searchPinnedPosts'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.telemetry:
+  path: '/api/topicalboost/telemetry/js-errors'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TelemetryController::receiveJsErrors'
+  methods: [POST]
+  requirements:
+    _permission: 'access content'

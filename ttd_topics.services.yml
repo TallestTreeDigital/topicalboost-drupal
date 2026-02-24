@@ -15,3 +15,7 @@ services:
 
   ttd_topics.analysis_service:
     class: Drupal\ttd_topics\Service\TtdTopicsAnalysisService
+
+  ttd_topics.error_telemetry:
+    class: Drupal\ttd_topics\Service\ErrorTelemetryService
+    arguments: ['@config.factory', '@state']

@@ -982,4 +982,40 @@ function ttd_topics_update_9001() {
   return t('Added tier_overrides and manual_topics field storage for enhanced topic management.');
 }
 
+/**
+ * Add field_pinned_posts entity reference field on ttd_topics taxonomy terms.
+ */
+function ttd_topics_update_9002() {
+  // Create field storage for pinned_posts on taxonomy terms.
+  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_pinned_posts')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_pinned_posts',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'entity_reference',
+      'settings' => [
+        'target_type' => 'node',
+      ],
+      'cardinality' => 3,
+    ])->save();
+  }
 
+  // Add field instance to the ttd_topics vocabulary.
+  if (!FieldConfig::loadByName('taxonomy_term', 'ttd_topics', 'field_pinned_posts')) {
+    FieldConfig::create([
+      'field_name' => 'field_pinned_posts',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'ttd_topics',
+      'label' => 'Pinned Posts',
+      'description' => 'Select up to 3 posts to pin at the top of this topic page.',
+    ])->save();
+  }
+
+  // Hide from default view display.
+  $view_display = EntityViewDisplay::load('taxonomy_term.ttd_topics.default');
+  if ($view_display) {
+    $view_display->removeComponent('field_pinned_posts');
+    $view_display->save();
+  }
+
+  return t('Added field_pinned_posts entity reference field for pinned posts on topic term pages.');
+}

@@ -288,14 +288,23 @@ class SchemaGenerator {
         $schema_types = ['Thing'];
       }
 
+      // Check if events should be output as Things.
+      $config = \Drupal::config('ttd_topics.settings');
+      if ($config->get('disable_event_temporal_properties')) {
+        $schema_types = array_map(function ($type) {
+          return $type === 'Event' ? 'Thing' : $type;
+        }, $schema_types);
+      }
+
       $output_data = [
         '@type' => count($schema_types) > 1 ? $schema_types : $schema_types[0],
         'name' => $topic->name,
         'url' => !empty($entity['official_website']) ? $entity['official_website'] : $base_url . $topic->alias,
       ];
 
-      // Format the entity data.
-      $output_data = $this->formatEntityData($output_data, $entity, $schema_types[0]);
+      // Format the entity data (skip temporal properties for demoted Events).
+      $effective_type = $schema_types[0];
+      $output_data = $this->formatEntityData($output_data, $entity, $effective_type);
 
       $items[] = $output_data;
     }

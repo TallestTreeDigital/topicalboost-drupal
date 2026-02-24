@@ -83,6 +83,21 @@ class FieldCollectorService {
         $content_parts[] = $body_text;
         $current_length += strlen($body_text);
       }
+
+      // Include excerpt/summary if configured.
+      if ($config->get('include_excerpt')) {
+        $body_field = $node->get('body');
+        foreach ($body_field as $item) {
+          if (!empty($item->summary)) {
+            $summary_text = strip_tags($item->summary);
+            if ($summary_text && $current_length + strlen($summary_text) < self::MAX_TEXT_LENGTH) {
+              $content_parts[] = $summary_text;
+              $current_length += strlen($summary_text);
+            }
+            break;
+          }
+        }
+      }
     }
 
     // Process custom fields
