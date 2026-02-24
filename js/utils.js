@@ -172,8 +172,12 @@
       return;
     }
 
-    // Show loading state
-    $clickedItem.addClass('updating');
+    // Capture data before clearing DOM
+    const capturedName = topic.name;
+
+    // Immediately hide dropdown on click - user expects it to dismiss
+    jQuery('#ttd-topics-search').val('');
+    $searchResults.empty().hide();
 
     // Add the topic to the post as a manual topic
     jQuery.ajax({
@@ -230,18 +234,12 @@
             $mentionsSection.find('.ttd-section-count').text('(' + count + ')');
           }
 
-          // Clear search and hide results
-          jQuery('#ttd-topics-search').val('');
-          $searchResults.hide();
         } else {
           console.error('Failed to add manual topic:', response);
         }
       },
       error: function(xhr, status, error) {
         console.error('Error adding manual topic:', error);
-      },
-      complete: function() {
-        $clickedItem.removeClass('updating');
       }
     });
   };
