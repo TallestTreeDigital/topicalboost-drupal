@@ -98,6 +98,8 @@ class TtdTopicsAnalysisService {
         'headers' => [
           'Content-Type' => 'application/json',
           'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
         ],
         'json' => [
           'customer_id' => $node->id(),
@@ -120,7 +122,11 @@ class TtdTopicsAnalysisService {
         // Wait for 10 seconds between polls.
         sleep(10);
         $poll_response = $client->get($api_base_url . '/poll/analysis', [
-          'headers' => ['x-api-key' => $api_key],
+          'headers' => [
+            'x-api-key' => $api_key,
+            'x-tb-plugin-version' => $this->getModuleVersion(),
+            'x-tb-platform' => 'drupal',
+          ],
           'query' => ['request_id' => $request_id],
           'timeout' => 30,
         ]);
@@ -139,7 +145,11 @@ class TtdTopicsAnalysisService {
 
       // Step 3: Get analysis results.
       $results_response = $client->get($api_base_url . '/result/entities', [
-        'headers' => ['x-api-key' => $api_key],
+        'headers' => [
+          'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
+        ],
         'query' => ['request_id' => $request_id],
         'timeout' => 30,
       ]);
@@ -492,6 +502,14 @@ class TtdTopicsAnalysisService {
 
     // Store using module function
     ttd_store_demand_metrics($term_id, $metrics_data);
+  }
+
+  /**
+   * Get the module version.
+   */
+  protected function getModuleVersion(): string {
+    $info = \Drupal::service('extension.list.module')->getExtensionInfo('ttd_topics');
+    return $info['version'] ?? 'unknown';
   }
 
 }

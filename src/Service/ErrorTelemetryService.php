@@ -155,6 +155,8 @@ class ErrorTelemetryService {
         'headers' => [
           'Content-Type' => 'application/json',
           'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
         ],
         'json' => [
           'errors' => $buffer,
