@@ -102,18 +102,66 @@
 
 /* Override Gin theme's checkbox label padding (Gin uses padding-left for pseudo-element checkbox) */
 #ttd-bulk-analysis-form .form-type-checkbox label,
+#ttd-bulk-analysis-form .form-type--checkbox label,
 #ttd-bulk-analysis-form .js-form-type-checkbox label,
-#ttd-bulk-analysis-form .form-type-checkbox label.option {
+#ttd-bulk-analysis-form .js-form-type--checkbox label,
+#ttd-bulk-analysis-form .form-type-checkbox label.option,
+#ttd-bulk-analysis-form .form-type--checkbox label.option {
   padding-left: 0 !important;
+  padding-inline-start: 0 !important;
   margin-left: 0 !important;
+  margin-inline-start: 0 !important;
   background: none !important;
 }
 
 /* Hide Gin's label pseudo-element checkboxes since we show real inputs */
 #ttd-bulk-analysis-form .form-type-checkbox label::before,
-#ttd-bulk-analysis-form .form-type-checkbox label::after {
+#ttd-bulk-analysis-form .form-type--checkbox label::before,
+#ttd-bulk-analysis-form .form-type-checkbox label::after,
+#ttd-bulk-analysis-form .form-type--checkbox label::after {
   display: none !important;
   content: none !important;
+}
+
+/* Override Gin's toggle-switch checkbox styling (Gin uses all:unset + width:40px) */
+#ttd-bulk-analysis-form .form-type--checkbox input[type="checkbox"],
+#ttd-bulk-analysis-form .js-form-type--checkbox input[type="checkbox"] {
+  all: revert !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 2px solid #9ca3af !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  transition: all 0.15s ease !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
+#ttd-bulk-analysis-form .form-type--checkbox input[type="checkbox"]::before,
+#ttd-bulk-analysis-form .form-type--checkbox input[type="checkbox"]::after {
+  display: none !important;
+  content: none !important;
+}
+
+#ttd-bulk-analysis-form .form-type--checkbox input[type="checkbox"]:checked {
+  background-color: #3b82f6 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='white' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+  border-color: #3b82f6 !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .form-type--checkbox input[type="checkbox"] {
+  background: #2a2a2a !important;
+  border-color: #4a4a4a !important;
 }
 
 /* Reset admin theme fieldset styling that interferes */
@@ -598,20 +646,24 @@
 }
 
 /* Analysis Options - Clean checkbox styling with proper spacing */
-.ttd-bulk-analysis-section .form-type-checkbox {
+.ttd-bulk-analysis-section .form-type-checkbox,
+.ttd-bulk-analysis-section .form-type--checkbox {
   margin-bottom: 12px !important;
   display: flex !important;
   align-items: flex-start !important;
   clear: both !important;
   flex-wrap: wrap !important;
   gap: 8px !important;
+  margin-inline-start: 0 !important;
 }
 
-.ttd-bulk-analysis-section .form-type-checkbox:last-child {
+.ttd-bulk-analysis-section .form-type-checkbox:last-child,
+.ttd-bulk-analysis-section .form-type--checkbox:last-child {
   margin-bottom: 0 !important;
 }
 
-.ttd-bulk-analysis-section .form-type-checkbox label {
+.ttd-bulk-analysis-section .form-type-checkbox label,
+.ttd-bulk-analysis-section .form-type--checkbox label {
   display: inline !important;
   font-weight: 500 !important;
   color: #374151 !important;
@@ -619,16 +671,20 @@
   cursor: pointer !important;
   line-height: 1.5 !important;
   padding-left: 0 !important;
+  padding-inline-start: 0 !important;
   margin-left: 0 !important;
+  margin-inline-start: 0 !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
 }
 
-.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label {
+.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label,
+.gin--dark-mode .ttd-bulk-analysis-section .form-type--checkbox label {
   color: var(--gin-color-text) !important;
 }
 
-.ttd-bulk-analysis-section .form-type-checkbox .description {
+.ttd-bulk-analysis-section .form-type-checkbox .description,
+.ttd-bulk-analysis-section .form-type--checkbox .description {
   display: block !important;
   margin-left: 26px !important;
   margin-top: -4px !important;
@@ -638,9 +694,11 @@
   line-height: 1.4 !important;
   width: 100% !important;
   padding-left: 0 !important;
+  padding-inline-start: 0 !important;
 }
 
-.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox .description {
+.gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox .description,
+.gin--dark-mode .ttd-bulk-analysis-section .form-type--checkbox .description {
   color: var(--gin-color-text-secondary) !important;
 }
 
