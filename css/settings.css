@@ -1,0 +1,837 @@
+/**
+ * TopicalBoost Drupal Settings Page
+ * Adapted from WP settings.css for Drupal Form API DOM structure.
+ */
+
+/* ==========================================================================
+   1. Layout -- page wrapper + header
+   ========================================================================== */
+
+.ttd-settings-wrap {
+  max-width: 1200px;
+  margin: 16px 0 40px;
+}
+
+.ttd-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ttd-settings-wrap .ttd-page-header h1 {
+  font-size: 21px;
+  font-weight: 600;
+  color: #1d2327;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* Move submit button into header via JS */
+.ttd-settings-wrap .form-actions {
+  margin: 0;
+  padding: 0;
+}
+
+.ttd-settings-wrap .form-actions .button--primary {
+  background: #2271b1;
+  border: none;
+  color: #fff;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.5;
+  height: auto;
+  min-height: 0;
+}
+
+.ttd-settings-wrap .form-actions .button--primary:hover {
+  background: #135e96;
+}
+
+.ttd-settings-wrap .form-actions .button--primary:focus {
+  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
+  outline: none;
+}
+
+/* ==========================================================================
+   2. Sidebar + Content Shell
+   ========================================================================== */
+
+.ttd-settings-layout {
+  display: flex;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  margin-top: 14px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  min-height: 480px;
+}
+
+/* -- Sidebar nav --------------------------------------------------------- */
+.ttd-settings-nav {
+  width: 180px;
+  flex-shrink: 0;
+  background: #f6f7f7;
+  border-right: 1px solid #dcdcde;
+  padding: 12px 0;
+}
+
+.ttd-nav-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8c8f94;
+  padding: 10px 16px 4px;
+  margin: 0;
+}
+
+.ttd-nav-group-label:first-child {
+  padding-top: 4px;
+}
+
+.ttd-nav-item {
+  display: block;
+  padding: 7px 16px;
+  font-size: 13px;
+  color: #50575e;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+  user-select: none;
+  border-left: 3px solid transparent;
+  list-style: none;
+}
+
+.ttd-nav-item:hover {
+  color: #1d2327;
+  background: #f0f0f1;
+}
+
+.ttd-nav-item.active {
+  color: #1d2327;
+  font-weight: 500;
+  background: #fff;
+  border-left-color: #2271b1;
+}
+
+/* -- Content panel ------------------------------------------------------- */
+.ttd-settings-content {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px 4px;
+}
+
+/* ==========================================================================
+   3. Settings Panels -- show/hide
+   ========================================================================== */
+
+.ttd-settings-panel {
+  display: none;
+}
+
+.ttd-settings-panel.active {
+  display: block;
+}
+
+.ttd-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2327;
+  margin: 0 0 16px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #e2e4e7;
+}
+
+/* ==========================================================================
+   4. Form Items -- side-by-side labels via CSS Grid
+   ========================================================================== */
+
+.ttd-settings-panel .form-item,
+.ttd-settings-panel .js-form-item {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0 14px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f1;
+  margin: 0;
+}
+
+.ttd-settings-panel .form-item:last-child,
+.ttd-settings-panel .js-form-item:last-child {
+  border-bottom: none;
+}
+
+.ttd-settings-panel .form-item > label,
+.ttd-settings-panel .js-form-item > label {
+  font-size: 13px;
+  font-weight: 400;
+  color: #50575e;
+  line-height: 1.5;
+  padding-top: 6px;
+  margin: 0;
+}
+
+/* Description -- Drupal uses .form-item__description; keep .description as fallback */
+.ttd-settings-panel .form-item .form-item__description,
+.ttd-settings-panel .js-form-item .form-item__description,
+.ttd-settings-panel .form-item .description,
+.ttd-settings-panel .js-form-item .description {
+  grid-column: 2;
+  font-size: 12px;
+  color: #8c8f94;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* Suffix (e.g. API key validation indicator) stays in field column */
+.ttd-settings-panel .form-item .form-item__suffix,
+.ttd-settings-panel .js-form-item .form-item__suffix {
+  grid-column: 2;
+}
+
+/* Input fields sizing */
+.ttd-settings-panel input[type="text"],
+.ttd-settings-panel input[type="number"],
+.ttd-settings-panel input[type="url"],
+.ttd-settings-panel input[type="email"],
+.ttd-settings-panel select:not([multiple]) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #8c8f94;
+  border-radius: 3px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.ttd-settings-panel textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #8c8f94;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.ttd-settings-panel input[type="text"]:focus,
+.ttd-settings-panel input[type="number"]:focus,
+.ttd-settings-panel input[type="url"]:focus,
+.ttd-settings-panel textarea:focus,
+.ttd-settings-panel select:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+  outline: none;
+}
+
+/* ==========================================================================
+   5. Toggle Switches
+   ========================================================================== */
+
+.ttd-topics-toggle-field {
+  margin: 0;
+}
+
+/* The toggle-field form-items keep grid but toggle replaces checkbox */
+.ttd-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.ttd-toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.ttd-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #c3c4c7;
+  border-radius: 20px;
+  transition: background-color 0.15s ease;
+}
+
+.ttd-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.ttd-toggle-slider.active {
+  background-color: #2271b1;
+}
+
+.ttd-toggle-slider.active:before {
+  transform: translateX(16px);
+}
+
+/* Toggle fields -- single-column block layout, toggle at left edge */
+.ttd-settings-panel .ttd-topics-toggle-field .form-item,
+.ttd-settings-panel .ttd-topics-toggle-field .js-form-item {
+  display: block;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f1;
+  margin: 0;
+}
+
+.ttd-settings-panel .ttd-topics-toggle-field .form-item > label,
+.ttd-settings-panel .ttd-topics-toggle-field .js-form-item > label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d2327;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ttd-settings-panel .ttd-topics-toggle-field .form-item__description {
+  margin: 4px 0 0 44px;
+  font-size: 12px;
+  color: #8c8f94;
+  line-height: 1.5;
+}
+
+/* Hide original checkbox in toggle fields -- Drupal wraps it differently */
+.ttd-topics-toggle-field input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* ==========================================================================
+   6. Select2 Overrides
+   ========================================================================== */
+
+.ttd-settings-wrap .select2-dropdown {
+  z-index: 9999;
+}
+
+.ttd-settings-wrap .select2-container {
+  max-width: 100%;
+  width: 100%;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple {
+  border: 1px solid #8c8f94;
+  border-radius: 3px;
+  min-height: 32px;
+  padding: 2px 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ttd-settings-wrap .select2-container--default.select2-container--focus .select2-selection--multiple {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice {
+  background-color: #f0f0f1;
+  border: 1px solid #c3c4c7;
+  border-radius: 2px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__display {
+  padding: 2px 8px 2px 6px;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+  position: static;
+  color: #787c82;
+  margin: 0;
+  padding: 4px 6px;
+  font-weight: normal;
+  font-size: 14px;
+  line-height: 1;
+  order: -1;
+  cursor: pointer;
+  border: none;
+  border-right: 1px solid #c3c4c7;
+  background: none;
+  flex-shrink: 0;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+  color: #d63638;
+  background: #f0dbdb;
+}
+
+.select2-dropdown {
+  border-color: #8c8f94;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ttd-settings-wrap .select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background-color: #2271b1;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-search--inline {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  flex-grow: 1;
+}
+
+.ttd-settings-wrap .select2-container--default .select2-search--inline .select2-search__field {
+  margin: 0;
+  width: 100%;
+  min-width: 60px;
+  height: 26px;
+  line-height: 26px;
+}
+
+/* ==========================================================================
+   7. API Key Field
+   ========================================================================== */
+
+.ttd-settings-panel .api-key-container .form-item,
+.ttd-settings-panel .api-key-container .js-form-item {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0 14px;
+  align-items: start;
+}
+
+.api-key-indicator {
+  display: inline-block;
+  margin-left: 8px;
+}
+
+/* ==========================================================================
+   8. URL Preview
+   ========================================================================== */
+
+.ttd-url-preview {
+  margin: 4px 0 12px;
+  padding: 6px 8px;
+  background: #f6f7f7;
+  border: 1px solid #e2e4e7;
+  border-radius: 2px;
+  font-size: 12px;
+  color: #8c8f94;
+}
+
+.ttd-url-display {
+  font-family: Consolas, Monaco, monospace;
+  color: #1d2327;
+  font-size: 12px;
+}
+
+.ttd-url-slug {
+  font-weight: 600;
+  color: #2271b1;
+}
+
+/* ==========================================================================
+   9. Empty State (Analytics / Bulk Analysis)
+   ========================================================================== */
+
+.ttd-topics-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #50575e;
+}
+
+.ttd-topics-empty-state h3 {
+  margin: 12px 0 8px;
+  color: #1d2327;
+}
+
+.ttd-topics-empty-state p {
+  max-width: 420px;
+  margin: 0 auto 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ttd-topics-button-primary {
+  display: inline-block;
+  background: #2271b1;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 3px;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ttd-topics-button-primary:hover {
+  background: #135e96;
+  color: #fff;
+}
+
+/* ==========================================================================
+   10. Dark Mode -- Gin theme
+   ========================================================================== */
+
+/* --- Layout --- */
+.gin--dark-mode .ttd-settings-layout {
+  background: var(--gin-bg-layer, #2e3338);
+  border-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-nav {
+  background: var(--gin-bg-layer2, #23272b);
+  border-right-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-content {
+  background: var(--gin-bg-layer, #2e3338);
+}
+
+.gin--dark-mode .ttd-settings-wrap .ttd-page-header h1 {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Nav --- */
+.gin--dark-mode .ttd-nav-group-label {
+  color: var(--gin-color-text-light, #8c8f94);
+}
+
+.gin--dark-mode .ttd-nav-item {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-nav-item:hover {
+  color: var(--gin-color-text, #d4d4d4);
+  background: var(--gin-bg-layer, #2e3338);
+}
+
+.gin--dark-mode .ttd-nav-item.active {
+  color: var(--gin-color-text, #d4d4d4);
+  background: var(--gin-bg-layer, #2e3338);
+  border-left-color: var(--gin-color-primary, #2271b1);
+}
+
+/* --- Panel titles and section headings --- */
+.gin--dark-mode .ttd-panel-title {
+  color: var(--gin-color-text, #d4d4d4);
+  border-bottom-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-panel h3 {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+.gin--dark-mode .ttd-settings-panel h4 {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-settings-panel .ttd-section-title {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Form item labels and borders --- */
+.gin--dark-mode .ttd-settings-panel .form-item > label,
+.gin--dark-mode .ttd-settings-panel .js-form-item > label {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-settings-panel .form-item,
+.gin--dark-mode .ttd-settings-panel .js-form-item {
+  border-bottom-color: var(--gin-border-color, #454b51);
+}
+
+/* --- Toggle labels (bold text, needs brighter color) --- */
+.gin--dark-mode .ttd-settings-panel .ttd-topics-toggle-field .form-item > label,
+.gin--dark-mode .ttd-settings-panel .ttd-topics-toggle-field .js-form-item > label {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Toggle slider track in dark mode --- */
+.gin--dark-mode .ttd-toggle-slider {
+  background-color: #5a5f65;
+}
+
+/* --- Inputs, textareas, selects --- */
+.gin--dark-mode .ttd-settings-panel input[type="text"],
+.gin--dark-mode .ttd-settings-panel input[type="number"],
+.gin--dark-mode .ttd-settings-panel input[type="url"],
+.gin--dark-mode .ttd-settings-panel input[type="email"],
+.gin--dark-mode .ttd-settings-panel textarea,
+.gin--dark-mode .ttd-settings-panel select {
+  background: var(--gin-bg-layer2, #23272b);
+  color: var(--gin-color-text, #d4d4d4);
+  border-color: var(--gin-border-color, #454b51);
+}
+
+/* --- Descriptions --- */
+.gin--dark-mode .ttd-settings-panel .form-item__description,
+.gin--dark-mode .ttd-settings-panel .description {
+  color: var(--gin-color-text-light, #8c8f94);
+}
+
+/* --- URL Preview --- */
+.gin--dark-mode .ttd-url-preview {
+  background: var(--gin-bg-layer2, #23272b);
+  border-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-url-display {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Select2 selection box --- */
+.gin--dark-mode .ttd-settings-wrap .select2-container--default .select2-selection--multiple {
+  background: var(--gin-bg-layer2, #23272b);
+  border-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice {
+  background: var(--gin-bg-layer, #2e3338);
+  border-color: var(--gin-border-color, #454b51);
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+.gin--dark-mode .ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+  color: var(--gin-color-text-light, #a0a4a8);
+  border-right-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+  color: #d63638;
+  background: rgba(214, 54, 56, 0.15);
+}
+
+.gin--dark-mode .ttd-settings-wrap .select2-container--default .select2-search--inline .select2-search__field {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Select2 dropdown (renders at body level, outside .ttd-settings-wrap) --- */
+.gin--dark-mode .select2-dropdown {
+  background: var(--gin-bg-layer2, #23272b);
+  border-color: var(--gin-border-color, #454b51);
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+.gin--dark-mode .select2-container--default .select2-results__option {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+.gin--dark-mode .select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background-color: #2271b1;
+  color: #fff;
+}
+
+.gin--dark-mode .select2-container--default .select2-results__option[aria-selected="true"] {
+  background-color: var(--gin-bg-layer, #2e3338);
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .select2-container--default .select2-search--dropdown .select2-search__field {
+  background: var(--gin-bg-layer, #2e3338);
+  border-color: var(--gin-border-color, #454b51);
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Native select dark mode --- */
+.gin--dark-mode .ttd-settings-panel select option {
+  background: var(--gin-bg-layer2, #23272b);
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Fieldsets (branding section in Schema tab) --- */
+.gin--dark-mode .ttd-settings-panel fieldset {
+  border-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-panel fieldset legend {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Empty state --- */
+.gin--dark-mode .ttd-topics-empty-state {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-topics-empty-state h3 {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* --- Icons inside headings --- */
+.gin--dark-mode .ttd-settings-panel .ttd-icon {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+/* --- General text inside panels that uses hardcoded dark colors --- */
+.gin--dark-mode .ttd-settings-panel {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
+/* ==========================================================================
+   11. Responsive
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+  .ttd-settings-wrap {
+    margin-right: 0;
+  }
+
+  .ttd-settings-layout {
+    flex-direction: column;
+  }
+
+  .ttd-settings-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #dcdcde;
+    padding: 8px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .ttd-nav-group-label {
+    display: none;
+  }
+
+  .ttd-nav-item {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .ttd-nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: #2271b1;
+  }
+
+  .ttd-settings-content {
+    padding: 14px;
+  }
+
+  /* Stack form items on mobile */
+  .ttd-settings-panel .form-item,
+  .ttd-settings-panel .js-form-item {
+    grid-template-columns: 1fr;
+  }
+
+  .ttd-settings-panel .form-item .form-item__description,
+  .ttd-settings-panel .js-form-item .form-item__description,
+  .ttd-settings-panel .form-item .description,
+  .ttd-settings-panel .js-form-item .description {
+    grid-column: 1;
+  }
+}
+
+/* ==========================================================================
+   12. Misc Overrides for Drupal admin theme compatibility
+   ========================================================================== */
+
+/* Drupal's Gin theme applies padding/margin to form-items; reset within our panels */
+.ttd-settings-panel .form-item {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Hide the Drupal default form-item wrapper padding from Gin */
+.ttd-settings-wrap .claro-details__wrapper,
+.ttd-settings-wrap .fieldset__wrapper {
+  padding: 0;
+}
+
+/* Checkbox form items that are toggles should not show double labels */
+.ttd-topics-toggle-field .form-type-checkbox label .ttd-topics-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Gin hides pseudo-elements on checkboxes; ensure our hidden ones stay hidden */
+.ttd-settings-panel .ttd-topics-toggle-field input[type="checkbox"]::before,
+.ttd-settings-panel .ttd-topics-toggle-field input[type="checkbox"]::after {
+  display: none;
+}
+
+/* Branding / Logo section in Schema tab */
+.ttd-settings-panel fieldset {
+  border: 1px solid #e2e4e7;
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.ttd-settings-panel fieldset legend {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d2327;
+  padding: 0 4px;
+}
+
+/* Section headings inside panels */
+.ttd-settings-panel h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2327;
+  margin: 18px 0 10px;
+  padding: 0;
+}
+
+.ttd-settings-panel h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #50575e;
+  margin: 16px 0 8px;
+  padding: 0;
+}
+
+/* Code examples collapse */
+.ttd-code-examples {
+  margin: 12px 0;
+}
+
+/* Coverage section within analytics */
+.ttd-settings-panel .ttd-coverage-section {
+  margin: 0;
+}
+
+/* Bulk analysis sections */
+.ttd-settings-panel .ttd-bulk-analysis-section {
+  margin-bottom: 16px;
+}
+
+/* Sortable custom fields */
+.ttd-sortable-fields .select2-selection__choice {
+  cursor: grab;
+}
+
+.ttd-sortable-fields .select2-selection__choice:active {
+  cursor: grabbing;
+}

@@ -10,11 +10,10 @@ ttd_topics.styles:
       css/topicalboost.css: {}
       css/icons.css: {}
 
-tabs:
+settings:
   css:
     theme:
-      css/tabs.css: {}
-      css/ttd-coverage.css: {}
+      css/settings.css: {}
   js:
     js/tabs.js: {}
   dependencies:
@@ -23,7 +22,6 @@ tabs:
     - core/once
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/debug_stub
-    - ttd_topics/coverage
 
 progress_bars:
   css:
@@ -52,11 +50,6 @@ topic_count_feedback:
     - core/jquery
     - core/drupal
     - core/once
-
-modern_forms:
-  css:
-    theme:
-      css/modern-forms.css: {}
 
 api_validation:
   css:
