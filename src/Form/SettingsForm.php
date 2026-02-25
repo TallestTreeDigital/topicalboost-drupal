@@ -321,18 +321,12 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['settings']['post_topic_minimum_display_count'] = [
       '#type' => 'number',
-      '#title' => $this->t('Minimum post frequency'),
+      '#title' => $this->t('Minimum Display Count'),
       '#default_value' => $config->get('post_topic_minimum_display_count') ?: 5,
       '#min' => 1,
       '#max' => 100,
-      '#description' => $this->t('Controls which topics appear on your site based on how often they\'re mentioned. Set to 5 to only show topics mentioned in at least 5 posts. Lower values (1-3) show more topics including rare ones. Higher values (10+) show only frequently discussed topics. This affects topic pages, topic lists, and frontend displays.'),
+      '#description' => $this->t('Topics appearing in fewer posts are soft-hidden. High-salience topics always display.'),
       '#attributes' => ['class' => ['ttd-topics-field-group']],
-      // Temporarily removed states condition to fix slider loading
-      // '#states' => [
-      //   'visible' => [
-      //     ':input[name="enabled_content_types[]"]' => ['filled' => TRUE],
-      //   ],
-      // ],
     ];
 
     // Custom Fields for Analysis Section
