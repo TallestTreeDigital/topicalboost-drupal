@@ -116,10 +116,10 @@
             let statusClass = '';
 
             if (count === 0) {
-              statusText = `<br><strong>Result:</strong> No topics will be displayed.`;
+              statusText = `No topics will be displayed.`;
               statusClass = 'warning';
             } else {
-              statusText = `<br><strong>Result:</strong> ${count.toLocaleString()} topics (${percentage}% of ${total.toLocaleString()}) will be displayed.`;
+              statusText = `${count.toLocaleString()} topics (${percentage}% of ${total.toLocaleString()}) will be displayed.`;
               statusClass = percentage < 20 ? 'warning' : 'success';
             }
 
@@ -150,59 +150,8 @@
           feedbackArea = $('<div class="integrated-feedback-area"></div>');
           $('.frequency-slider-container').append(feedbackArea);
         }
-        
-        // If we have a result, format it with the new structure
-        if (text.includes('<strong>Result:</strong>')) {
-          const resultMatch = text.match(/<strong>Result:<\/strong>\s*(.+)/);
-          if (resultMatch) {
-            const resultText = resultMatch[1];
-            
-            // Determine the appropriate status class based on content
-            let feedbackClass = 'loading';
-            if (resultText.includes('Calculating')) {
-              feedbackClass = 'loading';
-            } else if (resultText.includes('No topics will be displayed')) {
-              feedbackClass = 'error';
-            } else if (resultText.includes('Error:') || resultText.includes('Unable to calculate')) {
-              feedbackClass = 'error';
-            } else {
-              // Parse the percentage to determine status
-              const percentageMatch = resultText.match(/\((\d+(?:\.\d+)?)%/);
-              if (percentageMatch) {
-                const percentage = parseFloat(percentageMatch[1]);
-                if (percentage < 5) {
-                  feedbackClass = 'warning'; // Very few topics
-                } else if (percentage < 20) {
-                  feedbackClass = 'warning'; // Limited topics
-                } else {
-                  feedbackClass = 'success'; // Good range
-                }
-              } else {
-                feedbackClass = 'success';
-              }
-            }
-            
-            // Create structured feedback HTML for the integrated area
-            const feedbackHtml = `
-              <div class="topic-feedback-result ${feedbackClass}">
-                <div class="result-value">${resultText}</div>
-              </div>
-            `;
-            
-            feedbackArea.html(feedbackHtml);
-          } else {
-            // Fallback to simple formatting
-            feedbackArea.html(`<div class="topic-feedback-result ${statusClass}"><div class="result-value">${text}</div></div>`);
-          }
-        } else {
-          // Just update the text without special formatting
-          feedbackArea.html(`<div class="topic-feedback-result ${statusClass}"><div class="result-value">${text}</div></div>`);
-        }
-        
-        // Clear any old feedback from the description field and restore original static text
-        if (descriptionEl.find('.topic-feedback-result').length > 0) {
-          descriptionEl.html('Controls which topics appear on your site based on how often they\'re mentioned. Set to 5 to only show topics mentioned in at least 5 posts. Lower values (1-3) show more topics including rare ones. Higher values (10+) show only frequently discussed topics. This affects topic pages, topic lists, and frontend displays.');
-        }
+
+        feedbackArea.html(`<div class="topic-feedback-result ${statusClass}"><div class="result-value">${text}</div></div>`);
       }
 
       // Handle input changes with debouncing
@@ -262,11 +211,6 @@
     }
 
     if (minFrequencyField.length === 0) {
-      return;
-    }
-
-    // Check if field is visible (not hidden by form states)
-    if (!minFrequencyField.is(':visible')) {
       return;
     }
 
