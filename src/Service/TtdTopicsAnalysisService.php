@@ -505,6 +505,43 @@ class TtdTopicsAnalysisService {
   }
 
   /**
+   * Update the stored content URL for a node (e.g. after draft -> publish).
+   */
+  public function updateContentUrl(NodeInterface $node) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+
+    $url = $node->toUrl()->setAbsolute()->toString();
+    if (empty($url)) {
+      return;
+    }
+
+    try {
+      $client = new Client();
+      $client->patch($api_base_url . '/content/url', [
+        'headers' => [
+          'Content-Type' => 'application/json',
+          'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
+        ],
+        'json' => [
+          'customer_id' => $node->id(),
+          'url' => $url,
+        ],
+        'timeout' => 10,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to update content URL for node @id: @message', [
+        '@id' => $node->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
+  /**
    * Get the module version.
    */
   protected function getModuleVersion(): string {

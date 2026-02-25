@@ -130,6 +130,11 @@
   }
 }
 
+/* Dark mode - lighten hardcoded dark SVG fills */
+.gin--dark-mode .ttd-icon {
+  filter: brightness(0) invert(1) opacity(0.75) !important;
+}
+
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .ttd-icon {

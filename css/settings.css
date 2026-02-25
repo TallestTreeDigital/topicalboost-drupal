@@ -83,12 +83,15 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #8c8f94;
-  padding: 10px 16px 4px;
-  margin: 0;
+  padding: 14px 16px 4px;
+  margin: 4px 12px 0;
+  border-top: 1px solid #e0e0e0;
 }
 
 .ttd-nav-group-label:first-child {
   padding-top: 4px;
+  border-top: none;
+  margin-top: 0;
 }
 
 .ttd-nav-item {
@@ -523,6 +526,7 @@
 /* --- Nav --- */
 .gin--dark-mode .ttd-nav-group-label {
   color: var(--gin-color-text-light, #8c8f94);
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 .gin--dark-mode .ttd-nav-item {

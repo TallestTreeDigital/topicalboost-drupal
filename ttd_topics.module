@@ -892,6 +892,33 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
 }
 
 /**
+ * Implements hook_entity_update().
+ *
+ * When a node transitions to published, update the stored URL in TopicalBoost
+ * so draft URLs (e.g. /node/123) are replaced with the published path alias.
+ */
+function ttd_topics_entity_update(EntityInterface $entity) {
+  if (!($entity instanceof NodeInterface)) {
+    return;
+  }
+
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+  if (!in_array($entity->bundle(), $enabled_content_types)) {
+    return;
+  }
+
+  $is_newly_published = $entity->isPublished() && $entity->original && !$entity->original->isPublished();
+
+  if ($is_newly_published) {
+    /** @var \Drupal\ttd_topics\Service\TtdTopicsAnalysisService $analysis_service */
+    $analysis_service = \Drupal::service('ttd_topics.analysis_service');
+    $analysis_service->updateContentUrl($entity);
+  }
+}
+
+/**
  * Implements hook_entity_insert() for taxonomy terms.
  *
  * When a new ttd_topics term is created and re-analysis is enabled,

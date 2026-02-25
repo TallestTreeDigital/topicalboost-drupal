@@ -7,9 +7,9 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   max-width: 1200px;
   margin: 0 auto;
-  background: white !important;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: transparent !important;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   padding: 0;
 }
@@ -17,8 +17,8 @@
 /* Dark mode support for Gin theme */
 .gin--dark-mode #ttd-bulk-analysis-form,
 .gin--dark-mode .ttd-bulk-analysis-wrapper {
-  background: var(--gin-bg-layer) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background: transparent !important;
+  box-shadow: none;
 }
 
 /* Reset focus styles that admin themes apply - but preserve our custom focus styles */
@@ -100,6 +100,22 @@
   padding-left: 0 !important;
 }
 
+/* Override Gin theme's checkbox label padding (Gin uses padding-left for pseudo-element checkbox) */
+#ttd-bulk-analysis-form .form-type-checkbox label,
+#ttd-bulk-analysis-form .js-form-type-checkbox label,
+#ttd-bulk-analysis-form .form-type-checkbox label.option {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  background: none !important;
+}
+
+/* Hide Gin's label pseudo-element checkboxes since we show real inputs */
+#ttd-bulk-analysis-form .form-type-checkbox label::before,
+#ttd-bulk-analysis-form .form-type-checkbox label::after {
+  display: none !important;
+  content: none !important;
+}
+
 /* Reset admin theme fieldset styling that interferes */
 #ttd-bulk-analysis-form fieldset {
   border: none !important;
@@ -161,7 +177,7 @@
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section {
-  border-bottom-color: var(--gin-border-color);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 .ttd-bulk-analysis-section:last-child {
@@ -175,15 +191,16 @@
 
 /* Modern section headers with icons */
 .ttd-section-header {
-  background: #f8fafc;
+  background: transparent;
   border-bottom: 1px solid #e2e8f0;
-  padding: 20px 24px;
+  padding: 14px 24px 10px;
   margin: 0;
 }
 
 .gin--dark-mode .ttd-section-header {
-  background: var(--gin-bg-app) !important;
-  border-bottom-color: var(--gin-border-color) !important;
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 14px 24px 4px !important;
 }
 
 .ttd-section-title {
@@ -201,7 +218,7 @@
 }
 
 .ttd-section-content {
-  padding: 24px;
+  padding: 12px 24px 16px;
 }
 
 /* Status and actions - ensure proper margins */
@@ -215,30 +232,30 @@
 }
 
 .ttd-selection-status {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   padding: 20px 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: none;
 }
 
 .gin--dark-mode .ttd-selection-status {
-  background: var(--gin-bg-app);
-  border-color: var(--gin-border-color);
+  background: transparent;
+  border-color: transparent;
 }
 
 .ttd-bulk-analysis-actions {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   padding: 24px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: none;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-actions {
-  background: var(--gin-bg-app);
-  border-color: var(--gin-border-color);
+  background: transparent;
+  border-color: transparent;
 }
 
 /* Icon styling */
@@ -382,7 +399,7 @@
   padding: 0;
   margin: 0;
   border-top: 1px solid #f1f5f9;
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .gin--dark-mode .ttd-custom-date-range {
@@ -582,11 +599,12 @@
 
 /* Analysis Options - Clean checkbox styling with proper spacing */
 .ttd-bulk-analysis-section .form-type-checkbox {
-  margin-bottom: 28px !important;
+  margin-bottom: 12px !important;
   display: flex !important;
   align-items: flex-start !important;
   clear: both !important;
   flex-wrap: wrap !important;
+  gap: 8px !important;
 }
 
 .ttd-bulk-analysis-section .form-type-checkbox:last-child {
@@ -594,17 +612,16 @@
 }
 
 .ttd-bulk-analysis-section .form-type-checkbox label {
-  display: flex !important;
-  align-items: center !important;
+  display: inline !important;
   font-weight: 500 !important;
   color: #374151 !important;
   margin-bottom: 0 !important;
   cursor: pointer !important;
   line-height: 1.5 !important;
-  gap: 10px !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
-  margin-right: auto !important;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox label {
@@ -613,13 +630,14 @@
 
 .ttd-bulk-analysis-section .form-type-checkbox .description {
   display: block !important;
-  margin-left: 28px !important;
-  margin-top: 6px !important;
+  margin-left: 26px !important;
+  margin-top: -4px !important;
   margin-bottom: 0 !important;
   color: #64748b !important;
   font-size: 13px !important;
-  line-height: 1.5 !important;
+  line-height: 1.4 !important;
   width: 100% !important;
+  padding-left: 0 !important;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-section .form-type-checkbox .description {
@@ -668,14 +686,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: #f1f5f9;
-  border-radius: 6px;
+  padding: 12px 0;
+  background: transparent;
+  border-radius: 0;
   margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .gin--dark-mode .ttd-filter-header {
-  background: var(--gin-bg-app) !important;
+  background: transparent !important;
+  border-bottom-color: var(--gin-border-color) !important;
 }
 
 .ttd-section-label {
@@ -909,16 +929,16 @@
 
 /* Progress Container */
 .ttd-progress-container {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   padding: 24px;
   margin-bottom: 24px;
 }
 
 .gin--dark-mode .ttd-progress-container {
-  background: var(--gin-bg-app);
-  border-color: var(--gin-border-color);
+  background: transparent;
+  border-color: transparent;
 }
 
 .ttd-progress-section h4 {
@@ -1209,15 +1229,16 @@
   display: flex;
   gap: 16px;
   justify-content: center;
-  margin-top: 32px;
-  padding: 24px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  margin-top: 16px;
+  padding: 20px 24px;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid #e2e8f0;
 }
 
 .gin--dark-mode .ttd-bulk-analysis-actions {
-  background: var(--gin-bg-layer) !important;
+  background: transparent !important;
   border-color: var(--gin-border-color) !important;
 }
 
@@ -1548,8 +1569,8 @@
   /* Only apply if Gin dark mode class is NOT present (avoid double-application) */
   body:not(.gin--dark-mode) #ttd-bulk-analysis-form,
   body:not(.gin--dark-mode) .ttd-bulk-analysis-wrapper {
-    background: #1e1e1e !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    background: transparent !important;
+    box-shadow: none;
   }
 
   body:not(.gin--dark-mode) .ttd-bulk-analysis-section {
@@ -1557,7 +1578,7 @@
   }
 
   body:not(.gin--dark-mode) .ttd-section-header {
-    background: #2a2a2a !important;
+    background: transparent !important;
     border-bottom-color: #3a3a3a !important;
   }
 
@@ -1566,12 +1587,12 @@
   }
 
   body:not(.gin--dark-mode) .ttd-selection-status {
-    background: #2a2a2a;
-    border-color: #3a3a3a;
+    background: transparent;
+    border-color: transparent;
   }
 
   body:not(.gin--dark-mode) .ttd-bulk-analysis-actions {
-    background: #1e1e1e !important;
+    background: transparent !important;
     border-color: #3a3a3a !important;
   }
 
@@ -1643,7 +1664,8 @@
   }
 
   body:not(.gin--dark-mode) .ttd-filter-header {
-    background: #2a2a2a !important;
+    background: transparent !important;
+    border-bottom-color: #3a3a3a !important;
   }
 
   body:not(.gin--dark-mode) .ttd-section-label {
@@ -1670,8 +1692,8 @@
   }
 
   body:not(.gin--dark-mode) .ttd-progress-container {
-    background: #2a2a2a;
-    border-color: #3a3a3a;
+    background: transparent;
+    border-color: transparent;
   }
 
   body:not(.gin--dark-mode) .ttd-progress-section h4 {
