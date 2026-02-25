@@ -77,11 +77,11 @@ class ErrorTelemetryService {
     }
 
     $buffer[] = [
-      'type' => $this->getErrorTypeName($type),
-      'message' => mb_substr($message, 0, 500),
+      'errorType' => $this->getErrorTypeName($type),
+      'message' => mb_substr($message, 0, 2000),
       'file' => basename($file),
       'line' => $line,
-      'timestamp' => gmdate('c'),
+      'severity' => $this->getSeverity($type),
       'context' => [
         'drupal_version' => \Drupal::VERSION,
         'module_version' => $this->getModuleVersion(),
@@ -110,12 +110,12 @@ class ErrorTelemetryService {
     }
 
     $buffer[] = [
-      'type' => 'js_error',
-      'message' => mb_substr($error_data['message'] ?? '', 0, 500),
+      'errorType' => 'js_error',
+      'message' => mb_substr($error_data['message'] ?? '', 0, 2000),
       'file' => basename($error_data['file'] ?? ''),
       'line' => (int) ($error_data['line'] ?? 0),
-      'stack' => mb_substr($error_data['stack'] ?? '', 0, 1000),
-      'timestamp' => gmdate('c'),
+      'stackTrace' => mb_substr($error_data['stack'] ?? '', 0, 5000),
+      'severity' => 'error',
       'context' => [
         'drupal_version' => \Drupal::VERSION,
         'module_version' => $this->getModuleVersion(),
@@ -157,7 +157,6 @@ class ErrorTelemetryService {
           'x-api-key' => $api_key,
         ],
         'json' => [
-          'platform' => 'drupal',
           'errors' => $buffer,
         ],
         'timeout' => 10,
@@ -180,16 +179,33 @@ class ErrorTelemetryService {
    */
   protected function getErrorTypeName(int $type): string {
     $types = [
-      E_ERROR => 'E_ERROR',
-      E_WARNING => 'E_WARNING',
-      E_NOTICE => 'E_NOTICE',
-      E_DEPRECATED => 'E_DEPRECATED',
-      E_USER_ERROR => 'E_USER_ERROR',
-      E_USER_WARNING => 'E_USER_WARNING',
-      E_USER_NOTICE => 'E_USER_NOTICE',
-      E_USER_DEPRECATED => 'E_USER_DEPRECATED',
+      E_ERROR => 'php_fatal',
+      E_WARNING => 'php_warning',
+      E_NOTICE => 'php_notice',
+      E_DEPRECATED => 'php_deprecated',
+      E_USER_ERROR => 'php_error',
+      E_USER_WARNING => 'php_warning',
+      E_USER_NOTICE => 'php_notice',
+      E_USER_DEPRECATED => 'php_deprecated',
     ];
-    return $types[$type] ?? 'E_UNKNOWN';
+    return $types[$type] ?? 'php_error';
+  }
+
+  /**
+   * Map PHP error type to severity level matching the API schema.
+   */
+  protected function getSeverity(int $type): string {
+    $map = [
+      E_ERROR => 'fatal',
+      E_USER_ERROR => 'error',
+      E_WARNING => 'warning',
+      E_USER_WARNING => 'warning',
+      E_NOTICE => 'notice',
+      E_USER_NOTICE => 'notice',
+      E_DEPRECATED => 'notice',
+      E_USER_DEPRECATED => 'notice',
+    ];
+    return $map[$type] ?? 'error';
   }
 
   /**
