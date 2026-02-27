@@ -34,9 +34,20 @@ class TtdTopicsController extends ControllerBase {
     $config = \Drupal::config('ttd_topics.settings');
     $min_display_count = $config->get('post_topic_minimum_display_count') ?: 10;
 
-    // Get search and filter parameters.
-    $search = \Drupal::request()->query->get('search', '');
-    $min_posts = \Drupal::request()->query->get('min_posts', '');
+    // Get search, filter, and sort parameters.
+    $request = \Drupal::request();
+    $search = $request->query->get('search', '');
+    $min_posts = $request->query->get('min_posts', '');
+    $sort_by = $request->query->get('sort', 'count');
+    $sort_order = $request->query->get('order', 'desc');
+
+    // Validate sort params.
+    if (!in_array($sort_by, ['name', 'count'], TRUE)) {
+      $sort_by = 'count';
+    }
+    if (!in_array($sort_order, ['asc', 'desc'], TRUE)) {
+      $sort_order = 'desc';
+    }
 
     // First get total count of all topics (before filtering and limiting)
     $total_count_query = $database->select('taxonomy_term_field_data', 'td');
@@ -50,24 +61,40 @@ class TtdTopicsController extends ControllerBase {
 
     $total_topics_count = $total_count_query->countQuery()->execute()->fetchField();
 
-    // Get basic topic data first.
+    // Get topic data with post counts via JOIN for proper SQL sorting.
     $query = $database->select('taxonomy_term_field_data', 'td');
     $query->fields('td', ['tid', 'name']);
     $query->condition('td.vid', 'ttd_topics');
     $query->condition('td.status', 1);
+
+    // LEFT JOIN taxonomy_index to get post counts in the query.
+    $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
+    $query->addExpression('COUNT(ti.nid)', 'post_count');
+    $query->groupBy('td.tid');
+    $query->groupBy('td.name');
 
     // Add search filter if provided.
     if (!empty($search)) {
       $query->condition('td.name', '%' . $database->escapeLike($search) . '%', 'LIKE');
     }
 
-    // Limit to prevent memory issues.
-    $query->range(0, 200);
-    $query->orderBy('td.name', 'ASC');
+    // Apply min_posts filter via HAVING.
+    if (!empty($min_posts)) {
+      $query->havingCondition('COUNT(ti.nid)', (int) $min_posts, '>=');
+    }
 
-    $terms_data = $query->execute()->fetchAllKeyed();
+    // Apply sort in SQL.
+    if ($sort_by === 'name') {
+      $query->orderBy('td.name', strtoupper($sort_order));
+    }
+    else {
+      $query->orderBy('post_count', strtoupper($sort_order));
+      $query->orderBy('td.name', 'ASC');
+    }
 
-    if (empty($terms_data)) {
+    $all_results = $query->execute()->fetchAll();
+
+    if (empty($all_results)) {
       $no_results_text = !empty($search) ?
         $this->t('No topics found matching "@search".', ['@search' => $search]) :
         $this->t('No topics found.');
@@ -77,33 +104,33 @@ class TtdTopicsController extends ControllerBase {
       ];
     }
 
-    // Get post counts using existing function.
-    $term_ids = array_keys($terms_data);
-    $post_counts = ttd_topics_get_topic_node_counts($term_ids);
-
-    // Build table rows and apply post count filter.
-    $rows = [];
+    // Calculate totals across ALL results (not just current page).
+    $filtered_count = count($all_results);
     $total_posts = 0;
-    $filtered_count = 0;
+    foreach ($all_results as $row) {
+      $total_posts += (int) $row->post_count;
+    }
 
-    foreach ($terms_data as $tid => $name) {
-      $count = $post_counts[$tid] ?? 0;
+    // Set up pagination.
+    $items_per_page = 50;
+    $pager_manager = \Drupal::service('pager.manager');
+    $pager = $pager_manager->createPager($filtered_count, $items_per_page, 1);
+    $current_page = $pager->getCurrentPage();
+    $page_results = array_slice($all_results, $current_page * $items_per_page, $items_per_page);
 
-      // Apply post count filter if specified.
-      if (!empty($min_posts) && $count < (int) $min_posts) {
-        continue;
-      }
+    // Build table rows from current page.
+    $rows = [];
 
-      $filtered_count++;
-      $total_posts += $count;
+    foreach ($page_results as $row) {
+      $count = (int) $row->post_count;
 
-      $edit_url = Url::fromRoute('entity.taxonomy_term.edit_form', ['taxonomy_term' => $tid]);
+      $edit_url = Url::fromRoute('entity.taxonomy_term.edit_form', ['taxonomy_term' => $row->tid]);
 
       $rows[] = [
         'name' => [
           'data' => [
             '#type' => 'link',
-            '#title' => $name,
+            '#title' => $row->name,
             '#url' => $edit_url,
           ],
         ],
@@ -121,11 +148,6 @@ class TtdTopicsController extends ControllerBase {
         ],
       ];
     }
-
-    // Sort by post count.
-    usort($rows, function ($a, $b) {
-      return $b['count'] - $a['count'];
-    });
 
     // Handle empty results after filtering.
     if (empty($rows)) {
@@ -163,43 +185,89 @@ class TtdTopicsController extends ControllerBase {
     }
     $filter_text = !empty($filter_parts) ? ' (' . implode(' and ', $filter_parts) . ')' : '';
 
-    // Simple summary section.
+    // Summary with page range and totals across all pages.
+    $page_start = $current_page * $items_per_page + 1;
+    $page_end = min(($current_page + 1) * $items_per_page, $filtered_count);
     $display_text = '';
-    if ($total_topics_count > 200 && $filtered_count == count($terms_data)) {
-      // We're showing a limited set due to the 200 limit.
-      $display_text = 'Showing <strong>' . count($terms_data) . '</strong> of <strong>' . $total_topics_count . '</strong> total topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
+    if ($filtered_count > $items_per_page) {
+      $display_text = 'Showing <strong>' . $page_start . '-' . $page_end . '</strong> of <strong>' . $filtered_count . '</strong> topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
     }
     else {
-      // We're showing all available topics (after filters)
       $display_text = 'Showing <strong>' . $filtered_count . '</strong> topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
-      if ($total_topics_count != $filtered_count) {
-        $display_text = 'Showing <strong>' . $filtered_count . '</strong> of <strong>' . $total_topics_count . '</strong> total topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
-      }
+    }
+    if ($total_topics_count != $filtered_count) {
+      $display_text .= ' (<strong>' . $total_topics_count . '</strong> total topics)';
     }
 
+    $build['#attached']['library'][] = 'ttd_topics/overview';
+
     $build['summary'] = [
-      '#markup' => '<div style="background: #e3f2fd; padding: 15px; margin-bottom: 20px; border-radius: 4px; border-left: 4px solid #2196f3;">
-        <h3 style="margin: 0 0 8px 0; color: #1976d2;">Topics Overview</h3>
-        <p style="margin: 0; color: #424242;">' . $display_text . '</p>
+      '#markup' => '<div class="ttd-topics-summary">
+        <h3 class="ttd-topics-summary__title">Topics Overview</h3>
+        <p class="ttd-topics-summary__text">' . $display_text . '</p>
       </div>',
       '#weight' => -50,
     ];
 
-    // Simple table without complex styling.
+    // Build sortable header links.
+    $base_query = [];
+    if (!empty($search)) {
+      $base_query['search'] = $search;
+    }
+    if (!empty($min_posts)) {
+      $base_query['min_posts'] = $min_posts;
+    }
+
+    // Name header: toggle order if already sorting by name, else default to ASC.
+    $name_order = ($sort_by === 'name' && $sort_order === 'asc') ? 'desc' : 'asc';
+    $name_arrow = '';
+    if ($sort_by === 'name') {
+      $name_arrow = $sort_order === 'asc' ? ' &#9650;' : ' &#9660;';
+    }
+    $name_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'name', 'order' => $name_order]]);
+
+    // Count header: toggle order if already sorting by count, else default to DESC.
+    $count_order = ($sort_by === 'count' && $sort_order === 'desc') ? 'asc' : 'desc';
+    $count_arrow = '';
+    if ($sort_by === 'count') {
+      $count_arrow = $sort_order === 'asc' ? ' &#9650;' : ' &#9660;';
+    }
+    $count_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'count', 'order' => $count_order]]);
+
+    $header = [
+      [
+        'data' => [
+          '#markup' => '<a href="' . $name_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'name' ? ' is-active' : '') . '">Topic Name' . $name_arrow . '</a>',
+        ],
+      ],
+      [
+        'data' => [
+          '#markup' => '<a href="' . $count_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'count' ? ' is-active' : '') . '">Posts' . $count_arrow . '</a>',
+        ],
+      ],
+      $this->t('Operations'),
+    ];
+
+    // Simple table.
     $build['table'] = [
       '#type' => 'table',
-      '#header' => [
-        $this->t('Topic Name'),
-        $this->t('Posts'),
-        $this->t('Operations'),
-      ],
+      '#header' => $header,
       '#rows' => $rows,
       '#empty' => $this->t('No topics found.'),
       '#attributes' => [
-        'style' => 'background: white; margin-top: 10px;',
+        'class' => ['ttd-topics-overview'],
       ],
       '#weight' => 0,
     ];
+
+    // Add pager if more than one page.
+    if ($filtered_count > $items_per_page) {
+      $build['pager'] = [
+        '#type' => 'pager',
+        '#element' => 1,
+        '#weight' => 10,
+      ];
+    }
 
     return $build;
   }
