@@ -167,6 +167,10 @@ overview:
   css:
     theme:
       css/overview-improvements.css: {}
+  js:
+    js/overview-toggle.js: {}
+  dependencies:
+    - core/drupalSettings
 
 code_examples:
   css:

@@ -1107,6 +1107,7 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
     // Add search filter form.
     $search = \Drupal::request()->query->get('search', '');
     $min_posts = \Drupal::request()->query->get('min_posts', '');
+    $visibility = \Drupal::request()->query->get('visibility', '');
 
     $form['search_filter'] = [
       '#type' => 'details',
@@ -1141,6 +1142,19 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
       '#default_value' => $min_posts,
     ];
 
+    $form['search_filter']['visibility'] = [
+      '#type' => 'select',
+      '#title' => t('Visibility'),
+      '#title_display' => 'invisible',
+      '#options' => [
+        '' => t('All topics'),
+        'visible' => t('Visible only'),
+        'hidden' => t('Hidden only'),
+        'below' => t('Below threshold'),
+      ],
+      '#default_value' => $visibility,
+    ];
+
     $form['search_filter']['submit'] = [
       '#type' => 'submit',
       '#value' => t('Filter'),
@@ -1148,7 +1162,7 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
       '#button_type' => 'primary',
     ];
 
-    if (!empty($search) || !empty($min_posts)) {
+    if (!empty($search) || !empty($min_posts) || !empty($visibility)) {
       $form['search_filter']['reset'] = [
         '#type' => 'submit',
         '#value' => t('Reset'),
@@ -1204,6 +1218,7 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
 function ttd_topics_search_submit(array &$form, FormStateInterface $form_state) {
   $search = $form_state->getValue('search');
   $min_posts = $form_state->getValue('min_posts');
+  $visibility = $form_state->getValue('visibility');
   $current_path = \Drupal::request()->getPathInfo();
 
   $query_params = [];
@@ -1212,6 +1227,9 @@ function ttd_topics_search_submit(array &$form, FormStateInterface $form_state) 
   }
   if (!empty($min_posts)) {
     $query_params['min_posts'] = $min_posts;
+  }
+  if (!empty($visibility)) {
+    $query_params['visibility'] = $visibility;
   }
 
   $url = Url::fromUserInput($current_path, ['query' => $query_params]);

@@ -104,6 +104,9 @@ class SettingsForm extends ConfigFormBase {
           <a href="#bulk-analysis" class="ttd-topics-tab-button" data-tab="tab-bulk-analysis" data-has-settings="false">
             <span class="ttd-icon ttd-icon-bulk-analysis"></span>Bulk Analysis
           </a>
+          <a href="/admin/structure/taxonomy/manage/ttd_topics/overview" class="ttd-topics-tab-button ttd-topics-tab-button--link" title="View Topics taxonomy page">
+            <span class="ttd-icon ttd-icon-schema"></span>View Topics &#8599;
+          </a>
         </div>
       </div>',
       '#weight' => -10,
