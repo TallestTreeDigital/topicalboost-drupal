@@ -163,6 +163,11 @@ coverage:
     - core/drupal
     - core/once
 
+overview:
+  css:
+    theme:
+      css/overview-improvements.css: {}
+
 code_examples:
   css:
     theme:
