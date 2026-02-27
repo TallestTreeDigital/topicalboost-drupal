@@ -34,6 +34,11 @@
   border-bottom: 1px solid #dee2e6;
 }
 
+.ttd-topics-overview td:first-child .ttd-status-badge {
+  float: right;
+  margin-left: 8px;
+}
+
 .ttd-topics-overview td a {
   font-weight: 500;
   color: #0056b3;
@@ -128,6 +133,116 @@
 .gin--dark-mode .ttd-sort-link:hover,
 .gin--dark-mode .ttd-sort-link.is-active {
   color: rgb(var(--gin-color-primary-rgb, 99, 102, 241));
+}
+
+/* Topic name with inline badges */
+.ttd-topic-name {
+  font-weight: 500;
+  color: #0056b3;
+  text-decoration: none;
+}
+
+.ttd-topic-name:hover {
+  color: #004085;
+  text-decoration: underline;
+}
+
+.gin--dark-mode .ttd-topic-name {
+  color: rgb(var(--gin-color-primary-rgb, 99, 102, 241));
+}
+
+/* Status badges */
+.ttd-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+a.ttd-status-badge--hidden,
+a.ttd-status-badge--hidden:link,
+a.ttd-status-badge--hidden:visited {
+  background-color: #ffeaa7;
+  color: #2d3436;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.ttd-status-badge--hidden:hover {
+  background-color: #fdcb6e;
+  color: #2d3436;
+  text-decoration: none;
+}
+
+.ttd-status-badge--below {
+  background-color: #fab1a0;
+  color: #2d3436;
+}
+
+/* Hover-only hide action */
+a.ttd-status-badge--hide-action,
+a.ttd-status-badge--hide-action:link,
+a.ttd-status-badge--hide-action:visited {
+  background-color: #e9ecef;
+  color: #6c757d;
+  text-decoration: none;
+  cursor: pointer;
+  display: none;
+}
+
+.ttd-topics-overview tbody tr:hover a.ttd-status-badge--hide-action {
+  display: inline-block;
+}
+
+a.ttd-status-badge--hide-action:hover {
+  background-color: #dee2e6;
+  color: #495057;
+  text-decoration: none;
+}
+
+.gin--dark-mode a.ttd-status-badge--hidden,
+.gin--dark-mode a.ttd-status-badge--hidden:link,
+.gin--dark-mode a.ttd-status-badge--hidden:visited {
+  background-color: #6c5b1e;
+  color: #ffeaa7;
+}
+
+.gin--dark-mode a.ttd-status-badge--hidden:hover {
+  background-color: #7d6a23;
+  color: #ffeaa7;
+}
+
+.gin--dark-mode .ttd-status-badge--below {
+  background-color: #6b2f1e;
+  color: #fab1a0;
+}
+
+.gin--dark-mode a.ttd-status-badge--hide-action,
+.gin--dark-mode a.ttd-status-badge--hide-action:link,
+.gin--dark-mode a.ttd-status-badge--hide-action:visited {
+  background-color: var(--gin-bg-layer3, #333336);
+  color: var(--gin-color-text-light, #9ca3af);
+}
+
+.gin--dark-mode a.ttd-status-badge--hide-action:hover {
+  background-color: var(--gin-border-color, #3a3a3d);
+  color: var(--gin-color-text, #e0e0e0);
+}
+
+/* Settings tab bar link */
+.ttd-topics-tab-button--link {
+  opacity: 0.7;
+  border-top: 1px solid #dee2e6;
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.ttd-topics-tab-button--link:hover {
+  opacity: 1;
 }
 
 /* Mobile responsive */

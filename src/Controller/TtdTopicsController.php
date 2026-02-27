@@ -38,6 +38,7 @@ class TtdTopicsController extends ControllerBase {
     $request = \Drupal::request();
     $search = $request->query->get('search', '');
     $min_posts = $request->query->get('min_posts', '');
+    $visibility = $request->query->get('visibility', '');
     $sort_by = $request->query->get('sort', 'count');
     $sort_order = $request->query->get('order', 'desc');
 
@@ -70,8 +71,14 @@ class TtdTopicsController extends ControllerBase {
     // LEFT JOIN taxonomy_index to get post counts in the query.
     $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
     $query->addExpression('COUNT(ti.nid)', 'post_count');
+
+    // LEFT JOIN field_hide to get hidden status.
+    $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
+    $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
+
     $query->groupBy('td.tid');
     $query->groupBy('td.name');
+    $query->groupBy('tfh.field_hide_value');
 
     // Add search filter if provided.
     if (!empty($search)) {
@@ -81,6 +88,25 @@ class TtdTopicsController extends ControllerBase {
     // Apply min_posts filter via HAVING.
     if (!empty($min_posts)) {
       $query->havingCondition('COUNT(ti.nid)', (int) $min_posts, '>=');
+    }
+
+    // Apply visibility filter.
+    if ($visibility === 'hidden') {
+      $query->condition('tfh.field_hide_value', 1);
+    }
+    elseif ($visibility === 'visible') {
+      $or = $query->orConditionGroup()
+        ->condition('tfh.field_hide_value', 0)
+        ->isNull('tfh.field_hide_value');
+      $query->condition($or);
+      $query->havingCondition('COUNT(ti.nid)', $min_display_count, '>=');
+    }
+    elseif ($visibility === 'below') {
+      $or = $query->orConditionGroup()
+        ->condition('tfh.field_hide_value', 0)
+        ->isNull('tfh.field_hide_value');
+      $query->condition($or);
+      $query->havingCondition('COUNT(ti.nid)', $min_display_count, '<');
     }
 
     // Apply sort in SQL.
@@ -123,16 +149,37 @@ class TtdTopicsController extends ControllerBase {
 
     foreach ($page_results as $row) {
       $count = (int) $row->post_count;
+      $is_hidden = (int) $row->is_hidden;
+      $is_below_threshold = $count < $min_display_count;
+
+      $status_indicators = [];
+      if ($is_hidden) {
+        $status_indicators[] = '<span class="ttd-status-badge ttd-status-badge--hidden" title="Hidden from public display">Hidden</span>';
+      }
+      if ($is_below_threshold) {
+        $status_indicators[] = '<span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
+      }
 
       $edit_url = Url::fromRoute('entity.taxonomy_term.edit_form', ['taxonomy_term' => $row->tid]);
+      $toggle_url = Url::fromRoute('topicalboost.api.toggle_topic_visibility', ['taxonomy_term' => $row->tid]);
+
+      // Build name cell with inline badges.
+      $name_markup = '<a href="' . $edit_url->toString() . '" class="ttd-topic-name">' . htmlspecialchars($row->name, ENT_QUOTES) . '</a>';
+
+      // Hidden badge is clickable to unhide; visible topics above threshold get a hover-only "Hide" link.
+      if ($is_hidden) {
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Click to unhide">Hidden</a>';
+      }
+      elseif (!$is_below_threshold) {
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Hide from public display">Hide</a>';
+      }
+      if ($is_below_threshold) {
+        $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
+      }
 
       $rows[] = [
         'name' => [
-          'data' => [
-            '#type' => 'link',
-            '#title' => $row->name,
-            '#url' => $edit_url,
-          ],
+          'data' => ['#markup' => $name_markup],
         ],
         'count' => $count,
         'operations' => [
@@ -183,6 +230,10 @@ class TtdTopicsController extends ControllerBase {
     if (!empty($min_posts)) {
       $filter_parts[] = 'with ' . $min_posts . '+ posts';
     }
+    if (!empty($visibility)) {
+      $visibility_labels = ['hidden' => 'hidden only', 'visible' => 'visible only', 'below' => 'below threshold'];
+      $filter_parts[] = $visibility_labels[$visibility] ?? $visibility;
+    }
     $filter_text = !empty($filter_parts) ? ' (' . implode(' and ', $filter_parts) . ')' : '';
 
     // Summary with page range and totals across all pages.
@@ -200,6 +251,7 @@ class TtdTopicsController extends ControllerBase {
     }
 
     $build['#attached']['library'][] = 'ttd_topics/overview';
+    $build['#attached']['drupalSettings']['topicalboostCsrfToken'] = \Drupal::csrfToken()->get('rest');
 
     $build['summary'] = [
       '#markup' => '<div class="ttd-topics-summary">
@@ -216,6 +268,9 @@ class TtdTopicsController extends ControllerBase {
     }
     if (!empty($min_posts)) {
       $base_query['min_posts'] = $min_posts;
+    }
+    if (!empty($visibility)) {
+      $base_query['visibility'] = $visibility;
     }
 
     // Name header: toggle order if already sorting by name, else default to ASC.
@@ -270,6 +325,31 @@ class TtdTopicsController extends ControllerBase {
     }
 
     return $build;
+  }
+
+  /**
+   * Toggle the hidden state of a topic term.
+   */
+  public function toggleTopicVisibility($taxonomy_term) {
+    $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($taxonomy_term);
+
+    if (!$term || $term->bundle() !== 'ttd_topics') {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Term not found'], 404);
+    }
+
+    if (!$term->hasField('field_hide')) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'field_hide not available'], 400);
+    }
+
+    $current = (bool) $term->get('field_hide')->value;
+    $term->set('field_hide', !$current);
+    $term->save();
+
+    return new JsonResponse([
+      'success' => TRUE,
+      'hidden' => !$current,
+      'message' => !$current ? 'Topic hidden' : 'Topic visible',
+    ]);
   }
 
   /**
