@@ -101,12 +101,14 @@ class TtdTopicsAnalysisService {
           'x-tb-plugin-version' => $this->getModuleVersion(),
           'x-tb-platform' => 'drupal',
         ],
-        'json' => [
+        'json' => array_filter([
           'customer_id' => $node->id(),
           'url' => $node->toUrl()->setAbsolute()->toString(),
           'title' => $node->getTitle(),
           'text' => $analysis_text,
-        ],
+          'status' => $node->isPublished() ? 'publish' : 'draft',
+          'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+        ], function ($v) { return $v !== NULL; }),
         'timeout' => 60,
       ]);
 
@@ -526,10 +528,12 @@ class TtdTopicsAnalysisService {
           'x-tb-plugin-version' => $this->getModuleVersion(),
           'x-tb-platform' => 'drupal',
         ],
-        'json' => [
+        'json' => array_filter([
           'customer_id' => $node->id(),
           'url' => $url,
-        ],
+          'status' => 'publish',
+          'publishedAt' => gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()),
+        ], function ($v) { return $v !== NULL; }),
         'timeout' => 10,
       ]);
     }

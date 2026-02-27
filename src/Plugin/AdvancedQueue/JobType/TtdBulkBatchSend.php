@@ -120,11 +120,18 @@ class TtdBulkBatchSend extends JobTypeBase {
     $field_collector = \Drupal::service('ttd_topics.field_collector');
     $analysis_text = $field_collector->collect($node);
 
-    return [
+    $data = [
       'url' => $node->toUrl()->setAbsolute()->toString(),
       'title' => $node->getTitle(),
       'text' => $analysis_text,
+      'status' => $node->isPublished() ? 'publish' : 'draft',
     ];
+
+    if ($node->isPublished()) {
+      $data['publishedAt'] = gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime());
+    }
+
+    return $data;
   }
 
   /**
