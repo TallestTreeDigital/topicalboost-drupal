@@ -147,9 +147,9 @@ class MetaGeneratorController extends ControllerBase {
     }
 
     try {
-      // Get post content preview (first ~500 chars of stripped content).
+      // Get post content preview (cleaned, first ~500 chars).
       $body = $node->hasField('body') ? $node->get('body')->value : '';
-      $content_preview = mb_substr(strip_tags($body), 0, 500);
+      $content_preview = $this->getCleanContentPreview($body);
 
       // Get custom prompts from config.
       $config = \Drupal::config('ttd_topics.settings');
@@ -375,6 +375,35 @@ class MetaGeneratorController extends ControllerBase {
     }
 
     return 'none';
+  }
+
+  /**
+   * Extract a clean content preview for meta generation.
+   *
+   * Strips figure/figcaption elements, image tags, and common image credit
+   * patterns so the LLM receives only meaningful body text.
+   */
+  private function getCleanContentPreview(string $content, int $max_length = 500): string {
+    // Remove <figure>, <figcaption>, <caption> elements and their content.
+    $content = preg_replace('/<figure[^>]*>.*?<\/figure>/si', '', $content);
+    $content = preg_replace('/<figcaption[^>]*>.*?<\/figcaption>/si', '', $content);
+    $content = preg_replace('/<caption[^>]*>.*?<\/caption>/si', '', $content);
+
+    // Remove <img> tags.
+    $content = preg_replace('/<img[^>]*>/si', '', $content);
+
+    // Remove common image credit patterns.
+    $content = preg_replace('/\b(Image|Photo|Picture|Photograph)\s+(courtesy|credit|by|via|source)\s*[:.]?\s*[^.]*\./si', '', $content);
+    $content = preg_replace('/\bCredit\s*:\s*[^.]*\./si', '', $content);
+
+    // Strip remaining HTML tags.
+    $content = strip_tags($content);
+
+    // Collapse whitespace.
+    $content = preg_replace('/\s+/', ' ', $content);
+    $content = trim($content);
+
+    return mb_substr($content, 0, $max_length);
   }
 
 }

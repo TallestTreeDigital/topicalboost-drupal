@@ -245,35 +245,9 @@
   };
 
   /**
-   * Bind search handlers.
+   * Track active search query to discard stale responses.
    */
-  window.ttdTopicsUtils.bindSearchHandlers = function($container) {
-    const $searchInput = $container.find('#ttd-topics-search');
-    const $searchResults = $container.find('#ttd-topics-search-results');
-    let searchTimeout;
-
-    $searchInput.on('input', function() {
-      const query = jQuery(this).val().trim();
-
-      clearTimeout(searchTimeout);
-
-      if (query.length < 2) {
-        $searchResults.hide();
-        return;
-      }
-
-      searchTimeout = setTimeout(function() {
-        window.ttdTopicsUtils.performSearch(query, $container);
-      }, 800);
-    });
-
-    // Close results on outside click
-    jQuery(document).on('click', function(e) {
-      if (!jQuery(e.target).closest('.ttd-topics-search-container').length) {
-        $searchResults.hide();
-      }
-    });
-  };
+  window.ttdTopicsUtils._currentSearchQuery = '';
 
   /**
    * Perform search (local + API).
@@ -281,6 +255,9 @@
   window.ttdTopicsUtils.performSearch = function(query, $container) {
     const nodeId = $container.data('node-id');
     const $searchResults = $container.find('#ttd-topics-search-results');
+
+    // Track this as the active query so stale responses are discarded
+    window.ttdTopicsUtils._currentSearchQuery = query;
 
     // Show loading
     $searchResults.html('<div class="ttd-search-loading">Searching...</div>').show();
@@ -299,6 +276,9 @@
     });
 
     Promise.all([localPromise, apiPromise]).then(function(responses) {
+      // Discard stale response if user has typed a new query
+      if (query !== window.ttdTopicsUtils._currentSearchQuery) return;
+
       const localResults = responses[0].results || [];
       const apiResults = responses[1].results || [];
 
@@ -322,6 +302,8 @@
 
       window.ttdTopicsUtils.renderSearchResults($searchResults, mergedResults);
     }).catch(function(error) {
+      // Discard stale error if user has typed a new query
+      if (query !== window.ttdTopicsUtils._currentSearchQuery) return;
       console.error('Search error:', error);
       $searchResults.html('<div class="ttd-search-error">Search failed</div>');
     });
@@ -341,6 +323,7 @@
       clearTimeout(searchTimeout);
 
       if (query.length < 2) {
+        window.ttdTopicsUtils._currentSearchQuery = '';
         $searchResults.hide();
         return;
       }
