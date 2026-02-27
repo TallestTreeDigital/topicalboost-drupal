@@ -233,3 +233,12 @@ topicalboost.api.telemetry:
   methods: [POST]
   requirements:
     _permission: 'access content'
+
+topicalboost.api.toggle_topic_visibility:
+  path: '/api/topicalboost/topic/{taxonomy_term}/toggle-visibility'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::toggleTopicVisibility'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+    taxonomy_term: \d+
