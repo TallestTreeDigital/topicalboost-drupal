@@ -1181,7 +1181,6 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
     $elements_to_hide = [
       'description',
       '#description',
-      'pager',
       'actions',
       'reset_alphabetical',
     ];
@@ -1191,6 +1190,10 @@ function ttd_topics_form_taxonomy_overview_terms_alter(&$form, FormStateInterfac
         $form[$element]['#access'] = FALSE;
       }
     }
+
+    // Completely replace the default pager to prevent double pagination.
+    // Using #access = FALSE isn't enough as the pager element still renders.
+    $form['pager'] = ['#markup' => ''];
 
     // Also try to remove any description attached to the form itself.
     if (isset($form['#description'])) {
