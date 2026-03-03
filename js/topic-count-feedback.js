@@ -2,397 +2,63 @@
   'use strict';
 
   /**
-   * Topic count feedback behavior - Integrated UX approach
+   * Topic count feedback - shows how many topics will display at current threshold.
    */
   Drupal.behaviors.topicCountFeedback = {
-    attach: function (context, settings) {
-      // Wait for form states to resolve before looking for the field
-      setTimeout(function() {
-        attachFeedbackBehavior(context, settings);
-      }, 100);
-    }
-  };
+    attach: function (context) {
+      let minFrequencyField = $('input[name*="post_topic_minimum_display_count"]', context);
 
-  function attachFeedbackBehavior(context, settings) {
-    // Try multiple possible field selectors
-    let minFrequencyField = $('#edit-tabs-container-content-settings-post-topic-minimum-display-count', context);
-    
-    // If not found, try alternative selectors
-    if (minFrequencyField.length === 0) {
-      minFrequencyField = $('input[name="post_topic_minimum_display_count"]', context);
-    }
-    if (minFrequencyField.length === 0) {
-      minFrequencyField = $('input[name*="post_topic_minimum_display_count"]', context);
-    }
-
-    if (minFrequencyField.length === 0) {
-      return;
-    }
-
-    // Use Drupal's once to ensure this only runs once per element
-    $(once('ttd_topics-feedback', minFrequencyField)).each(function() {
-      const field = $(this);
-      
-      // Check if content types are enabled
-      let enabledContentTypes = $('#edit-tabs-container-content-settings-enabled-content-types', context);
-      if (enabledContentTypes.length === 0) {
-        enabledContentTypes = $('select[name="enabled_content_types[]"]', context);
-      }
-      if (enabledContentTypes.length === 0) {
-        enabledContentTypes = $('select[name*="enabled_content_types"]', context);
-      }
-      
-      if (enabledContentTypes.length > 0 && enabledContentTypes.val().length === 0) {
+      if (minFrequencyField.length === 0) {
         return;
       }
 
-      // Check if there's an integrated feedback area from the slider
-      let descriptionEl = field.next('.frequency-slider-container').find('.integrated-feedback-area');
-      
-      // If no integrated area, try to find the original description
-      if (descriptionEl.length === 0) {
-        // Try multiple ways to find the description element
-        descriptionEl = field.siblings('.description');
-        
-        // If not found as sibling, try in parent container
-        if (descriptionEl.length === 0) {
-          descriptionEl = field.parent().find('.description');
+      $(once('ttd_topics-feedback', minFrequencyField)).each(function () {
+        const field = $(this);
+        let debounceTimer;
+
+        // Create feedback element after the field
+        const feedbackEl = $('<div class="ttd-threshold-feedback"></div>');
+        field.closest('.form-item, .js-form-item').append(feedbackEl);
+
+        function updateTopicCount(minFrequency) {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(function () {
+            feedbackEl.html('<em>Calculating...</em>').removeClass('success warning error').addClass('loading');
+
+            $.ajax({
+              url: '/api/topicalboost/topic-count',
+              method: 'GET',
+              data: { min_frequency: minFrequency },
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              xhrFields: { withCredentials: true },
+              success: function (response) {
+                const count = response.count;
+                const total = response.total;
+                const percentage = response.percentage;
+
+                if (count === 0) {
+                  feedbackEl.html('No topics will be displayed.').removeClass('loading success').addClass('warning');
+                } else {
+                  feedbackEl.html(count.toLocaleString() + ' topics (' + percentage + '% of ' + total.toLocaleString() + ') will be displayed.')
+                    .removeClass('loading warning')
+                    .addClass(percentage < 20 ? 'warning' : 'success');
+                }
+              },
+              error: function () {
+                feedbackEl.html('Unable to calculate.').removeClass('loading success warning').addClass('error');
+              }
+            });
+          }, 300);
         }
-        
-        // If still not found, look for any element containing the description text
-        if (descriptionEl.length === 0) {
-          const descText = "Only display topics that appear in at least this many posts";
-          descriptionEl = field.closest('.form-item, .form-wrapper').find(`*:contains("${descText}")`).last();
-        }
-        
-        // If still not found, create one after the field
-        if (descriptionEl.length === 0) {
-          descriptionEl = $('<div class="description description--topic-feedback"></div>');
-          field.after(descriptionEl);
-        }
-      }
-      
 
-      
-      const originalDescription = descriptionEl.text();
-
-      let debounceTimer;
-      const DEBOUNCE_DELAY = 300; // Reduced for more responsive feel
-
-      /**
-       * Update the description with integrated topic count
-       */
-      function updateTopicCount(minFrequency) {
-        clearTimeout(debounceTimer);
-
-        debounceTimer = setTimeout(function () {
-          fetchTopicCount(minFrequency);
-        }, DEBOUNCE_DELAY);
-      }
-
-      /**
-       * Fetch topic count and update description inline
-       */
-      function fetchTopicCount(minFrequency) {
-        // Update description with loading state
-        updateDescription('<em>Calculating...</em>', 'loading');
-
-        $.ajax({
-          url: '/api/topicalboost/topic-count',
-          method: 'GET',
-          data: { min_frequency: minFrequency },
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          xhrFields: {
-            withCredentials: true
-          },
-          success: function (response) {
-            const count = response.count;
-            const total = response.total;
-            const percentage = response.percentage;
-
-            let statusText = '';
-            let statusClass = '';
-
-            if (count === 0) {
-              statusText = `No topics will be displayed.`;
-              statusClass = 'warning';
-            } else {
-              statusText = `${count.toLocaleString()} topics (${percentage}% of ${total.toLocaleString()}) will be displayed.`;
-              statusClass = percentage < 20 ? 'warning' : 'success';
-            }
-
-            updateDescription(statusText, statusClass);
-          },
-          error: function (xhr, status, error) {
-            let errorMsg = 'Unable to calculate';
-            if (xhr.status === 403) {
-              errorMsg = 'Access denied. Please check permissions.';
-            } else if (xhr.status === 404) {
-              errorMsg = 'API endpoint not found.';
-            } else if (xhr.status === 500) {
-              errorMsg = 'Server error occurred.';
-            }
-            
-            updateDescription('<strong>Error:</strong> ' + errorMsg, 'error');
-          }
+        field.on('input change', function () {
+          updateTopicCount(parseInt($(this).val()) || 1);
         });
-      }
 
-      /**
-       * Update the integrated feedback area with new text and status
-       */
-      function updateDescription(text, statusClass) {
-        // Find or create the integrated feedback area inside the slider container
-        let feedbackArea = $('.frequency-slider-container .integrated-feedback-area');
-        if (feedbackArea.length === 0) {
-          feedbackArea = $('<div class="integrated-feedback-area"></div>');
-          $('.frequency-slider-container').append(feedbackArea);
-        }
-
-        feedbackArea.html(`<div class="topic-feedback-result ${statusClass}"><div class="result-value">${text}</div></div>`);
-      }
-
-      // Handle input changes with debouncing
-      field.on('input change', function () {
-        const value = parseInt($(this).val()) || 1;
-        updateTopicCount(value);
-      });
-
-      // Initial load
-      const initialValue = parseInt(field.val()) || 1;
-      updateTopicCount(initialValue);
-
-      // Watch for content type changes
-      enabledContentTypes.on('change', function() {
-        if ($(this).val().length === 0) {
-          // No content types selected - clear the feedback
-          descriptionEl.html('');
-        } else {
-          // Content types selected - update count
-          updateTopicCount(parseInt(field.val()) || 1);
-        }
-      });
-    });
-  }
-
-  /**
-   * Convert number field to slider behavior (optional enhancement)
-   */
-  Drupal.behaviors.minFrequencySlider = {
-    attach: function (context, settings) {
-      // Wait for form states to resolve and then check again periodically
-      setTimeout(function() {
-        attachSliderBehavior(context, settings);
-      }, 200);
-      
-      // Also listen for form state changes
-      $(document).on('state:visible', function(e) {
-        if ($(e.target).is('input[name*="post_topic_minimum_display_count"]')) {
-          setTimeout(function() {
-            attachSliderBehavior(context, settings);
-          }, 100);
-        }
+        // Initial load
+        updateTopicCount(parseInt(field.val()) || 1);
       });
     }
   };
-
-  function attachSliderBehavior(context, settings) {
-    // Try multiple possible field selectors
-    let minFrequencyField = $('#edit-tabs-container-content-settings-post-topic-minimum-display-count', context);
-    
-    // If not found, try alternative selectors
-    if (minFrequencyField.length === 0) {
-      minFrequencyField = $('input[name="post_topic_minimum_display_count"]', context);
-    }
-    if (minFrequencyField.length === 0) {
-      minFrequencyField = $('input[name*="post_topic_minimum_display_count"]', context);
-    }
-
-    if (minFrequencyField.length === 0) {
-      return;
-    }
-
-    // Use Drupal's once to ensure this only runs once per element
-    $(once('ttd_topics-slider', minFrequencyField)).each(function() {
-      const field = $(this);
-      
-      // Check if content types are enabled
-      let enabledContentTypes = $('#edit-tabs-container-content-settings-enabled-content-types', context);
-      if (enabledContentTypes.length === 0) {
-        enabledContentTypes = $('select[name="enabled_content_types[]"]', context);
-      }
-      if (enabledContentTypes.length === 0) {
-        enabledContentTypes = $('select[name*="enabled_content_types"]', context);
-      }
-      
-      if (enabledContentTypes.length > 0 && enabledContentTypes.val().length === 0) {
-        return;
-      }
-
-      // Check if slider already exists
-      if (field.next('.frequency-slider-container').length > 0) {
-        return;
-      }
-
-      // Create modern slider structure
-      const sliderContainer = $('<div class="frequency-slider-container"></div>');
-      
-      // Create header with value display only (no redundant title)
-      const sliderHeader = $('<div class="slider-header"></div>');
-      const sliderValueDisplay = $('<div class="slider-value-display"></div>');
-      
-      // Create the actual slider
-      const slider = $('<input type="range" class="frequency-slider" min="1" max="100" step="1">');
-      
-      // Create range labels
-      const rangeLabels = $('<div class="slider-range-labels"><span>1</span><span>25</span><span>50</span><span>75</span><span>100</span></div>');
-      
-      // Create container for recommendation zones (will be populated dynamically)
-      const recommendationZones = $('<div class="recommendation-zones"></div>');
-
-      // Function to update slider gradient
-      function updateSliderGradient(value) {
-        const progress = ((value - 1) / 99) * 100;
-        slider.css({
-          'background': `linear-gradient(90deg, #007cba 0%, #007cba ${progress}%, #e9ecef ${progress}%, #e9ecef 100%)`
-        });
-      }
-
-      // Set initial values
-      const currentValue = parseInt(field.val()) || 5;
-      slider.val(currentValue);
-      sliderValueDisplay.text(currentValue);
-      updateSliderGradient(currentValue);
-
-      // Assemble header
-      sliderHeader.append(sliderValueDisplay);
-      
-      // Create integrated feedback area
-      const feedbackArea = $('<div class="integrated-feedback-area"></div>');
-      
-      // Assemble container
-      sliderContainer.append(sliderHeader);
-      sliderContainer.append(slider);
-      sliderContainer.append(rangeLabels);
-      sliderContainer.append(recommendationZones);
-      sliderContainer.append(feedbackArea);
-
-      // Insert after the input field and hide the original
-      field.after(sliderContainer);
-      field.hide();
-
-      // Load dynamic recommendations
-      loadRecommendations(recommendationZones);
-
-      // Function to load and display dynamic recommendations
-      function loadRecommendations(container) {
-        $.ajax({
-          url: '/api/topicalboost/recommendations',
-          method: 'GET',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          xhrFields: {
-            withCredentials: true
-          },
-          success: function(response) {
-            createRecommendationZones(container, response);
-          },
-          error: function() {
-            // Fallback to static recommendation if API fails
-            createStaticRecommendation(container);
-          }
-        });
-      }
-
-      // Function to create dynamic recommendation zones
-      function createRecommendationZones(container, data) {
-        const zones = ['conservative', 'balanced', 'selective'];
-        
-        zones.forEach(function(zoneType, index) {
-          const zone = data[zoneType];
-          if (!zone) return;
-          
-          // Calculate position on slider (1-100 scale)
-          let startPos = ((zone.min - 1) / 99) * 100;
-          let endPos = ((zone.max - 1) / 99) * 100;
-          let width = endPos - startPos;
-          
-          // Ensure minimum width for readability (at least 8%)
-          const minWidth = 8;
-          if (width < minWidth) {
-            width = minWidth;
-            // Adjust end position to maintain width
-            endPos = startPos + width;
-          }
-          
-          // Add spacing between zones (2% buffer)
-          if (index > 0) {
-            startPos = Math.max(startPos, (index * 12)); // Space zones at least 12% apart
-            endPos = startPos + width;
-          }
-          
-          // Ensure zones don't extend beyond 100%
-          if (endPos > 100) {
-            endPos = 100;
-            startPos = Math.max(0, endPos - width);
-          }
-          
-          // Create more descriptive labels following NNG principles
-          const descriptiveLabels = {
-            'conservative': `Show More Topics`,
-            'balanced': `Balanced Approach`, 
-            'selective': `Show Fewer Topics`
-          };
-          
-          const tooltips = {
-            'conservative': `Show more topics by requiring fewer posts (${zone.min}-${zone.max}). ${zone.description}`,
-            'balanced': `Balanced approach (${zone.min}-${zone.max} posts). ${zone.description}`,
-            'selective': `Show fewer, higher-quality topics (${zone.min}-${zone.max} posts). ${zone.description}`
-          };
-          
-          const zoneEl = $(`
-            <div class="recommendation-zone ${zoneType}" 
-                 style="left: ${startPos}%; width: ${width}%;"
-                 title="${tooltips[zoneType]}"
-                 data-min="${zone.min}" data-max="${zone.max}">
-              <span class="zone-label">${descriptiveLabels[zoneType]}</span>
-            </div>
-          `);
-          
-          container.append(zoneEl);
-        });
-      }
-
-      // Function to create static fallback recommendation
-      function createStaticRecommendation(container) {
-        const staticZone = $(`
-          <div class="recommendation-zone balanced static" 
-               style="left: 15%; width: 20%;"
-               title="Balanced approach (5-15 posts) - moderate topic filtering">
-            <span class="zone-label">Balanced Approach</span>
-          </div>
-        `);
-        container.append(staticZone);
-      }
-
-      // Sync slider and input
-      slider.on('input', function() {
-        const value = parseInt($(this).val());
-        field.val(value).trigger('change');
-        sliderValueDisplay.text(value);
-        updateSliderGradient(value);
-      });
-
-      field.on('input change', function() {
-        const value = parseInt($(this).val()) || 1;
-        slider.val(value);
-        sliderValueDisplay.text(value);
-        updateSliderGradient(value);
-      });
-    });
-  }
 
 })(jQuery, Drupal, once);

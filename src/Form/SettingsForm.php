@@ -325,7 +325,7 @@ class SettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('post_topic_minimum_display_count') ?: 5,
       '#min' => 1,
       '#max' => 100,
-      '#description' => $this->t('Topics appearing in fewer posts are soft-hidden. High-salience topics always display.'),
+      '#description' => $this->t('Controls which topics appear on your site based on how often they\'re mentioned. Lower values show more topics including rare ones. Higher values show only frequently discussed topics.'),
       '#attributes' => ['class' => ['ttd-topics-field-group']],
     ];
 
