@@ -11,3 +11,24 @@ topicalboost.bulk_analysis:
   parent: system.admin_config_content
   route_name: topicalboost.bulk_analysis
   weight: 11
+
+topicalboost.health_checks:
+  title: TopicalBoost Health
+  description: Diagnostic dashboard for TopicalBoost environment, API, database, and content checks.
+  parent: system.admin_config_content
+  route_name: topicalboost.health_checks
+  weight: 12
+
+topicalboost.new_topics:
+  title: TopicalBoost New Topics
+  description: Recently discovered topics with date filtering and visibility controls.
+  parent: system.admin_config_content
+  route_name: topicalboost.new_topics
+  weight: 13
+
+topicalboost.queue_status:
+  title: TopicalBoost Queue Status
+  description: View analysis queue job status and history.
+  parent: system.admin_config_content
+  route_name: topicalboost.queue_status
+  weight: 14

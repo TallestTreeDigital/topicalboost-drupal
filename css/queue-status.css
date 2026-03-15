@@ -1,0 +1,164 @@
+/**
+ * TopicalBoost Queue Status Page
+ */
+
+.ttd-queue-status-wrap {
+  max-width: 960px;
+}
+
+.ttd-queue-filters {
+  margin-bottom: 12px;
+}
+
+.ttd-queue-filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.ttd-queue-filter-list li {
+  margin: 0;
+}
+
+.ttd-queue-filter-list .separator {
+  color: #c3c4c7;
+  padding: 0 2px;
+}
+
+.ttd-queue-filter-list a {
+  color: #2271b1;
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.ttd-queue-filter-list a:hover {
+  color: #135e96;
+}
+
+.ttd-queue-filter-list a.is-active {
+  color: #1d2327;
+  font-weight: 600;
+}
+
+.ttd-queue-filter-list .count {
+  color: #8c8f94;
+  font-weight: 400;
+}
+
+/* -- Table -------------------------------------------------------------- */
+
+.ttd-queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.ttd-queue-table thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d2327;
+  border-bottom: 1px solid #c3c4c7;
+  background: #f6f7f7;
+}
+
+.ttd-queue-table tbody td {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #50575e;
+  border-bottom: 1px solid #f0f0f1;
+  vertical-align: top;
+}
+
+.ttd-queue-table tbody tr:nth-child(even) {
+  background: #f6f7f7;
+}
+
+.ttd-queue-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ttd-queue-table a {
+  color: #2271b1;
+  text-decoration: none;
+}
+
+.ttd-queue-table a:hover {
+  color: #135e96;
+  text-decoration: underline;
+}
+
+.ttd-queue-table small {
+  color: #8c8f94;
+}
+
+/* -- Status badges ------------------------------------------------------ */
+
+.ttd-queue-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ttd-queue-status.status-queued {
+  background: #e5f5fa;
+  color: #0a6a8a;
+}
+
+.ttd-queue-status.status-processing {
+  background: #fef3cd;
+  color: #856404;
+}
+
+.ttd-queue-status.status-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.ttd-queue-status.status-failure {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* -- Pagination --------------------------------------------------------- */
+
+.ttd-queue-pagination {
+  margin-top: 12px;
+  display: flex;
+  gap: 4px;
+}
+
+.ttd-queue-pagination a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #c3c4c7;
+  background: #fff;
+  color: #2271b1;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.ttd-queue-pagination a:hover {
+  border-color: #2271b1;
+  color: #135e96;
+}
+
+.ttd-queue-pagination a.is-active {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+  font-weight: 600;
+}

@@ -325,6 +325,76 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         $form['ttd_meta_generator']['#attached']['drupalSettings']['ttdMetaGenerator'] = $settings;
       }
     }
+
+    // Add Schema Images section.
+    if ($is_saved && !$node->get('field_ttd_analysis_in_progress')->value) {
+      $has_schema_field = $node->hasField('field_ttd_schema_16x9');
+      if ($has_schema_field) {
+        // Hide the raw schema image fields.
+        foreach (['field_ttd_schema_16x9', 'field_ttd_schema_4x3', 'field_ttd_schema_1x1', 'field_ttd_schema_focal_point'] as $hide_field) {
+          if (isset($form[$hide_field])) {
+            $form[$hide_field]['#access'] = FALSE;
+          }
+        }
+
+        // Get source image for focal point picker.
+        $source_url = '';
+        $image_fields = ['field_image', 'field_featured_image', 'field_hero_image', 'field_media_image'];
+        foreach ($image_fields as $img_field) {
+          if ($node->hasField($img_field) && !$node->get($img_field)->isEmpty()) {
+            $referenced = $node->get($img_field)->entity;
+            if ($referenced) {
+              $file = NULL;
+              if ($referenced->getEntityTypeId() === 'media') {
+                $media_source = $referenced->getSource();
+                $src_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
+                if ($referenced->hasField($src_field) && !$referenced->get($src_field)->isEmpty()) {
+                  $file = $referenced->get($src_field)->entity;
+                }
+              }
+              else {
+                $file = $referenced;
+              }
+              if ($file) {
+                $source_url = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+              }
+              break;
+            }
+          }
+        }
+
+        $form['ttd_schema_images'] = [
+          '#type' => 'details',
+          '#title' => t('Schema Images'),
+          '#weight' => -3,
+          '#optional' => FALSE,
+          '#open' => FALSE,
+        ];
+
+        $focal_html = '';
+        if ($source_url) {
+          $focal_html = '<div class="ttd-focal-picker"><img src="' . htmlspecialchars($source_url) . '" alt="Source"><div class="ttd-focal-marker" style="left:50%;top:50%"></div></div>'
+            . '<div class="ttd-focal-coords">x: 0.50, y: 0.50</div>';
+        }
+
+        $form['ttd_schema_images']['widget'] = [
+          '#markup' => '<div class="ttd-schema-images-wrap" data-nid="' . $node->id() . '">'
+            . '<div class="ttd-schema-status">Loading...</div>'
+            . '<div class="ttd-schema-formats"></div>'
+            . '<div class="ttd-schema-source-info"></div>'
+            . $focal_html
+            . '<div class="ttd-schema-actions">'
+            . '<button type="button" class="button ttd-schema-generate-btn">Generate Schema Images</button>'
+            . '<button type="button" class="button ttd-schema-upload-btn">Upload Custom Image</button>'
+            . '<input type="file" class="ttd-schema-file-input" accept="image/*">'
+            . '<button type="button" class="ttd-schema-clear-btn">Clear Images</button>'
+            . '</div>'
+            . '</div>',
+        ];
+
+        $form['ttd_schema_images']['#attached']['library'][] = 'ttd_topics/schema_images';
+      }
+    }
   }
 }
 

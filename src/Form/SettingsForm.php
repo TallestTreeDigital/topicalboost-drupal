@@ -796,6 +796,16 @@ class SettingsForm extends ConfigFormBase {
       '#suffix' => '</div>',
     ];
 
+    $form['tabs_container']['content']['developer']['disable_event_temporal_properties'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Disable event temporal properties'),
+      '#default_value' => $config->get('disable_event_temporal_properties') ?: FALSE,
+      '#description' => $this->t('Exclude startDate, endDate, and other temporal properties from Event schema output.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
     // =========================================================================
     // Bulk Analysis Tab
     // =========================================================================

@@ -1019,3 +1019,112 @@ function ttd_topics_update_9002() {
 
   return t('Added field_pinned_posts entity reference field for pinned posts on topic term pages.');
 }
+
+/**
+ * Add field_force_show boolean field on ttd_topics taxonomy terms.
+ */
+function ttd_topics_update_9003() {
+  // Create field storage for force_show.
+  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_force_show')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_force_show',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'boolean',
+      'cardinality' => 1,
+    ])->save();
+  }
+
+  // Add field instance to the ttd_topics vocabulary.
+  if (!FieldConfig::loadByName('taxonomy_term', 'ttd_topics', 'field_force_show')) {
+    FieldConfig::create([
+      'field_name' => 'field_force_show',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'ttd_topics',
+      'label' => 'Force Show',
+      'description' => 'Override visibility settings to always show this topic.',
+    ])->save();
+  }
+
+  // Hide from default view display.
+  $view_display = EntityViewDisplay::load('taxonomy_term.ttd_topics.default');
+  if ($view_display) {
+    $view_display->removeComponent('field_force_show');
+    $view_display->save();
+  }
+
+  return t('Added field_force_show boolean field for topic visibility override.');
+}
+
+/**
+ * Add schema image fields for nodes.
+ */
+function ttd_topics_update_9004() {
+  $schema_image_fields = [
+    [
+      'field_name' => 'field_ttd_schema_16x9',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+      'label' => 'Schema Image (16:9)',
+    ],
+    [
+      'field_name' => 'field_ttd_schema_4x3',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+      'label' => 'Schema Image (4:3)',
+    ],
+    [
+      'field_name' => 'field_ttd_schema_1x1',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+      'label' => 'Schema Image (1:1)',
+    ],
+    [
+      'field_name' => 'field_ttd_schema_focal_point',
+      'entity_type' => 'node',
+      'type' => 'string',
+      'cardinality' => 1,
+      'label' => 'Schema Image Focal Point',
+    ],
+  ];
+
+  foreach ($schema_image_fields as $field_config) {
+    if (!FieldStorageConfig::loadByName($field_config['entity_type'], $field_config['field_name'])) {
+      $storage_config = [
+        'field_name' => $field_config['field_name'],
+        'entity_type' => $field_config['entity_type'],
+        'type' => $field_config['type'],
+        'cardinality' => $field_config['cardinality'],
+      ];
+      FieldStorageConfig::create($storage_config)->save();
+    }
+  }
+
+  // Add field instances to all enabled content types.
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+  foreach ($enabled_content_types as $content_type) {
+    if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($content_type)) {
+      continue;
+    }
+    foreach ($schema_image_fields as $field_config) {
+      if (!FieldConfig::loadByName('node', $content_type, $field_config['field_name'])) {
+        FieldConfig::create([
+          'field_name' => $field_config['field_name'],
+          'entity_type' => 'node',
+          'bundle' => $content_type,
+          'label' => $field_config['label'],
+        ])->save();
+      }
+    }
+  }
+
+  // Create directory for schema images.
+  $directory = 'public://schema-images';
+  \Drupal::service('file_system')->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+
+  return t('Added schema image fields for 16:9, 4:3, and 1:1 aspect ratios.');
+}

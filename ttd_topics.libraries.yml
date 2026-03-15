@@ -237,3 +237,37 @@ error_telemetry:
     js/error-telemetry.js: {}
   dependencies:
     - core/drupal
+
+health_checks:
+  css:
+    theme:
+      css/health-checks.css: {}
+
+new_topics:
+  css:
+    theme:
+      css/new-topics.css: {}
+  js:
+    js/new-topics.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+queue_status:
+  css:
+    theme:
+      css/queue-status.css: {}
+
+schema_images:
+  css:
+    theme:
+      css/schema-images.css: {}
+  js:
+    js/schema-images.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill

@@ -1340,4 +1340,150 @@ class TtdTopicsController extends ControllerBase {
     }
   }
 
+  /**
+   * Renders the New Topics page.
+   */
+  public function newTopicsPage() {
+    $html = '<div class="ttd-new-topics-wrap">';
+    $html .= '<p class="ttd-new-topics-description">Recently discovered topics from content analysis. Use filters to view topics by creation date.</p>';
+
+    $html .= '<div class="ttd-new-topics-filters">';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="7">7 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="14">14 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn is-active" data-days="30">30 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="90">90 days</button>';
+    $html .= '</div>';
+
+    $html .= '<div class="ttd-new-topics-loading">Loading topics...</div>';
+    $html .= '<div class="ttd-new-topics-empty">No topics found for this period.</div>';
+
+    $html .= '<table class="ttd-new-topics-table" style="display:none;">';
+    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Hide</th><th>Force Show</th></tr></thead>';
+    $html .= '<tbody id="ttd-new-topics-body"></tbody>';
+    $html .= '</table>';
+
+    $html .= '</div>';
+
+    return [
+      '#type' => 'markup',
+      '#markup' => $html,
+      '#attached' => [
+        'library' => ['ttd_topics/new_topics'],
+      ],
+    ];
+  }
+
+  /**
+   * AJAX endpoint: Get new topics filtered by date range.
+   */
+  public function getNewTopics(Request $request) {
+    $days = (int) $request->query->get('days', 30);
+    if ($days < 1) {
+      $days = 30;
+    }
+
+    $database = \Drupal::database();
+    $cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+    // Get recently created topics.
+    $query = $database->select('taxonomy_term_field_data', 'td');
+    $query->fields('td', ['tid', 'name', 'created']);
+    $query->condition('td.vid', 'ttd_topics');
+    $query->condition('td.created', strtotime($cutoff), '>=');
+    $query->orderBy('td.created', 'DESC');
+
+    // Join post count.
+    $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
+    $query->addExpression('COUNT(DISTINCT ti.nid)', 'post_count');
+    $query->groupBy('td.tid');
+    $query->groupBy('td.name');
+    $query->groupBy('td.created');
+
+    // Join hide field.
+    $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
+    $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
+    $query->groupBy('tfh.field_hide_value');
+
+    // Join force_show field.
+    $query->leftJoin('taxonomy_term__field_force_show', 'tfs', 'td.tid = tfs.entity_id');
+    $query->addExpression('COALESCE(tfs.field_force_show_value, 0)', 'force_show');
+    $query->groupBy('tfs.field_force_show_value');
+
+    $results = $query->execute()->fetchAll();
+
+    if (empty($results)) {
+      return new JsonResponse(['topics' => []]);
+    }
+
+    // Batch lookup: get ttd_ids for all tids at once.
+    $tids = array_map(function ($r) { return $r->tid; }, $results);
+    $ttd_id_map = [];
+    if (!empty($tids)) {
+      $ttd_id_rows = $database->select('taxonomy_term__field_ttd_id', 'fi')
+        ->fields('fi', ['entity_id', 'field_ttd_id_value'])
+        ->condition('fi.entity_id', $tids, 'IN')
+        ->execute()
+        ->fetchAllKeyed();
+      $ttd_id_map = $ttd_id_rows;
+    }
+
+    // Batch lookup: get schema types for all ttd_ids at once.
+    $schema_type_map = [];
+    $entity_ids = array_filter(array_values($ttd_id_map));
+    if (!empty($entity_ids)) {
+      $type_rows = $database->query(
+        "SELECT est.entity_id, GROUP_CONCAT(st.name SEPARATOR ', ') AS types
+         FROM {ttd_entity_schema_types} est
+         INNER JOIN {ttd_schema_types} st ON est.schema_type_id = st.ttd_id
+         WHERE est.entity_id IN (:ids[])
+         GROUP BY est.entity_id",
+        [':ids[]' => $entity_ids]
+      )->fetchAllKeyed();
+      $schema_type_map = $type_rows;
+    }
+
+    $topics = [];
+    foreach ($results as $row) {
+      $ttd_id = $ttd_id_map[$row->tid] ?? NULL;
+      $schema_types = $ttd_id ? ($schema_type_map[$ttd_id] ?? '') : '';
+
+      $topics[] = [
+        'tid' => (int) $row->tid,
+        'name' => $row->name,
+        'created' => date('M j, Y', $row->created),
+        'post_count' => (int) $row->post_count,
+        'schema_types' => $schema_types,
+        'is_hidden' => (bool) $row->is_hidden,
+        'force_show' => (bool) $row->force_show,
+      ];
+    }
+
+    return new JsonResponse(['topics' => $topics]);
+  }
+
+  /**
+   * AJAX endpoint: Toggle force_show on a topic term.
+   */
+  public function toggleForceShow($taxonomy_term, Request $request) {
+    $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($taxonomy_term);
+
+    if (!$term || $term->bundle() !== 'ttd_topics') {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Term not found'], 404);
+    }
+
+    if (!$term->hasField('field_force_show')) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'field_force_show not available'], 400);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $force_show = !empty($content['force_show']);
+    $term->set('field_force_show', $force_show);
+    $term->save();
+
+    return new JsonResponse([
+      'success' => TRUE,
+      'force_show' => $force_show,
+    ]);
+  }
+
 }

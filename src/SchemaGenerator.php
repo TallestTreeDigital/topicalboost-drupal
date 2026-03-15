@@ -173,6 +173,12 @@ class SchemaGenerator {
       }
     }
 
+    // Add custom schema images to Article if available.
+    $schema_images = $this->getSchemaImages($nid, $base_url);
+    if (!empty($schema_images)) {
+      $article['image'] = $schema_images;
+    }
+
     // Only add the Article schema if there are about or mentions.
     if (!empty($article['about']) || !empty($article['mentions'])) {
       $data['@graph'][] = $article;
@@ -866,6 +872,54 @@ class SchemaGenerator {
    */
   protected function formatDate($date) {
     return date('c', strtotime($date));
+  }
+
+  /**
+   * Gets schema images for a node as ImageObject array.
+   *
+   * @param int $nid
+   *   The node ID.
+   * @param string $base_url
+   *   The site base URL.
+   *
+   * @return array
+   *   Array of ImageObject schema items, or empty if no custom images.
+   */
+  protected function getSchemaImages($nid, $base_url) {
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+    if (!$node) {
+      return [];
+    }
+
+    $field_map = [
+      '16x9' => ['field' => 'field_ttd_schema_16x9', 'width' => 1200, 'height' => 675],
+      '4x3' => ['field' => 'field_ttd_schema_4x3', 'width' => 900, 'height' => 675],
+      '1x1' => ['field' => 'field_ttd_schema_1x1', 'width' => 675, 'height' => 675],
+    ];
+
+    $images = [];
+    foreach ($field_map as $ratio => $info) {
+      if (!$node->hasField($info['field']) || $node->get($info['field'])->isEmpty()) {
+        continue;
+      }
+      $file = $node->get($info['field'])->entity;
+      if (!$file) {
+        continue;
+      }
+
+      $url = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+      $images[] = [
+        '@type' => 'ImageObject',
+        '@id' => $url,
+        'url' => $url,
+        'contentUrl' => $url,
+        'width' => $info['width'],
+        'height' => $info['height'],
+        'caption' => $node->getTitle(),
+      ];
+    }
+
+    return $images;
   }
 
 }

@@ -1,0 +1,248 @@
+/**
+ * TopicalBoost Schema Images
+ */
+
+.ttd-schema-images-wrap {
+  max-width: 100%;
+}
+
+/* -- Status indicator --------------------------------------------------- */
+
+.ttd-schema-status {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ttd-schema-status-icon {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.ttd-schema-status-ready {
+  background: #00a32a;
+}
+
+.ttd-schema-status-partial {
+  background: #dba617;
+}
+
+.ttd-schema-status-missing {
+  background: #d63638;
+}
+
+/* -- Format previews ---------------------------------------------------- */
+
+.ttd-schema-formats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ttd-schema-format {
+  flex: 1;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.ttd-schema-preview {
+  position: relative;
+  background: #f6f7f7;
+  border: 1px solid #c3c4c7;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: auto;
+}
+
+.ttd-schema-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ttd-schema-preview--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  border-style: dashed;
+}
+
+.ttd-schema-placeholder {
+  color: #8c8f94;
+  font-size: 12px;
+}
+
+.ttd-schema-checkmark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #00a32a;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.ttd-schema-format-info {
+  padding: 6px 0;
+}
+
+.ttd-schema-format-info strong {
+  display: block;
+  font-size: 12px;
+  color: #1d2327;
+}
+
+.ttd-schema-format-info small {
+  display: block;
+  font-size: 11px;
+  color: #8c8f94;
+  margin-top: 2px;
+}
+
+/* -- Source info --------------------------------------------------------- */
+
+.ttd-schema-source-info {
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.ttd-schema-source-suitable {
+  color: #00a32a;
+}
+
+.ttd-schema-source-unsuitable {
+  color: #d63638;
+}
+
+/* -- Focal point picker ------------------------------------------------- */
+
+.ttd-focal-picker {
+  position: relative;
+  display: inline-block;
+  cursor: crosshair;
+  border: 1px solid #c3c4c7;
+  margin-bottom: 8px;
+  max-width: 300px;
+}
+
+.ttd-focal-picker img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ttd-focal-marker {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  margin-top: -10px;
+  border: 2px solid #e65100;
+  border-radius: 50%;
+  background: rgba(230, 81, 0, 0.3);
+  pointer-events: none;
+}
+
+.ttd-focal-coords {
+  font-size: 11px;
+  color: #8c8f94;
+  margin-bottom: 12px;
+}
+
+/* -- Action buttons ----------------------------------------------------- */
+
+.ttd-schema-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ttd-schema-generate-btn,
+.ttd-schema-upload-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ttd-schema-generate-btn {
+  background: #2271b1;
+  border: 1px solid #2271b1;
+  color: #fff;
+}
+
+.ttd-schema-generate-btn:hover {
+  background: #135e96;
+}
+
+.ttd-schema-upload-btn {
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  color: #2271b1;
+}
+
+.ttd-schema-upload-btn:hover {
+  border-color: #2271b1;
+}
+
+.ttd-schema-clear-btn {
+  background: none;
+  border: none;
+  color: #d63638;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.ttd-schema-clear-btn:hover {
+  text-decoration: underline;
+}
+
+.ttd-schema-file-input {
+  display: none;
+}
+
+/* -- Lightbox ----------------------------------------------------------- */
+
+.ttd-schema-lightbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ttd-schema-lightbox img {
+  max-width: 90%;
+  max-height: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.ttd-schema-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  line-height: 1;
+}

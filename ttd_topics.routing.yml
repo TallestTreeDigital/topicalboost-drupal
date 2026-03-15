@@ -242,3 +242,72 @@ topicalboost.api.toggle_topic_visibility:
   requirements:
     _permission: 'administer topicalboost configuration'
     taxonomy_term: \d+
+
+# Health Checks Page
+topicalboost.health_checks:
+  path: '/admin/config/content/topicalboost/health'
+  defaults:
+    _title: 'TopicalBoost Health'
+    _controller: '\Drupal\ttd_topics\Controller\HealthCheckController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# New Topics Page
+topicalboost.new_topics:
+  path: '/admin/config/content/topicalboost/new-topics'
+  defaults:
+    _title: 'New Topics'
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::newTopicsPage'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.new_topics:
+  path: '/api/topicalboost/new-topics'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getNewTopics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.toggle_force_show:
+  path: '/api/topicalboost/topic/{taxonomy_term}/toggle-force-show'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::toggleForceShow'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+    taxonomy_term: \d+
+
+# Queue Status Page
+topicalboost.queue_status:
+  path: '/admin/config/content/topicalboost/queue-status'
+  defaults:
+    _title: 'Queue Status'
+    _controller: '\Drupal\ttd_topics\Controller\QueueStatusController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Schema Images API endpoints
+topicalboost.api.schema_images.generate:
+  path: '/api/topicalboost/schema-images/generate'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::generate'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.schema_images.status:
+  path: '/api/topicalboost/schema-images/status'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::getStatus'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.schema_images.clear:
+  path: '/api/topicalboost/schema-images/clear'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::clear'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
