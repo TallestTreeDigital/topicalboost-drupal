@@ -260,6 +260,11 @@ queue_status:
     theme:
       css/queue-status.css: {}
 
+widgets_page:
+  css:
+    theme:
+      css/widgets-page.css: {}
+
 schema_images:
   css:
     theme:

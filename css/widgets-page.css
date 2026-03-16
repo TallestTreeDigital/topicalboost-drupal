@@ -1,0 +1,30 @@
+.ttd-widgets-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .ttd-widgets-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ttd-widget-col {
+  min-height: 200px;
+}
+
+.ttd-widgets-notice {
+  grid-column: 1 / -1;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 16px 20px;
+  color: #856404;
+}
+
+.ttd-widgets-notice a {
+  color: #664d03;
+  font-weight: 600;
+}

@@ -287,6 +287,15 @@ topicalboost.queue_status:
   requirements:
     _permission: 'administer topicalboost configuration'
 
+# Widgets Page
+topicalboost.widgets:
+  path: '/admin/config/content/topicalboost/widgets'
+  defaults:
+    _title: 'Widgets'
+    _controller: '\Drupal\ttd_topics\Controller\WidgetsController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
 # Schema Images API endpoints
 topicalboost.api.schema_images.generate:
   path: '/api/topicalboost/schema-images/generate'

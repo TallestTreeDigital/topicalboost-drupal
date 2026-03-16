@@ -32,3 +32,10 @@ topicalboost.queue_status:
   parent: system.admin_config_content
   route_name: topicalboost.queue_status
   weight: 14
+
+topicalboost.widgets:
+  title: TopicalBoost Widgets
+  description: Citations and Top Stories widgets dashboard.
+  parent: system.admin_config_content
+  route_name: topicalboost.widgets
+  weight: 15
