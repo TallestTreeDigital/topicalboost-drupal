@@ -277,3 +277,133 @@
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-analysis-progress {
+  background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.gin--dark-mode .ttd-analysis-title {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-analysis-status {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-analysis-dot {
+  background: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-analysis-spinner::before {
+  border-color: #3a3a3a;
+  border-top-color: #6db3f2;
+}
+
+.gin--dark-mode .ttd-progress-bar-container {
+  background: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-analysis-progress.pulsing {
+  animation: backgroundPulseDark 3s ease-in-out infinite;
+}
+
+@keyframes backgroundPulseDark {
+  0%, 100% {
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #333 0%, #3a3a3a 100%);
+  }
+}
+
+.gin--dark-mode .ttd-analysis-progress.success {
+  background: linear-gradient(135deg, #0d3d1a 0%, #14532d 100%);
+  border-color: #166534;
+}
+
+.gin--dark-mode .ttd-analysis-progress.success .ttd-analysis-title {
+  color: #4ade80;
+}
+
+.gin--dark-mode .ttd-analysis-progress.success .ttd-analysis-status {
+  color: #86efac;
+}
+
+.gin--dark-mode .ttd-analysis-progress.error {
+  background: linear-gradient(135deg, #3d0d10 0%, #450a0a 100%);
+  border-color: #7f1d1d;
+}
+
+.gin--dark-mode .ttd-analysis-progress.error .ttd-analysis-title {
+  color: #f87171;
+}
+
+.gin--dark-mode .ttd-analysis-progress.error .ttd-analysis-status {
+  color: #fca5a5;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode) .ttd-analysis-progress {
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+    border-color: #3a3a3a;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-title {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-status {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-dot {
+    background: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-spinner::before {
+    border-color: #3a3a3a;
+    border-top-color: #6db3f2;
+  }
+
+  body:not(.gin--dark-mode) .ttd-progress-bar-container {
+    background: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.success {
+    background: linear-gradient(135deg, #0d3d1a 0%, #14532d 100%);
+    border-color: #166534;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.success .ttd-analysis-title {
+    color: #4ade80;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.success .ttd-analysis-status {
+    color: #86efac;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.error {
+    background: linear-gradient(135deg, #3d0d10 0%, #450a0a 100%);
+    border-color: #7f1d1d;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.error .ttd-analysis-title {
+    color: #f87171;
+  }
+
+  body:not(.gin--dark-mode) .ttd-analysis-progress.error .ttd-analysis-status {
+    color: #fca5a5;
+  }
+}

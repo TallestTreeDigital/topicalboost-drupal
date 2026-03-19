@@ -32,26 +32,26 @@ class WidgetsController extends ControllerBase {
     }
 
     // Use inline_template so script tags are not stripped by Drupal's XSS filter.
-    // Scripts placed after their target containers, same as WP.
+    // Script before container div, matching WP embed pattern.
     return [
       '#type' => 'inline_template',
       '#template' => '
         <div class="ttd-widgets-page">
           <div class="ttd-widget-col">
-            <div id="searchclippings-widget"></div>
             <script src="{{ clippings_src }}"
               data-topicalboost-api-key="{{ api_key }}"
               data-limit="5"
               data-use-cloudflare-images="true"
               data-thumbnail-size="120x80"
               data-debug="{{ debug }}"></script>
+            <div id="searchclippings-widget"></div>
           </div>
           <div class="ttd-widget-col">
-            <div id="topicalboost-citations"></div>
             <script src="{{ citations_src }}"
               data-topicalboost-api-key="{{ api_key }}"
               data-limit="{{ citations_limit }}"
               data-debug="{{ debug }}"></script>
+            <div id="topicalboost-citations"></div>
           </div>
         </div>',
       '#context' => [

@@ -105,3 +105,134 @@
   background: #fff;
   border: 1px solid #c3c4c7;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-new-topics-description {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-new-topics-filter-btn {
+  border-color: #3a3a3a;
+  background: transparent;
+  color: #6db3f2;
+}
+
+.gin--dark-mode .ttd-new-topics-filter-btn:hover {
+  border-color: #6db3f2;
+  background: #2a2a2a;
+}
+
+.gin--dark-mode .ttd-new-topics-filter-btn.is-active {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+
+.gin--dark-mode .ttd-new-topics-table {
+  background: transparent;
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.gin--dark-mode .ttd-new-topics-table thead th {
+  color: #e8e8e8;
+  border-bottom-color: #3a3a3a;
+  background: #333;
+}
+
+.gin--dark-mode .ttd-new-topics-table tbody td {
+  color: #a0a0a0;
+  border-bottom-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-new-topics-table tbody tr:nth-child(even) {
+  background: #2a2a2a;
+}
+
+.gin--dark-mode .ttd-new-topics-table a {
+  color: #6db3f2;
+}
+
+.gin--dark-mode .ttd-new-topics-table a:hover {
+  color: #8cc8ff;
+}
+
+.gin--dark-mode .ttd-new-topics-loading {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-new-topics-empty {
+  color: #6b6b6b;
+  background: transparent;
+  border-color: #3a3a3a;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode) .ttd-new-topics-description {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-filter-btn {
+    border-color: #3a3a3a;
+    background: transparent;
+    color: #6db3f2;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-filter-btn:hover {
+    border-color: #6db3f2;
+    background: #2a2a2a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-filter-btn.is-active {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table {
+    background: transparent;
+    border-color: #3a3a3a;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table thead th {
+    color: #e8e8e8;
+    border-bottom-color: #3a3a3a;
+    background: #333;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table tbody td {
+    color: #a0a0a0;
+    border-bottom-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table tbody tr:nth-child(even) {
+    background: #2a2a2a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table a {
+    color: #6db3f2;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-table a:hover {
+    color: #8cc8ff;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-loading {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode) .ttd-new-topics-empty {
+    color: #6b6b6b;
+    background: transparent;
+    border-color: #3a3a3a;
+  }
+}

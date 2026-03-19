@@ -152,7 +152,10 @@ class TtdTopicsAnalysisService {
           'x-tb-plugin-version' => $this->getModuleVersion(),
           'x-tb-platform' => 'drupal',
         ],
-        'query' => ['request_id' => $request_id],
+        'query' => [
+          'request_id' => $request_id,
+          'include_demand_metrics' => 'true',
+        ],
         'timeout' => 30,
       ]);
 
@@ -311,7 +314,7 @@ class TtdTopicsAnalysisService {
     }
     else {
       // Exclude fields that are not columns in ttd_entities table
-      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume'];
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume', 'traffic_potential'];
       foreach ($exclude_fields as $field) {
         unset($entity_data[$field]);
       }
@@ -483,11 +486,12 @@ class TtdTopicsAnalysisService {
    *   Entity data from API response.
    */
   private function storeDemandMetricsForTerm($term_id, array $entity_data) {
-    // Check if entity has keyword_difficulty and/or search_volume
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential
     $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
     $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
 
-    if (!$has_kd && !$has_sv) {
+    if (!$has_kd && !$has_sv && !$has_tp) {
       return;
     }
 
@@ -500,6 +504,10 @@ class TtdTopicsAnalysisService {
 
     if ($has_sv) {
       $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
     }
 
     // Store using module function

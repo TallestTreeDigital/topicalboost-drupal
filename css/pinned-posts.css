@@ -197,3 +197,162 @@
   font-size: 13px;
   font-style: italic;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode #ttd-pinned-posts-search {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+  color: #e8e8e8;
+}
+
+.gin--dark-mode #ttd-pinned-posts-search:focus {
+  border-color: #6db3f2;
+  box-shadow: 0 0 0 2px rgba(109, 179, 242, 0.15);
+}
+
+.gin--dark-mode .ttd-pinned-search-results {
+  border-color: #3a3a3a;
+  background: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.gin--dark-mode .ttd-pinned-result {
+  border-bottom-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-pinned-result:hover {
+  background: #2a2a2a;
+}
+
+.gin--dark-mode .ttd-pinned-result.is-pinned {
+  background: #0d3b4f;
+}
+
+.gin--dark-mode .ttd-pinned-result-title {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-pinned-result-meta {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-pinned-no-results {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode #ttd-pinned-posts-list h4 {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-pinned-item {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-pinned-item:hover {
+  background: #333;
+}
+
+.gin--dark-mode .ttd-pinned-item.dragging {
+  background: #0d3b4f;
+}
+
+.gin--dark-mode .ttd-pinned-handle {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-pinned-title {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-pinned-max {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-pinned-empty {
+  color: #6b6b6b;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode) #ttd-pinned-posts-search {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) #ttd-pinned-posts-search:focus {
+    border-color: #6db3f2;
+    box-shadow: 0 0 0 2px rgba(109, 179, 242, 0.15);
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-search-results {
+    border-color: #3a3a3a;
+    background: #333;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-result {
+    border-bottom-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-result:hover {
+    background: #2a2a2a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-result.is-pinned {
+    background: #0d3b4f;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-result-title {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-result-meta {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-no-results {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode) #ttd-pinned-posts-list h4 {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-item {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-item:hover {
+    background: #333;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-item.dragging {
+    background: #0d3b4f;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-handle {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-title {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-max {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode) .ttd-pinned-empty {
+    color: #6b6b6b;
+  }
+}

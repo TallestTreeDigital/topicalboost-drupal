@@ -28,3 +28,34 @@
   color: #664d03;
   font-weight: 600;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-widgets-notice {
+  background: #3b2e00;
+  border-color: #6b5200;
+  color: #fcd34d;
+}
+
+.gin--dark-mode .ttd-widgets-notice a {
+  color: #fbbf24;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode) .ttd-widgets-notice {
+    background: #3b2e00;
+    border-color: #6b5200;
+    color: #fcd34d;
+  }
+
+  body:not(.gin--dark-mode) .ttd-widgets-notice a {
+    color: #fbbf24;
+  }
+}
