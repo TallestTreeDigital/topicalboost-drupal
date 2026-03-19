@@ -1486,4 +1486,37 @@ class TtdTopicsController extends ControllerBase {
     ]);
   }
 
+  /**
+   * Proxy changelog request to the TopicalBoost API.
+   */
+  public function getChangelog() {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return new JsonResponse(['error' => 'API key not configured'], 400);
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/changelog', [
+        'query' => [
+          'product' => 'drupal',
+          'limit' => 20,
+        ],
+        'headers' => [
+          'x-api-key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+        'timeout' => 10,
+      ]);
+
+      $data = json_decode($response->getBody(), TRUE);
+      return new JsonResponse($data);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse(['error' => 'Unable to fetch changelog'], 500);
+    }
+  }
+
 }

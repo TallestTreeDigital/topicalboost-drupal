@@ -107,6 +107,8 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-group-label">Tools</div>
         <div class="ttd-nav-item" data-tab="tab-analytics" data-has-settings="false">Analytics</div>
         <div class="ttd-nav-item" data-tab="tab-bulk-analysis" data-has-settings="false">Bulk Analysis</div>
+        <div class="ttd-nav-group-label">Info</div>
+        <div class="ttd-nav-item" data-tab="tab-changelog" data-has-settings="false">What\'s New</div>
       </nav>',
       '#weight' => -10,
     ];
@@ -1075,6 +1077,16 @@ class SettingsForm extends ConfigFormBase {
       $form['#attached']['drupalSettings']['ttd_topics']['nonce'] = \Drupal::csrfToken()->get('ttd_bulk_analysis');
       $form['#attached']['drupalSettings']['ttd_topics']['enabled_content_types'] = $bulk_enabled_content_types;
     }
+
+    // What's New (Changelog) panel.
+    $form['tabs_container']['content']['changelog'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-changelog'],
+    ];
+    $form['tabs_container']['content']['changelog']['content'] = [
+      '#markup' => '<h2>What\'s New</h2><div id="ttd-changelog-container"><p class="ttd-changelog-loading">Loading changelog...</p></div>',
+    ];
+    $form['#attached']['library'][] = 'ttd_topics/changelog';
 
     return parent::buildForm($form, $form_state);
   }

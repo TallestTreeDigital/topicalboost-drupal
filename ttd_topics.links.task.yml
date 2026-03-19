@@ -1,0 +1,29 @@
+topicalboost.settings_tab:
+  title: Settings
+  route_name: topicalboost.settings_form
+  base_route: topicalboost.settings_form
+  weight: 0
+
+topicalboost.widgets_tab:
+  title: Widgets
+  route_name: topicalboost.widgets
+  base_route: topicalboost.settings_form
+  weight: 1
+
+topicalboost.health_tab:
+  title: Health
+  route_name: topicalboost.health_checks
+  base_route: topicalboost.settings_form
+  weight: 2
+
+topicalboost.new_topics_tab:
+  title: New Topics
+  route_name: topicalboost.new_topics
+  base_route: topicalboost.settings_form
+  weight: 3
+
+topicalboost.queue_status_tab:
+  title: Queue Status
+  route_name: topicalboost.queue_status
+  base_route: topicalboost.settings_form
+  weight: 4

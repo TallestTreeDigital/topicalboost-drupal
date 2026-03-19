@@ -276,3 +276,13 @@ schema_images:
     - core/drupal
     - core/once
     - ttd_topics/jquery_once_polyfill
+
+changelog:
+  css:
+    theme:
+      css/changelog.css: {}
+  js:
+    js/changelog.js: {}
+  dependencies:
+    - core/drupal
+    - core/once

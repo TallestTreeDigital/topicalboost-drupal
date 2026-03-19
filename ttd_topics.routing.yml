@@ -320,3 +320,11 @@ topicalboost.api.schema_images.clear:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+
+topicalboost.api.changelog:
+  path: '/api/topicalboost/changelog'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getChangelog'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
