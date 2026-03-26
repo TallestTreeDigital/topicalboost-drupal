@@ -406,4 +406,360 @@ class MetaGeneratorController extends ControllerBase {
     return mb_substr($content, 0, $max_length);
   }
 
+  /**
+   * Generate social meta (OG) title/description via TB API.
+   */
+  public function generateSocial(Request $request) {
+    $token = $request->headers->get('X-CSRF-Token');
+    if (!$token || !\Drupal::csrfToken()->validate($token, 'ttd_meta_generator')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Invalid CSRF token'],
+      ], 403);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $node_id = $content['node_id'] ?? NULL;
+
+    if (!$node_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing node_id'],
+      ], 400);
+    }
+
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+    if (!$node) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Node not found'],
+      ], 404);
+    }
+
+    try {
+      $body = $node->hasField('body') ? $node->get('body')->value : '';
+      $content_preview = $this->getCleanContentPreview($body);
+
+      if (empty($content_preview)) {
+        $content_preview = $node->getTitle();
+      }
+
+      if (empty($content_preview)) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'data' => ['message' => 'Post has no content or title to generate meta from'],
+        ], 400);
+      }
+
+      $config = \Drupal::config('ttd_topics.settings');
+      $api_key = $config->get('topicalboost_api_key');
+
+      if (empty($api_key)) {
+        throw new \Exception('API key not configured');
+      }
+
+      $api_params = [
+        'postTitle' => $node->getTitle(),
+        'contentPreview' => $content_preview,
+      ];
+
+      $client = \Drupal::httpClient();
+      $response = $client->post(TOPICALBOOST_API_ENDPOINT . '/meta/generate-social', [
+        'headers' => [
+          'Content-Type' => 'application/json',
+          'x-api-key' => $api_key,
+        ],
+        'json' => $api_params,
+        'timeout' => 60,
+      ]);
+
+      $result = json_decode($response->getBody()->getContents(), TRUE);
+
+      if ($result && isset($result['variations'])) {
+        return new JsonResponse([
+          'success' => TRUE,
+          'data' => ['variations' => $result['variations']],
+        ]);
+      }
+
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Failed to generate social meta options'],
+      ], 500);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Social meta generation error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Save social meta (OG tags) to node.
+   */
+  public function saveSocial(Request $request) {
+    $token = $request->headers->get('X-CSRF-Token');
+    if (!$token || !\Drupal::csrfToken()->validate($token, 'ttd_meta_generator')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Invalid CSRF token'],
+      ], 403);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $node_id = $content['node_id'] ?? NULL;
+    $title = trim($content['meta_title'] ?? '');
+    $description = trim($content['meta_description'] ?? '');
+
+    if (!$node_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing node_id'],
+      ], 400);
+    }
+
+    if (empty($title) || empty($description)) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Title and description are required'],
+      ], 400);
+    }
+
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+    if (!$node) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Node not found'],
+      ], 404);
+    }
+
+    try {
+      $seo_module = $this->detectSeoModule();
+
+      // Save to SEO module's OG fields if available.
+      if ($seo_module === 'metatag' && $node->hasField('field_meta_tags')) {
+        $meta_tags = $node->get('field_meta_tags')->value ?? [];
+        if (is_string($meta_tags)) {
+          $meta_tags = unserialize($meta_tags);
+        }
+        $meta_tags['og_title'] = $title;
+        $meta_tags['og_description'] = $description;
+        $node->set('field_meta_tags', serialize($meta_tags));
+      }
+
+      // Store in our own fields for reference.
+      if ($node->hasField('field_ttd_generated_og_title')) {
+        $node->set('field_ttd_generated_og_title', $title);
+      }
+      if ($node->hasField('field_ttd_generated_og_desc')) {
+        $node->set('field_ttd_generated_og_desc', $description);
+      }
+
+      $node->save();
+      $changed = $node->getChangedTime();
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'message' => 'Social meta saved successfully',
+          'seo_module' => $seo_module,
+          'changed' => $changed,
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Social meta save error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Clear social meta from node.
+   */
+  public function clearSocial(Request $request) {
+    $token = $request->headers->get('X-CSRF-Token');
+    if (!$token || !\Drupal::csrfToken()->validate($token, 'ttd_meta_generator')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Invalid CSRF token'],
+      ], 403);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $node_id = $content['node_id'] ?? NULL;
+
+    if (!$node_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing node_id'],
+      ], 400);
+    }
+
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+    if (!$node) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Node not found'],
+      ], 404);
+    }
+
+    try {
+      if ($node->hasField('field_ttd_generated_og_title')) {
+        $node->set('field_ttd_generated_og_title', NULL);
+      }
+      if ($node->hasField('field_ttd_generated_og_desc')) {
+        $node->set('field_ttd_generated_og_desc', NULL);
+      }
+
+      $node->save();
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => ['message' => 'Social meta cleared'],
+      ]);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Discard pending (unsaved) meta.
+   */
+  public function discardPending(Request $request) {
+    $token = $request->headers->get('X-CSRF-Token');
+    if (!$token || !\Drupal::csrfToken()->validate($token, 'ttd_meta_generator')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Invalid CSRF token'],
+      ], 403);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $node_id = $content['node_id'] ?? NULL;
+
+    if (!$node_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing node_id'],
+      ], 400);
+    }
+
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+    if (!$node) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Node not found'],
+      ], 404);
+    }
+
+    try {
+      if ($node->hasField('field_ttd_pending_meta_title')) {
+        $node->set('field_ttd_pending_meta_title', NULL);
+      }
+      if ($node->hasField('field_ttd_pending_meta_desc')) {
+        $node->set('field_ttd_pending_meta_desc', NULL);
+      }
+
+      $node->save();
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => ['message' => 'Pending meta discarded'],
+      ]);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Clear all generated meta from node.
+   */
+  public function clearMeta(Request $request) {
+    $token = $request->headers->get('X-CSRF-Token');
+    if (!$token || !\Drupal::csrfToken()->validate($token, 'ttd_meta_generator')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Invalid CSRF token'],
+      ], 403);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $node_id = $content['node_id'] ?? NULL;
+
+    if (!$node_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing node_id'],
+      ], 400);
+    }
+
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+    if (!$node) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Node not found'],
+      ], 404);
+    }
+
+    try {
+      $seo_module = $this->detectSeoModule();
+
+      // Clear SEO module fields.
+      if ($seo_module === 'metatag' && $node->hasField('field_meta_tags')) {
+        $meta_tags = $node->get('field_meta_tags')->value ?? [];
+        if (is_string($meta_tags)) {
+          $meta_tags = unserialize($meta_tags);
+        }
+        unset($meta_tags['title'], $meta_tags['description']);
+        $node->set('field_meta_tags', serialize($meta_tags));
+      }
+
+      // Clear our reference fields.
+      $clear_fields = [
+        'field_ttd_generated_meta_title',
+        'field_ttd_generated_meta_desc',
+        'field_ttd_pending_meta_title',
+        'field_ttd_pending_meta_desc',
+        'field_ttd_meta_title',
+        'field_ttd_meta_description',
+      ];
+
+      foreach ($clear_fields as $field_name) {
+        if ($node->hasField($field_name)) {
+          $node->set($field_name, NULL);
+        }
+      }
+
+      $node->save();
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => ['message' => 'Meta cleared'],
+      ]);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
 }

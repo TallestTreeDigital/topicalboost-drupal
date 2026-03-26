@@ -286,3 +286,36 @@ changelog:
   dependencies:
     - core/drupal
     - core/once
+
+watchlist:
+  css:
+    theme:
+      css/watchlist.css: {}
+  js:
+    js/watchlist.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+sync:
+  css:
+    theme:
+      css/sync.css: {}
+  js:
+    js/sync.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+troubleshoot:
+  css:
+    theme:
+      css/troubleshoot.css: {}
+  js:
+    js/troubleshoot.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once

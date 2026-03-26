@@ -1519,4 +1519,282 @@ class TtdTopicsController extends ControllerBase {
     }
   }
 
+  /**
+   * Create a topic taxonomy term from entity data.
+   *
+   * Accepts entity data (name, ttd_id, kg_name, wb_name, etc.), upserts into
+   * ttd_entities table, then creates or reuses a taxonomy term linked to it.
+   */
+  public function createTopicTerm(Request $request) {
+    $content = json_decode($request->getContent(), TRUE);
+    $topic_data = $content['topic_data'] ?? NULL;
+    $node_id = (int) ($content['post_id'] ?? 0);
+    $add_to_post = !empty($content['add_to_post']);
+
+    if (!$topic_data) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing topic data'],
+      ], 400);
+    }
+
+    // Resolve name.
+    $name = $topic_data['name'] ?? $topic_data['kg_name'] ?? $topic_data['wb_name'] ?? NULL;
+    $ttd_id = (int) ($topic_data['ttd_id'] ?? 0);
+
+    if (!$name || !$ttd_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing required topic data (name and ttd_id)'],
+      ], 400);
+    }
+
+    $database = \Drupal::database();
+
+    try {
+      // Upsert into ttd_entities table.
+      $existing = $database->select('ttd_entities', 'e')
+        ->fields('e', ['ttd_id'])
+        ->condition('e.ttd_id', $ttd_id)
+        ->execute()
+        ->fetchField();
+
+      if (!$existing) {
+        $fields = [
+          'ttd_id' => $ttd_id,
+          'name' => $topic_data['name'] ?? NULL,
+          'mid' => $topic_data['mid'] ?? NULL,
+          'kg_name' => $topic_data['kg_name'] ?? NULL,
+          'kg_image' => $topic_data['kg_image'] ?? NULL,
+          'nl_name' => $topic_data['nl_name'] ?? NULL,
+          'nl_type' => $topic_data['nl_type'] ?? NULL,
+          'wb_qid' => $topic_data['wb_qid'] ?? NULL,
+          'wb_name' => $topic_data['wb_name'] ?? NULL,
+          'wb_description' => $topic_data['wb_description'] ?? NULL,
+          'wb_image' => $topic_data['wb_image'] ?? NULL,
+          'wikipedia_url' => $topic_data['wikipedia_url'] ?? NULL,
+        ];
+        $database->insert('ttd_entities')->fields($fields)->execute();
+      }
+
+      // Find or create taxonomy term.
+      $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+
+      // Look up by field_ttd_id.
+      $terms = $term_storage->loadByProperties([
+        'vid' => 'ttd_topics',
+        'field_ttd_id' => $ttd_id,
+      ]);
+
+      if (!empty($terms)) {
+        $term = reset($terms);
+        $term_id = $term->id();
+      }
+      else {
+        // Check by name to avoid duplicates.
+        $terms_by_name = $term_storage->loadByProperties([
+          'vid' => 'ttd_topics',
+          'name' => $name,
+        ]);
+
+        if (!empty($terms_by_name)) {
+          $term = reset($terms_by_name);
+          $term_id = $term->id();
+          // Link it if not already.
+          if ($term->hasField('field_ttd_id') && empty($term->get('field_ttd_id')->value)) {
+            $term->set('field_ttd_id', $ttd_id);
+            $term->save();
+          }
+        }
+        else {
+          // Create new term.
+          $term = $term_storage->create([
+            'vid' => 'ttd_topics',
+            'name' => $name,
+            'description' => ['value' => $topic_data['wb_description'] ?? '', 'format' => 'plain_text'],
+            'field_ttd_id' => $ttd_id,
+          ]);
+          $term->save();
+          $term_id = $term->id();
+        }
+      }
+
+      // Optionally add to node.
+      if ($add_to_post && $node_id) {
+        $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+        if ($node && $node->hasField('field_ttd_topics')) {
+          $current_values = $node->get('field_ttd_topics')->getValue();
+          $already_assigned = FALSE;
+          foreach ($current_values as $val) {
+            if ((int) $val['target_id'] === (int) $term_id) {
+              $already_assigned = TRUE;
+              break;
+            }
+          }
+          if (!$already_assigned) {
+            $current_values[] = ['target_id' => $term_id];
+            $node->set('field_ttd_topics', $current_values);
+            $node->save();
+          }
+        }
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term_id,
+          'ttd_id' => $ttd_id,
+          'name' => $name,
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Create topic term error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Look up a taxonomy term by TTD ID, auto-create if missing.
+   */
+  public function getTermByTtdId(Request $request) {
+    $content = json_decode($request->getContent(), TRUE);
+    $ttd_id = (int) ($content['ttd_id'] ?? 0);
+
+    if (!$ttd_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing TTD ID'],
+      ], 400);
+    }
+
+    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+
+    // Look up by field_ttd_id.
+    $terms = $term_storage->loadByProperties([
+      'vid' => 'ttd_topics',
+      'field_ttd_id' => $ttd_id,
+    ]);
+
+    if (!empty($terms)) {
+      $term = reset($terms);
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term->id(),
+          'name' => $term->getName(),
+        ],
+      ]);
+    }
+
+    // Not found — auto-create from entity record.
+    $database = \Drupal::database();
+    try {
+      $entity = $database->select('ttd_entities', 'e')
+        ->fields('e')
+        ->condition('e.ttd_id', $ttd_id)
+        ->execute()
+        ->fetchAssoc();
+    }
+    catch (\Exception $e) {
+      $entity = NULL;
+    }
+
+    if (!$entity) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Term not found for TTD ID: ' . $ttd_id],
+      ], 404);
+    }
+
+    $name = $entity['kg_name'] ?: ($entity['wb_name'] ?: ($entity['name'] ?: 'Unnamed Entity'));
+    $description = $entity['wb_description'] ?? '';
+
+    try {
+      // Check if a term with this name already exists.
+      $existing = $term_storage->loadByProperties([
+        'vid' => 'ttd_topics',
+        'name' => $name,
+      ]);
+
+      if (!empty($existing)) {
+        $term = reset($existing);
+        // Link it.
+        if ($term->hasField('field_ttd_id')) {
+          $term->set('field_ttd_id', $ttd_id);
+          $term->save();
+        }
+      }
+      else {
+        $term = $term_storage->create([
+          'vid' => 'ttd_topics',
+          'name' => $name,
+          'description' => ['value' => $description, 'format' => 'plain_text'],
+          'field_ttd_id' => $ttd_id,
+        ]);
+        $term->save();
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term->id(),
+          'name' => $term->getName(),
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Get meta generation settings from the API.
+   */
+  public function getMetaSettings() {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'API key not configured'],
+      ], 400);
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/meta/settings', [
+        'headers' => [
+          'x-api-key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+        'timeout' => 15,
+      ]);
+
+      $data = json_decode($response->getBody()->getContents(), TRUE);
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => $data,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Meta settings API error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Failed to fetch meta settings from API'],
+      ], 500);
+    }
+  }
+
 }

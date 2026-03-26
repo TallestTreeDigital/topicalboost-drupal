@@ -428,6 +428,18 @@ class SettingsForm extends ConfigFormBase {
       '#suffix' => '</div>',
     ];
 
+    $form['tabs_container']['content']['behavior']['metabox_position'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('TopicalBoost Position'),
+      '#options' => [
+        'side' => $this->t('Sidebar'),
+        'normal' => $this->t('Main content area'),
+      ],
+      '#default_value' => $config->get('metabox_position') ?: 'side',
+      '#description' => $this->t('Controls where TopicalBoost, SEO Meta Generator, and Schema Images appear on the node editor. "Sidebar" places them in the right column. "Main content area" places them below the editor in a tabbed interface.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
     // =========================================================================
     // Analytics Tab
     // =========================================================================
@@ -1872,6 +1884,7 @@ class SettingsForm extends ConfigFormBase {
       ->set('disable_event_temporal_properties', $form_state->getValue('disable_event_temporal_properties'))
       ->set('hide_seo_module_ui', $form_state->getValue('hide_seo_module_ui'))
       ->set('block_until_analyzed', $form_state->getValue('block_until_analyzed'))
+      ->set('metabox_position', $form_state->getValue('metabox_position'))
       ->set('new_topic_reanalysis_enabled', $form_state->getValue('new_topic_reanalysis_enabled'))
       ->set('new_topic_reanalysis_lookback_days', (int) $form_state->getValue('new_topic_reanalysis_lookback_days'))
       ->set('search_clippings_enabled', $form_state->getValue('search_clippings_enabled'))

@@ -1,0 +1,79 @@
+/* Troubleshoot Page */
+.ttd-troubleshoot-section {
+  margin-bottom: 32px;
+}
+
+.ttd-troubleshoot-section h2 {
+  margin: 0 0 12px;
+}
+
+.ttd-troubleshoot-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.ttd-troubleshoot-actions .description {
+  color: #666;
+  font-size: 13px;
+  margin-left: 12px;
+}
+
+.ttd-troubleshoot-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ttd-troubleshoot-table th,
+.ttd-troubleshoot-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #dcdcde;
+}
+
+.ttd-troubleshoot-table thead th {
+  background: #f6f7f7;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ttd-troubleshoot-table tbody tr:hover {
+  background: #f6f7f7;
+}
+
+.ttd-troubleshoot-table .check-column {
+  width: 30px;
+  padding: 8px;
+}
+
+.ttd-post-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ttd-retry-info {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.ttd-time-ago {
+  font-size: 12px;
+  color: #666;
+}
+
+.ttd-recently-retried {
+  opacity: 0.7;
+}
+
+.ttd-empty-state {
+  padding: 20px;
+  text-align: center;
+  color: #757575;
+  font-style: italic;
+  background: #f6f7f7;
+  border-radius: 4px;
+}

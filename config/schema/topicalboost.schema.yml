@@ -128,6 +128,9 @@ ttd_topics.settings:
     meta_social_prompt:
       type: string
       label: 'Meta social generation prompt'
+    metabox_position:
+      type: string
+      label: 'Metabox position (side or normal)'
     search_countries:
       type: sequence
       label: 'Search countries'

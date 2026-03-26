@@ -67,6 +67,14 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
       ],
       'template' => 'ttd-admin-topics',
     ],
+    'ttd_troubleshoot_page' => [
+      'variables' => [
+        'stuck_posts' => [],
+        'recently_retried' => [],
+        'rejected_posts' => [],
+      ],
+      'template' => 'ttd-troubleshoot-page',
+    ],
   ];
 }
 
@@ -117,15 +125,29 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Hide the original field_ttd_topics field.
     $form['field_ttd_topics']['#access'] = FALSE;
 
-    // Create a new fieldset for TopicalBoost in the sidebar.
-    $form['ttd_topics'] = [
-      '#type' => 'details',
-      '#title' => t('TopicalBoost'),
-      '#group' => 'advanced',
-      '#weight' => 100,
-      '#optional' => FALSE,
-      '#open' => TRUE,
-    ];
+    $metabox_position = $config->get('metabox_position') ?: 'side';
+
+    if ($metabox_position === 'normal') {
+      // Main content area: place below editor, no sidebar group.
+      $form['ttd_topics'] = [
+        '#type' => 'details',
+        '#title' => t('TopicalBoost'),
+        '#weight' => 50,
+        '#optional' => FALSE,
+        '#open' => TRUE,
+      ];
+    }
+    else {
+      // Sidebar (default).
+      $form['ttd_topics'] = [
+        '#type' => 'details',
+        '#title' => t('TopicalBoost'),
+        '#group' => 'advanced',
+        '#weight' => 100,
+        '#optional' => FALSE,
+        '#open' => TRUE,
+      ];
+    }
 
     // Check if the node has been saved at least once.
     $is_saved = !$node->isNew();
@@ -265,13 +287,14 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         ? $node->get('field_ttd_generated_meta_desc')->value
         : '';
 
+      $meta_group = ($metabox_position === 'normal') ? [] : ['#group' => 'advanced'];
       $form['ttd_meta_generator'] = [
         '#type' => 'details',
         '#title' => t('SEO Meta Generator'),
-        '#weight' => -5,
+        '#weight' => ($metabox_position === 'normal') ? 51 : -5,
         '#optional' => FALSE,
         '#open' => TRUE,
-      ];
+      ] + $meta_group;
 
       if (!$has_topics) {
         $form['ttd_meta_generator']['no_topics'] = [
@@ -306,12 +329,25 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
         // Attach libraries and settings.
         $form['ttd_meta_generator']['#attached']['library'][] = 'ttd_topics/meta_generator';
+        // Get existing social meta if any.
+        $existing_og_title = $node->hasField('field_ttd_generated_og_title')
+          ? $node->get('field_ttd_generated_og_title')->value
+          : '';
+        $existing_og_description = $node->hasField('field_ttd_generated_og_desc')
+          ? $node->get('field_ttd_generated_og_desc')->value
+          : '';
+
         $settings = [
           'nodeId' => $node->id(),
           'postUrl' => $node->toUrl()->setAbsolute()->toString(),
           'postTitle' => $node->getTitle(),
           'apiBase' => '/api/topicalboost/meta',
           'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
+          'socialApiBase' => '/api/topicalboost/meta',
+          'existingSocialMeta' => ($existing_og_title && $existing_og_description) ? [
+            'title' => $existing_og_title,
+            'description' => $existing_og_description,
+          ] : NULL,
         ];
 
         // Pass existing meta to JS so it can load it into the editable UI.
@@ -363,13 +399,14 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
           }
         }
 
+        $schema_group = ($metabox_position === 'normal') ? [] : ['#group' => 'advanced'];
         $form['ttd_schema_images'] = [
           '#type' => 'details',
           '#title' => t('Schema Images'),
-          '#weight' => -3,
+          '#weight' => ($metabox_position === 'normal') ? 52 : -3,
           '#optional' => FALSE,
           '#open' => FALSE,
-        ];
+        ] + $schema_group;
 
         $focal_html = '';
         if ($source_url) {

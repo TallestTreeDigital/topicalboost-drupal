@@ -1,0 +1,152 @@
+{#
+/**
+ * @file
+ * Troubleshoot page for stuck posts, rejected topics, and recently retried.
+ */
+#}
+<div id="ttd-troubleshoot-form">
+
+  {# Stuck Posts Section #}
+  <div class="ttd-troubleshoot-section">
+    <h2>Stuck Posts ({{ stuck_posts|length }})</h2>
+
+    {% if stuck_posts|length > 0 %}
+      <div class="ttd-troubleshoot-actions">
+        <button type="button" class="button" id="clear-selected" disabled>
+          Clear Progress Flag
+        </button>
+        <button type="button" class="button button--primary" id="reanalyze-selected" disabled>
+          Clear &amp; Re-analyze
+        </button>
+        <span class="description">Note: Posts can only be re-analyzed once per hour</span>
+      </div>
+
+      <table class="ttd-troubleshoot-table">
+        <thead>
+          <tr>
+            <td class="check-column">
+              <input type="checkbox" id="cb-select-all" aria-label="Select all">
+            </td>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Last Modified</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for post in stuck_posts %}
+            <tr>
+              <td class="check-column">
+                <input type="checkbox" name="post_ids[]" value="{{ post.nid }}" aria-label="Select {{ post.title }}">
+              </td>
+              <td>
+                <strong>
+                  <a href="/node/{{ post.nid }}/edit" target="_blank">
+                    {{ post.title }}
+                  </a>
+                </strong>
+              </td>
+              <td>{{ post.type }}</td>
+              <td>{{ post.status ? 'Published' : 'Unpublished' }}</td>
+              <td>
+                {{ post.changed|date('Y-m-d H:i:s') }}
+                {% if post.last_retry %}
+                  <br><span class="ttd-time-ago">Last retry: {{ post.last_retry }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="ttd-post-actions">
+                  <button type="button" class="button clear-single" data-post-id="{{ post.nid }}">
+                    Clear Flag
+                  </button>
+                  <button type="button" class="button button--primary reanalyze-single" data-post-id="{{ post.nid }}"
+                    {% if post.last_retry and (("now"|date("U")) - (post.last_retry|date("U"))) < 3600 %}
+                      disabled title="Can only retry once per hour"
+                    {% endif %}
+                  >
+                    Clear &amp; Re-analyze
+                  </button>
+                </div>
+                {% if post.last_retry and (("now"|date("U")) - (post.last_retry|date("U"))) < 3600 %}
+                  <div class="ttd-retry-info">
+                    Can retry in: {{ ((3600 - (("now"|date("U")) - (post.last_retry|date("U")))) / 60)|round(0, 'ceil') }} minutes
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="ttd-empty-state">No stuck posts found.</div>
+    {% endif %}
+  </div>
+
+  {# Recently Retried Posts #}
+  {% if recently_retried|length > 0 %}
+    <div class="ttd-troubleshoot-section">
+      <h2>Recently Retried Posts ({{ recently_retried|length }})</h2>
+      <table class="ttd-troubleshoot-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Last Retry</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for post in recently_retried %}
+            <tr class="ttd-recently-retried">
+              <td>
+                <a href="/node/{{ post.nid }}/edit" target="_blank">{{ post.title }}</a>
+              </td>
+              <td>{{ post.type }}</td>
+              <td>{{ post.status ? 'Published' : 'Unpublished' }}</td>
+              <td>{{ post.field_ttd_last_retry_value }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {# Rejected Topics #}
+  {% if rejected_posts|length > 0 %}
+    <div class="ttd-troubleshoot-section">
+      <h2>Posts with All Topics Rejected ({{ rejected_posts|length }})</h2>
+      <table class="ttd-troubleshoot-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Last Modified</th>
+            <th>Rejected Topics</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for post in rejected_posts %}
+            <tr>
+              <td>
+                <a href="/node/{{ post.nid }}/edit" target="_blank">{{ post.title }}</a>
+              </td>
+              <td>{{ post.type }}</td>
+              <td>{{ post.status ? 'Published' : 'Unpublished' }}</td>
+              <td>{{ post.changed|date('Y-m-d H:i:s') }}</td>
+              <td>{{ post.rejected_topics }}</td>
+              <td>
+                <button type="button" class="button clear-rejected" data-post-id="{{ post.nid }}">
+                  Clear Rejected Topics
+                </button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+</div>

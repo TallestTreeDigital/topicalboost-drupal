@@ -39,3 +39,10 @@ topicalboost.widgets:
   parent: system.admin_config_content
   route_name: topicalboost.widgets
   weight: 15
+
+topicalboost.troubleshoot:
+  title: TopicalBoost Troubleshoot
+  description: Manage stuck posts, rejected topics, and other troubleshooting tools.
+  parent: system.admin_config_content
+  route_name: topicalboost.troubleshoot
+  weight: 16
