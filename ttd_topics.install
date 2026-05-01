@@ -86,6 +86,12 @@ function ttd_topics_schema() {
         'not null' => FALSE,
         'description' => 'Knowledge Graph name',
       ],
+      'kg_description' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+        'description' => 'Knowledge Graph description',
+      ],
       'kg_image' => [
         'type' => 'varchar',
         'length' => 1024,
@@ -781,13 +787,30 @@ function ttd_topics_uninstall() {
  */
 function ttd_topics_update_8001() {
   $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
-  
+
   // Only set the key if it doesn't exist to preserve any early-adopter custom overrides
   if (!$config->get('analysis_custom_fields')) {
     $config->set('analysis_custom_fields', [])->save();
   }
-  
+
   return t('Added analysis_custom_fields configuration key for custom field analysis feature.');
+}
+
+/**
+ * Add kg_description column to ttd_entities table.
+ */
+function ttd_topics_update_9100() {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->fieldExists('ttd_entities', 'kg_description')) {
+    $schema->addField('ttd_entities', 'kg_description', [
+      'type' => 'varchar',
+      'length' => 1024,
+      'not null' => FALSE,
+      'description' => 'Knowledge Graph description',
+    ]);
+    return t('Added kg_description column to ttd_entities table.');
+  }
+  return t('kg_description column already exists on ttd_entities table.');
 }
 
 
