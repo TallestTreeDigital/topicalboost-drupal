@@ -293,10 +293,13 @@ class BulkAnalysisController extends ControllerBase {
    */
   public function pollAnalysis(Request $request) {
     $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $debug = (bool) \Drupal::config('ttd_topics.settings')->get('debug_mode');
 
-    \Drupal::logger('ttd_topics')->debug('pollAnalysis() called - current request_id: @request_id', [
-      '@request_id' => $request_id ?? 'NULL',
-    ]);
+    if ($debug) {
+      \Drupal::logger('ttd_topics')->debug('pollAnalysis() called - current request_id: @request_id', [
+        '@request_id' => $request_id ?? 'NULL',
+      ]);
+    }
 
     // SAFEGUARD: Sanity check - ensure state consistency
     // If frontend sends a different request_id, it means they might be out of sync
@@ -310,7 +313,9 @@ class BulkAnalysisController extends ControllerBase {
     }
 
     if (!$request_id) {
-      \Drupal::logger('ttd_topics')->debug('pollAnalysis() returning empty state - no active request_id');
+      if ($debug) {
+        \Drupal::logger('ttd_topics')->debug('pollAnalysis() returning empty state - no active request_id');
+      }
       return new JsonResponse([
         'success' => TRUE,
         'data' => [

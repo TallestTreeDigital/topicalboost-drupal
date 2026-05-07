@@ -47,6 +47,15 @@ class FieldCollectorService {
   }
 
   /**
+   * Log a debug message only when the debug_mode toggle is enabled.
+   */
+  protected function debugLog(string $message, array $context = []): void {
+    if ((bool) $this->configFactory->get('ttd_topics.settings')->get('debug_mode')) {
+      \Drupal::logger('ttd_topics_debug')->debug($message, $context);
+    }
+  }
+
+  /**
    * Collect text content from a node for analysis.
    *
    * @param \Drupal\node\NodeInterface $node
@@ -60,7 +69,7 @@ class FieldCollectorService {
     $custom_fields = $config->get('analysis_custom_fields') ?: [];
 
     // Debug logging for collection start
-    \Drupal::logger('ttd_topics_debug')->debug('Starting content collection for node @nid (@title). Custom fields: @fields', [
+    $this->debugLog('Starting content collection for node @nid (@title). Custom fields: @fields', [
       '@nid' => $node->id(),
       '@title' => $node->getTitle(),
       '@fields' => implode(', ', $custom_fields),
@@ -111,7 +120,7 @@ class FieldCollectorService {
         $field_type = $field_definition->getType();
 
         // Debug logging for custom field processing
-        \Drupal::logger('ttd_topics_debug')->debug('Processing custom field @field_name (@field_type)', [
+        $this->debugLog('Processing custom field @field_name (@field_type)', [
           '@field_name' => $field_name,
           '@field_type' => $field_type,
         ]);
@@ -119,7 +128,7 @@ class FieldCollectorService {
         $field_text = $this->extractFieldText($node->get($field_name), [], 0);
         if ($field_text && $current_length + strlen($field_text) < self::MAX_TEXT_LENGTH) {
           $field_text_length = strlen($field_text);
-          \Drupal::logger('ttd_topics_debug')->debug('Added @length chars from field @field_name: @preview', [
+          $this->debugLog('Added @length chars from field @field_name: @preview', [
             '@length' => $field_text_length,
             '@field_name' => $field_name,
             '@preview' => substr($field_text, 0, 100) . ($field_text_length > 100 ? '...' : ''),
@@ -127,12 +136,12 @@ class FieldCollectorService {
           $content_parts[] = $field_text;
           $current_length += $field_text_length;
         } else {
-          \Drupal::logger('ttd_topics_debug')->debug('Field @field_name produced no text or would exceed length limit', [
+          $this->debugLog('Field @field_name produced no text or would exceed length limit', [
             '@field_name' => $field_name,
           ]);
         }
       } else {
-        \Drupal::logger('ttd_topics_debug')->debug('Field @field_name not found or empty on node', [
+        $this->debugLog('Field @field_name not found or empty on node', [
           '@field_name' => $field_name,
         ]);
       }
@@ -142,7 +151,7 @@ class FieldCollectorService {
     $final_length = strlen($final_content);
 
     // Debug logging for collection summary
-    \Drupal::logger('ttd_topics_debug')->debug('Collection complete for node @nid. Total length: @length chars from @parts parts', [
+    $this->debugLog('Collection complete for node @nid. Total length: @length chars from @parts parts', [
       '@nid' => $node->id(),
       '@length' => $final_length,
       '@parts' => count($content_parts),
@@ -328,7 +337,7 @@ class FieldCollectorService {
             // Debug logging for paragraph fields
             $field_name = $field_definition->getName();
             if ($target_type === 'paragraph') {
-              \Drupal::logger('ttd_topics_debug')->debug('Processing paragraph field @field (target_id: @target_id)', [
+              $this->debugLog('Processing paragraph field @field (target_id: @target_id)', [
                 '@field' => $field_name,
                 '@target_id' => $item->target_id,
               ]);
@@ -337,7 +346,7 @@ class FieldCollectorService {
             // Prevent infinite loops
             if (in_array($entity_key, $processed_entities)) {
               if ($target_type === 'paragraph') {
-                \Drupal::logger('ttd_topics_debug')->debug('Skipping paragraph @target_id to prevent infinite loop', [
+                $this->debugLog('Skipping paragraph @target_id to prevent infinite loop', [
                   '@target_id' => $item->target_id,
                 ]);
               }
@@ -358,7 +367,7 @@ class FieldCollectorService {
                 if ($target_type === 'paragraph') {
                   $bundle = $referenced_entity->bundle();
                   $text_length = strlen($text);
-                  \Drupal::logger('ttd_topics_debug')->debug('Extracted @length chars from paragraph @id (@bundle): @preview', [
+                  $this->debugLog('Extracted @length chars from paragraph @id (@bundle): @preview', [
                     '@length' => $text_length,
                     '@id' => $item->target_id,
                     '@bundle' => $bundle,
