@@ -882,12 +882,17 @@ function ttd_topics_page_attachments(array &$attachments) {
   
   if ($node && in_array($node->bundle(), $enabled_content_types)) {
     try {
-      \Drupal::logger('topicalboost')->debug('Starting schema generation for node @nid', ['@nid' => $node->id()]);
+      $debug = (bool) $config->get('debug_mode');
+      if ($debug) {
+        \Drupal::logger('topicalboost')->debug('Starting schema generation for node @nid', ['@nid' => $node->id()]);
+      }
 
       $schema_generator = \Drupal::service('ttd_topics.schema_generator');
       $schema_data = $schema_generator->getNodeTopicsSchema($node->id());
 
-      \Drupal::logger('topicalboost')->debug('Schema data: @data', ['@data' => print_r($schema_data, TRUE)]);
+      if ($debug) {
+        \Drupal::logger('topicalboost')->debug('Schema data: @data', ['@data' => print_r($schema_data, TRUE)]);
+      }
 
       if (!empty($schema_data) && !empty($schema_data['@graph'])) {
         $attachments['#attached']['html_head'][] = [
