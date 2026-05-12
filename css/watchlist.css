@@ -131,3 +131,39 @@
 #ttd-watchlist-feedback .error-message {
   color: #d63638;
 }
+
+/* Dark mode (Gin theme) */
+.gin--dark-mode .ttd-watchlist-results {
+  background: #2b2d31;
+  border-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-watchlist-result-item {
+  border-bottom-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-watchlist-result-item:hover {
+  background: #35373b;
+}
+
+.gin--dark-mode .ttd-watchlist-result-name {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-watchlist-result-desc {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-watchlist-chip {
+  background: #2b2d31;
+  border-color: #3f4145;
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-watchlist-chip-remove {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-watchlist-create-custom {
+  border-top-color: #3f4145;
+}

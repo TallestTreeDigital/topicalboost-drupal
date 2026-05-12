@@ -131,6 +131,12 @@ ttd_topics.settings:
     metabox_position:
       type: string
       label: 'Metabox position (side or normal)'
+    meta_title_case_format:
+      type: string
+      label: 'Meta title case format (title or sentence)'
+    auto_sync_enabled:
+      type: boolean
+      label: 'Enable auto-sync'
     search_countries:
       type: sequence
       label: 'Search countries'

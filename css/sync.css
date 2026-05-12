@@ -162,3 +162,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Dark mode (Gin theme) */
+.gin--dark-mode .ttd-sync-card {
+  background: #2b2d31;
+  border-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-card-title {
+  color: #a0a4ab;
+}
+
+.gin--dark-mode .ttd-sync-card-count:first-child .ttd-sync-card-number {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-sync-card-label {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-sync-card-hint {
+  color: #9a9ea6;
+  border-top-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-card-count + .ttd-sync-card-count {
+  border-left-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-label {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-sync-progress-bar {
+  background: #3f4145;
+}
+
+.gin--dark-mode #ttd-sync-result .messages--status {
+  background: #1a3a1a;
+  color: #8ddb8d;
+}

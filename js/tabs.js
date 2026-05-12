@@ -44,11 +44,14 @@
           'content': 'tab-content',
           'topiclist': 'tab-topiclist',
           'behavior': 'tab-behavior',
+          'watchlist': 'tab-watchlist',
           'widgets': 'tab-widgets',
           'schema': 'tab-schema',
           'developer': 'tab-developer',
+          'sync': 'tab-sync',
           'analytics': 'tab-analytics',
-          'bulk-analysis': 'tab-bulk-analysis'
+          'bulk-analysis': 'tab-bulk-analysis',
+          'troubleshoot': 'tab-troubleshoot'
         };
 
         // If there's a hash, use it
@@ -95,11 +98,14 @@
           'tab-content': '#content',
           'tab-topiclist': '#topiclist',
           'tab-behavior': '#behavior',
+          'tab-watchlist': '#watchlist',
           'tab-widgets': '#widgets',
           'tab-schema': '#schema',
           'tab-developer': '#developer',
+          'tab-sync': '#sync',
           'tab-analytics': '#analytics',
-          'tab-bulk-analysis': '#bulk-analysis'
+          'tab-bulk-analysis': '#bulk-analysis',
+          'tab-troubleshoot': '#troubleshoot'
         };
         var hash = hashMap[targetPanel];
         if (hash) {

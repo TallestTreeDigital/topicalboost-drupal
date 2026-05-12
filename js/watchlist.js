@@ -19,12 +19,12 @@
         $feedback = $('#ttd-watchlist-feedback');
 
         // Load when watchlist tab becomes visible.
-        $(document).on('click', '[data-tab="watchlist"]', function () {
+        $(document).on('click', '[data-tab="tab-watchlist"]', function () {
           if (!loaded) loadWatchlist();
         });
 
         // If already on watchlist tab, load immediately.
-        if ($('#watchlist-tab').hasClass('active')) {
+        if ($('#tab-watchlist').hasClass('active')) {
           loadWatchlist();
         }
 

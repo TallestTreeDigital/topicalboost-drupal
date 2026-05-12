@@ -699,6 +699,67 @@
   color: var(--gin-color-text, #d4d4d4);
 }
 
+/* --- Title Casing + Position: dark mode --- */
+.gin--dark-mode #edit-meta-title-case-format label.form-item__label,
+.gin--dark-mode #edit-metabox-position label.form-item__label {
+  background: #35373b;
+  border-color: #555;
+  color: #d4d4d4;
+}
+
+.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label,
+.gin--dark-mode #edit-metabox-position input[type="radio"]:checked + label.form-item__label {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+
+/* --- TopicalBoost Position radios --- */
+#edit-metabox-position.form-radios {
+  display: inline-flex;
+  gap: 0;
+}
+
+#edit-metabox-position .js-form-item {
+  margin: 0;
+}
+
+#edit-metabox-position input[type="radio"] {
+  display: none;
+}
+
+#edit-metabox-position input[type="radio"]:checked + label {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+
+/* Fieldset wrapper cleanup for radios-as-buttons */
+#edit-meta-title-case-format--wrapper.fieldset,
+#edit-metabox-position--wrapper.fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.gin--dark-mode #edit-metabox-position label {
+  background: #2b2d31;
+  border-color: #3f4145;
+  color: #d4d4d4;
+}
+
+.gin--dark-mode #edit-metabox-position input[type="radio"]:checked + label {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+
+.gin--dark-mode #edit-meta-title-case-format--wrapper.fieldset,
+.gin--dark-mode #edit-metabox-position--wrapper.fieldset {
+  border: none;
+  background: transparent;
+}
+
 /* ==========================================================================
    11. Responsive
    ========================================================================== */
@@ -838,4 +899,56 @@
 
 .ttd-sortable-fields .select2-selection__choice:active {
   cursor: grabbing;
+}
+
+/* Button-group radios (Title Case / Sentence case) */
+#edit-meta-title-case-format.form-radios {
+  display: inline-flex;
+  gap: 0;
+}
+
+#edit-meta-title-case-format .js-form-item {
+  margin: 0;
+}
+
+#edit-meta-title-case-format label.form-item__label,
+#edit-metabox-position label.form-item__label {
+  display: inline-block;
+  padding: 8px 24px;
+  border: 1px solid #8c8f94;
+  background: #f0f0f1;
+  color: #2c3338;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin: 0;
+  border-right-width: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+#edit-meta-title-case-format .js-form-item:first-child label.form-item__label,
+#edit-metabox-position .js-form-item:first-child label.form-item__label {
+  border-radius: 5px 0 0 5px;
+}
+
+#edit-meta-title-case-format .js-form-item:last-child label.form-item__label,
+#edit-metabox-position .js-form-item:last-child label.form-item__label {
+  border-radius: 0 5px 5px 0;
+  border-right-width: 1px;
+}
+
+#edit-meta-title-case-format input[type="radio"] {
+  display: none;
+}
+
+#edit-meta-title-case-format input[type="radio"]:checked + label {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+
+#edit-meta-title-case-format input[type="radio"]:checked + label:hover {
+  background: #135e96;
+  border-color: #135e96;
 }

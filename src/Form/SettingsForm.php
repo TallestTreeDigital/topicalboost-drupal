@@ -101,12 +101,15 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
         <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
         <div class="ttd-nav-group-label">Advanced</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Watchlist</div>
         <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
         <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
         <div class="ttd-nav-item" data-tab="tab-developer">Developer</div>
         <div class="ttd-nav-group-label">Tools</div>
+        <div class="ttd-nav-item" data-tab="tab-sync" data-has-settings="false">Sync</div>
         <div class="ttd-nav-item" data-tab="tab-analytics" data-has-settings="false">Analytics</div>
         <div class="ttd-nav-item" data-tab="tab-bulk-analysis" data-has-settings="false">Bulk Analysis</div>
+        <div class="ttd-nav-item" data-tab="tab-troubleshoot" data-has-settings="false">Troubleshoot</div>
         <div class="ttd-nav-group-label">Info</div>
         <div class="ttd-nav-item" data-tab="tab-changelog" data-has-settings="false">What\'s New</div>
       </nav>',
@@ -195,6 +198,25 @@ class SettingsForm extends ConfigFormBase {
       '#description' => $this->t('Custom prompt for generating social media meta tags (Open Graph, Twitter Cards). Leave blank for the default prompt.'),
       '#attributes' => ['class' => ['ttd-topics-field-group']],
       '#rows' => 4,
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_meta_generator"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $title_case_value = $config->get('meta_title_case_format') ?: 'title';
+
+    $form['tabs_container']['content']['setup']['meta_title_case_format'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Title Casing'),
+      '#options' => [
+        'title' => $this->t('Title Case'),
+        'sentence' => $this->t('Sentence case'),
+      ],
+      '#default_value' => $title_case_value,
+      '#description' => $this->t('Controls whether generated meta titles use Title Case or Sentence case'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-button-group-radios']],
       '#states' => [
         'visible' => [
           ':input[name="enable_meta_generator"]' => ['checked' => TRUE],
@@ -293,6 +315,16 @@ class SettingsForm extends ConfigFormBase {
           ':input[name="new_topic_reanalysis_enabled"]' => ['checked' => TRUE],
         ],
       ],
+    ];
+
+    $form['tabs_container']['content']['content_tab']['auto_sync_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Auto-Sync'),
+      '#default_value' => $config->get('auto_sync_enabled') ?: FALSE,
+      '#description' => $this->t('Automatically sync data when discrepancies are detected. When enabled, the module will automatically pull missing topics and relationships from the API in the background. Runs hourly alongside the metrics report.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
     ];
 
     // =========================================================================
@@ -1089,6 +1121,141 @@ class SettingsForm extends ConfigFormBase {
       $form['#attached']['drupalSettings']['ttd_topics']['nonce'] = \Drupal::csrfToken()->get('ttd_bulk_analysis');
       $form['#attached']['drupalSettings']['ttd_topics']['enabled_content_types'] = $bulk_enabled_content_types;
     }
+
+    // =========================================================================
+    // Watchlist Tab
+    // =========================================================================
+    $form['tabs_container']['content']['watchlist'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-watchlist'],
+    ];
+
+    $form['tabs_container']['content']['watchlist']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Entity Watchlist</h2>',
+    ];
+
+    $form['tabs_container']['content']['watchlist']['description'] = [
+      '#markup' => '<p class="description">' . $this->t('Entities on the watchlist are always checked during analysis. Use this for niche topics your publication frequently covers that analysis might otherwise miss.') . '</p>',
+    ];
+
+    $form['tabs_container']['content']['watchlist']['search_container'] = [
+      '#markup' => '<div class="ttd-watchlist-search-wrapper">
+        <label for="ttd-watchlist-search">' . $this->t('Add Entity') . '</label>
+        <input type="text" id="ttd-watchlist-search" class="form-text" placeholder="' . $this->t('Search entities...') . '" autocomplete="off" />
+        <div class="ttd-watchlist-spinner" id="ttd-watchlist-spinner"></div>
+        <div class="ttd-watchlist-results" id="ttd-watchlist-results" style="display:none;"></div>
+      </div>
+      <div id="ttd-watchlist-feedback"></div>',
+    ];
+
+    $form['tabs_container']['content']['watchlist']['items_container'] = [
+      '#markup' => '<div class="ttd-watchlist-items-wrapper">
+        <h4>' . $this->t('Watchlist (<span id="ttd-watchlist-count"><span>0</span></span>/50)') . '</h4>
+        <div class="ttd-watchlist-items" id="ttd-watchlist-items">
+          <p class="ttd-watchlist-empty">Loading watchlist...</p>
+        </div>
+      </div>',
+    ];
+
+    $form['#attached']['library'][] = 'ttd_topics/watchlist';
+
+    // =========================================================================
+    // Sync Tab
+    // =========================================================================
+    $form['tabs_container']['content']['sync'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-sync'],
+    ];
+
+    $form['tabs_container']['content']['sync']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Sync</h2>',
+    ];
+
+    $form['tabs_container']['content']['sync']['content'] = [
+      '#markup' => '<div id="ttd-sync-container">
+        <div id="ttd-sync-status-label" style="display:none;">
+          <span class="ttd-sync-dot"></span>
+          <span class="ttd-sync-label">Checking...</span>
+        </div>
+
+        <div class="ttd-sync-cards">
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Topics') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-topics"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-topics" style="display:none;"></div>
+          </div>
+
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Relationships') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-rels"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-rels" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div id="ttd-sync-progress" style="display:none;">
+          <div class="ttd-sync-progress-bar">
+            <div class="ttd-sync-progress-fill" id="sync-progress-fill" style="width:0%;"></div>
+          </div>
+          <div class="ttd-sync-progress-info">
+            <span id="sync-progress-text">0%</span>
+            <span id="sync-progress-stage"></span>
+          </div>
+        </div>
+
+        <div id="ttd-sync-result" style="display:none;"></div>
+        <div id="ttd-sync-summary" style="display:none;"></div>
+
+        <div class="ttd-sync-actions">
+          <button type="button" class="button button--primary" id="ttd-sync-btn" style="display:none;">' . $this->t('Sync Now') . '</button>
+          <button type="button" class="button" id="ttd-sync-cancel" style="display:none;">' . $this->t('Cancel') . '</button>
+        </div>
+      </div>',
+    ];
+
+    $form['#attached']['library'][] = 'ttd_topics/sync';
+
+    // =========================================================================
+    // Troubleshoot Tab
+    // =========================================================================
+    $form['tabs_container']['content']['troubleshoot'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-troubleshoot'],
+    ];
+
+    $form['tabs_container']['content']['troubleshoot']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Troubleshoot</h2>',
+    ];
+
+    $form['tabs_container']['content']['troubleshoot']['content'] = [
+      '#markup' => '<div id="ttd-troubleshoot-container">
+        <p class="description">' . $this->t('Manage stuck posts and clear analysis flags.') . '</p>
+        <p><a href="' . Url::fromRoute('topicalboost.troubleshoot')->toString() . '" class="button">' . $this->t('Open Troubleshoot Page') . '</a></p>
+      </div>',
+    ];
 
     // What's New (Changelog) panel.
     $form['tabs_container']['content']['changelog'] = [
@@ -1892,6 +2059,8 @@ class SettingsForm extends ConfigFormBase {
       ->set('citations_widget_limit', (int) $form_state->getValue('citations_widget_limit'))
       ->set('meta_seo_prompt', $form_state->getValue('meta_seo_prompt'))
       ->set('meta_social_prompt', $form_state->getValue('meta_social_prompt'))
+      ->set('meta_title_case_format', $form_state->getValue('meta_title_case_format') ?: 'title')
+      ->set('auto_sync_enabled', $form_state->getValue('auto_sync_enabled'))
       ->set('search_countries', array_values($new_search_countries))
       ->save();
 
