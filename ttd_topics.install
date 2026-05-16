@@ -87,8 +87,7 @@ function ttd_topics_schema() {
         'description' => 'Knowledge Graph name',
       ],
       'kg_description' => [
-        'type' => 'varchar',
-        'length' => 1024,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Knowledge Graph description',
       ],
@@ -803,8 +802,7 @@ function ttd_topics_update_9100() {
   $schema = \Drupal::database()->schema();
   if (!$schema->fieldExists('ttd_entities', 'kg_description')) {
     $schema->addField('ttd_entities', 'kg_description', [
-      'type' => 'varchar',
-      'length' => 1024,
+      'type' => 'text',
       'not null' => FALSE,
       'description' => 'Knowledge Graph description',
     ]);
@@ -812,7 +810,6 @@ function ttd_topics_update_9100() {
   }
   return t('kg_description column already exists on ttd_entities table.');
 }
-
 
 
 
