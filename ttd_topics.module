@@ -33,6 +33,107 @@ use GuzzleHttp\Exception\RequestException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
+ * Builds standard TopicalBoost API headers.
+ */
+function ttd_topics_api_headers($api_key) {
+  $headers = [
+    'Content-Type' => 'application/json',
+    'x-api-key' => $api_key,
+  ];
+
+  $site_base_url = ttd_topics_get_site_base_url();
+  if ($site_base_url !== '') {
+    $headers['x-tb-site-url'] = $site_base_url;
+  }
+
+  return $headers;
+}
+
+/**
+ * Returns a stable public site base URL for background API requests.
+ */
+function ttd_topics_get_site_base_url() {
+  $configured_url = trim((string) \Drupal::config('ttd_topics.settings')->get('site_base_url'));
+  if ($configured_url !== '') {
+    return ttd_topics_normalize_site_base_url($configured_url);
+  }
+
+  if (!empty($GLOBALS['base_url'])) {
+    $base_url = ttd_topics_normalize_site_base_url((string) $GLOBALS['base_url']);
+    if ($base_url !== '' && !ttd_topics_uses_default_host($base_url)) {
+      return $base_url;
+    }
+  }
+
+  $request_url = \Drupal::request()->getSchemeAndHttpHost();
+  if ($request_url !== '' && !ttd_topics_uses_default_host($request_url)) {
+    return rtrim($request_url, '/');
+  }
+
+  return '';
+}
+
+/**
+ * Builds an absolute node URL without leaking Drupal CLI's default host.
+ */
+function ttd_topics_get_node_absolute_url(NodeInterface $node) {
+  $absolute_url = $node->toUrl()->setAbsolute()->toString();
+  if (!ttd_topics_uses_default_host($absolute_url)) {
+    return $absolute_url;
+  }
+
+  $site_base_url = ttd_topics_get_site_base_url();
+  if ($site_base_url === '') {
+    return $absolute_url;
+  }
+
+  $relative_url = $node->toUrl()->toString();
+  if (preg_match('/^https?:\/\//i', $relative_url)) {
+    $parts = parse_url($relative_url);
+    $relative_url = ($parts['path'] ?? '/')
+      . (isset($parts['query']) ? '?' . $parts['query'] : '')
+      . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
+  }
+
+  return rtrim($site_base_url, '/') . '/' . ltrim($relative_url, '/');
+}
+
+/**
+ * Normalizes a configured site base URL.
+ */
+function ttd_topics_normalize_site_base_url($url) {
+  $url = trim((string) $url);
+  if ($url === '') {
+    return '';
+  }
+
+  if (!preg_match('/^https?:\/\//i', $url)) {
+    $url = 'https://' . $url;
+  }
+
+  $host = parse_url($url, PHP_URL_HOST);
+  if (!$host) {
+    return '';
+  }
+
+  $scheme = parse_url($url, PHP_URL_SCHEME) ?: 'https';
+  $port = parse_url($url, PHP_URL_PORT);
+  $path = trim((string) (parse_url($url, PHP_URL_PATH) ?: ''), '/');
+
+  return $scheme . '://' . $host
+    . ($port ? ':' . $port : '')
+    . ($path !== '' ? '/' . $path : '');
+}
+
+/**
+ * Detects Drupal's placeholder CLI host.
+ */
+function ttd_topics_uses_default_host($url) {
+  $host = strtolower((string) parse_url((string) $url, PHP_URL_HOST));
+  return $host === '' || $host === 'default';
+}
+
+/**
  * Implements hook_theme().
  */
 function ttd_topics_theme($existing, $type, $theme, $path) {
@@ -621,13 +722,10 @@ function ttd_topics_perform_single_analysis(NodeInterface $node) {
 
     // Step 1: Initiate analysis.
     $response = $client->post($api_base_url . '/analyze/single', [
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'x-api-key' => $api_key,
-      ],
+      'headers' => ttd_topics_api_headers($api_key),
       'json' => [
         'customer_id' => $node->id(),
-        'url' => $node->toUrl()->setAbsolute()->toString(),
+        'url' => ttd_topics_get_node_absolute_url($node),
         'title' => $node->getTitle(),
         'text' => $analysis_text,
       ],

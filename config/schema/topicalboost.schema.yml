@@ -41,6 +41,9 @@ ttd_topics.settings:
     topicalboost_api_endpoint:
       type: string
       label: 'TopicalBoost API Endpoint'
+    site_base_url:
+      type: string
+      label: 'Site base URL'
     organization_facebook_url:
       type: string
       label: 'Facebook Page URL'
@@ -64,4 +67,4 @@ ttd_topics.settings:
       label: 'Logo detection method'
     organization_logo_url:
       type: string
-      label: 'Organization logo URL' 
+      label: 'Organization logo URL'
