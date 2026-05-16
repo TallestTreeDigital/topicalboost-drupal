@@ -17,7 +17,9 @@
     contentTypes: [],
     reanalyze: false,
     includeDrafts: false,
-    onlyTopicless: false
+    onlyTopicless: false,
+    customFieldFilter: false,
+    customField: ''
   };
 
   // SAFEGUARD: Store analysis state in localStorage for cross-tab synchronization
@@ -34,6 +36,8 @@
       if ($form.hasClass('ttd-initialized')) { return;
       }
       $form.addClass('ttd-initialized');
+
+      initializeBulkAnalysisTabs();
 
       // Check if we have the required settings
       if (!drupalSettings.ttd_topics || !drupalSettings.ttd_topics.bulk_analysis_endpoints) {
@@ -55,6 +59,7 @@
 
       // Initialize components
       initializeDateRangeButtons();
+      initializeCustomFieldFilter();
       initializeContentTypeCards();
       initializeFormInteractions($form);
       initializeButtons();
@@ -107,6 +112,16 @@
       });
     }
   };
+
+  function initializeBulkAnalysisTabs() {
+    $('.ttd-ba-tab').off('click.ttdBulkTabs').on('click.ttdBulkTabs', function () {
+      const tab = $(this).data('tab');
+      $('.ttd-ba-tab').removeClass('active');
+      $(this).addClass('active');
+      $('.ttd-ba-tab-content').removeClass('active').hide();
+      $('#ttd-tab-' + tab).addClass('active').show();
+    });
+  }
 
   /**
    * Check for existing analysis on page load
@@ -300,6 +315,30 @@
   }
 
   /**
+   * Initialize the optional custom-field filter row.
+   */
+  function initializeCustomFieldFilter() {
+    const $toggle = $('#ttd-bulk-analysis-custom-field-filter-toggle');
+    const $container = $('#ttd-custom-field-filter-container');
+    const $select = $('#ttd-bulk-analysis-custom-field-select');
+
+    $toggle.once('ttd-custom-field-filter-toggle').on('change', function () {
+      const enabled = $(this).is(':checked') && !$(this).is(':disabled');
+      $container.toggle(enabled);
+      currentFilters.customFieldFilter = enabled;
+      currentFilters.customField = enabled ? ($select.val() || '') : '';
+      updateSelectionCount();
+    });
+
+    $select.once('ttd-custom-field-filter-select').on('change', function () {
+      currentFilters.customField = $(this).val() || '';
+      if ($toggle.is(':checked')) {
+        updateSelectionCount();
+      }
+    });
+  }
+
+  /**
    * Initialize action buttons
    */
   function initializeButtons() {
@@ -308,7 +347,7 @@
     const $resetBtn = $('#ttd-bulk-analysis-reset-button');
 
     // Set initial button states
-    $analyzeBtn.text('Analyze Content').prop('disabled', false);
+    $analyzeBtn.text('Analyze Posts').prop('disabled', false);
     $resetBtn.hide();
 
     // Handle analyze button click
@@ -334,6 +373,8 @@
     currentFilters.endDate = $('#ttd-bulk-analysis-end-date').val() || null;
     currentFilters.reanalyze = $('input[name="reanalyze"]', '#ttd-bulk-analysis-form').is(':checked');
     currentFilters.includeDrafts = $('input[name="include_drafts"]', '#ttd-bulk-analysis-form').is(':checked');
+    currentFilters.customFieldFilter = $('#ttd-bulk-analysis-custom-field-filter-toggle').is(':checked') && !$('#ttd-bulk-analysis-custom-field-filter-toggle').is(':disabled');
+    currentFilters.customField = currentFilters.customFieldFilter ? ($('#ttd-bulk-analysis-custom-field-select').val() || '') : '';
 
     // Content types are updated in real-time via card interactions
   }
@@ -385,7 +426,9 @@
         start_date: currentFilters.startDate,
         end_date: currentFilters.endDate,
         include_drafts: currentFilters.includeDrafts,
-        reanalyze: currentFilters.reanalyze
+        reanalyze: currentFilters.reanalyze,
+        custom_field_filter: currentFilters.customFieldFilter,
+        custom_field: currentFilters.customField
       })
     })
     .done(function (response) {
@@ -556,7 +599,9 @@
         start_date: currentFilters.startDate,
         end_date: currentFilters.endDate,
         include_drafts: currentFilters.includeDrafts,
-        reanalyze: currentFilters.reanalyze
+        reanalyze: currentFilters.reanalyze,
+        custom_field_filter: currentFilters.customFieldFilter,
+        custom_field: currentFilters.customField
       })
     })
     .done(function (response) {

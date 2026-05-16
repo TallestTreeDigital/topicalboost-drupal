@@ -35,60 +35,76 @@ class MetaGeneratorController extends ControllerBase {
       ], 400);
     }
 
-    // Get only "about" (focus) topics from ttd_entity_post_ids table.
-    $database = \Drupal::database();
-    $about_entity_ids = $database->select('ttd_entity_post_ids', 'ep')
-      ->fields('ep', ['entity_id'])
-      ->condition('ep.post_id', $node->id())
-      ->condition('ep.salience_category', 'about')
-      ->execute()
-      ->fetchCol();
-
     $topics = $node->get('field_ttd_topics')->referencedEntities();
+    $term_ids = array_map(static fn($term) => (int) $term->id(), $topics);
+    $term_counts = function_exists('ttd_topics_get_topic_node_counts')
+      ? \ttd_topics_get_topic_node_counts($term_ids)
+      : [];
+    $threshold_count = (int) (\Drupal::config('ttd_topics.settings')->get('post_topic_minimum_display_count') ?? 10);
+    $manual_term_ids = $node->hasField('field_manual_topics')
+      ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
+      : [];
+    $rejected_term_ids = $node->hasField('field_ttd_rejected_topics')
+      ? array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'))
+      : [];
 
     foreach ($topics as $term) {
       /** @var \Drupal\taxonomy\Entity\Term $term */
-      $ttd_id = $term->get('field_ttd_id')->value ?? NULL;
-
-      // Only include topics that are in the "about" category.
-      if (!empty($about_entity_ids) && $ttd_id && !in_array($ttd_id, $about_entity_ids)) {
+      $term_id = (int) $term->id();
+      $is_manual = in_array($term_id, $manual_term_ids, TRUE);
+      $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+      if ($is_hidden || (!$is_manual && in_array($term_id, $rejected_term_ids, TRUE))) {
         continue;
       }
 
-      // Get cached demand metrics if available.
-      $kd = $term->hasField('field_keyword_difficulty')
-        ? $term->get('field_keyword_difficulty')->value
+      $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+        ? (int) $term->get('field_ttd_id')->value
         : NULL;
-      $volume = $term->hasField('field_search_volume')
-        ? $term->get('field_search_volume')->value
-        : NULL;
+      $tier = function_exists('ttd_get_topic_tier') ? \ttd_get_topic_tier($term_id, $node->id()) : 'mentions';
+
+      // Only include main/about topics for SEO meta generation.
+      if (!in_array($tier, ['mainEntity', 'about'], TRUE)) {
+        continue;
+      }
+
+      $is_forced = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
+      $count = (int) ($term_counts[$term_id] ?? 0);
+      if ($tier === 'about' && !$is_manual && !$is_forced && $count < $threshold_count) {
+        continue;
+      }
+
+      $metrics = function_exists('ttd_get_demand_metrics') ? \ttd_get_demand_metrics($term_id) : NULL;
+      $kd = $metrics['keyword_difficulty'] ?? NULL;
+      $traffic_potential = $metrics['traffic_potential'] ?? NULL;
+      $volume = $metrics['search_volume'] ?? NULL;
 
       $keywords[] = [
-        'term_id' => $term->id(),
+        'term_id' => $term_id,
         'ttd_id' => $ttd_id,
         'name' => $term->getName(),
         'keyword_difficulty' => $kd !== NULL ? (float) $kd : NULL,
+        'traffic_potential' => $traffic_potential !== NULL ? (int) $traffic_potential : NULL,
         'search_volume' => $volume !== NULL ? (int) $volume : NULL,
+        'tier' => $tier,
+        'tier_priority' => $tier === 'mainEntity' ? 0 : 1,
       ];
     }
 
-    // Sort by keyword difficulty (easier first), then by name.
+    // Sort by tier first, then opportunity score like WordPress.
     usort($keywords, function ($a, $b) {
-      // Handle null KD values - put them at the end.
-      if ($a['keyword_difficulty'] === NULL && $b['keyword_difficulty'] === NULL) {
-        return strcasecmp($a['name'], $b['name']);
-      }
-      if ($a['keyword_difficulty'] === NULL) {
-        return 1;
-      }
-      if ($b['keyword_difficulty'] === NULL) {
-        return -1;
+      if ($a['tier_priority'] !== $b['tier_priority']) {
+        return $a['tier_priority'] - $b['tier_priority'];
       }
 
-      // Sort by KD ascending (easier first).
-      $kdDiff = $a['keyword_difficulty'] - $b['keyword_difficulty'];
-      if ($kdDiff != 0) {
-        return $kdDiff < 0 ? -1 : 1;
+      $a_volume = $a['traffic_potential'] ?? 0;
+      $b_volume = $b['traffic_potential'] ?? 0;
+      $a_kd = $a['keyword_difficulty'] ?? 50;
+      $b_kd = $b['keyword_difficulty'] ?? 50;
+      $a_score = $a_volume / ($a_kd + 10);
+      $b_score = $b_volume / ($b_kd + 10);
+
+      if ($a_score !== $b_score) {
+        return $b_score <=> $a_score;
       }
 
       return strcasecmp($a['name'], $b['name']);
@@ -147,7 +163,7 @@ class MetaGeneratorController extends ControllerBase {
     }
 
     try {
-      // Get post content preview (cleaned, first ~500 chars).
+      // Get post content preview (cleaned, first ~5000 chars).
       $body = $node->hasField('body') ? $node->get('body')->value : '';
       $content_preview = $this->getCleanContentPreview($body);
 
@@ -249,14 +265,8 @@ class MetaGeneratorController extends ControllerBase {
       switch ($seo_module) {
         case 'metatag':
           // Metatag module stores in node field.
-          if ($node->hasField('field_meta_tags')) {
-            $meta_tags = $node->get('field_meta_tags')->value ?? [];
-            if (is_string($meta_tags)) {
-              $meta_tags = unserialize($meta_tags);
-            }
-            $meta_tags['title'] = $title;
-            $meta_tags['description'] = $description;
-            $node->set('field_meta_tags', serialize($meta_tags));
+          if ($this->getMetatagFieldName($node) !== NULL) {
+            $this->applyMetatagSeoValues($node, $title, $description);
           }
           break;
 
@@ -378,12 +388,120 @@ class MetaGeneratorController extends ControllerBase {
   }
 
   /**
+   * Gets the Metatag field name for a node, regardless of local machine name.
+   */
+  private function getMetatagFieldName(NodeInterface $node): ?string {
+    foreach (['field_meta_tags', 'field_metatag'] as $field_name) {
+      if ($node->hasField($field_name)) {
+        return $field_name;
+      }
+    }
+
+    foreach ($node->getFieldDefinitions() as $field_name => $definition) {
+      if ($definition->getType() === 'metatag') {
+        return $field_name;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Loads serialized Metatag field values from a node.
+   */
+  private function getMetatagValues(NodeInterface $node): array {
+    $field_name = $this->getMetatagFieldName($node);
+    if ($field_name === NULL) {
+      return [];
+    }
+
+    $value = $node->get($field_name)->value ?? [];
+    if (is_array($value)) {
+      return $value;
+    }
+
+    if (is_string($value) && $value !== '') {
+      $decoded = @unserialize($value, ['allowed_classes' => FALSE]);
+      return is_array($decoded) ? $decoded : [];
+    }
+
+    return [];
+  }
+
+  /**
+   * Saves Metatag field values to a node when the field exists.
+   */
+  private function setMetatagValues(NodeInterface $node, array $meta_tags): void {
+    $field_name = $this->getMetatagFieldName($node);
+    if ($field_name !== NULL) {
+      $node->set($field_name, serialize($meta_tags));
+    }
+  }
+
+  /**
+   * Gets the canonical URL for a node.
+   */
+  private function getNodeCanonicalUrl(NodeInterface $node): string {
+    try {
+      return $node->toUrl('canonical', ['absolute' => TRUE])->toString();
+    }
+    catch (\Exception $e) {
+      return '';
+    }
+  }
+
+  /**
+   * Applies SEO values plus canonical/social fallbacks to Metatag.
+   */
+  private function applyMetatagSeoValues(NodeInterface $node, string $title, string $description): void {
+    $meta_tags = $this->getMetatagValues($node);
+    $canonical_url = $this->getNodeCanonicalUrl($node);
+
+    $meta_tags['title'] = $title;
+    $meta_tags['description'] = $description;
+
+    if ($canonical_url !== '') {
+      $meta_tags['canonical_url'] = $canonical_url;
+      $meta_tags['og_url'] = $canonical_url;
+      $meta_tags['twitter_cards_page_url'] = $canonical_url;
+    }
+
+    $meta_tags['og_title'] = $meta_tags['og_title'] ?? $title;
+    $meta_tags['og_description'] = $meta_tags['og_description'] ?? $description;
+    $meta_tags['twitter_cards_title'] = $meta_tags['twitter_cards_title'] ?? $meta_tags['og_title'];
+    $meta_tags['twitter_cards_description'] = $meta_tags['twitter_cards_description'] ?? $meta_tags['og_description'];
+
+    $this->setMetatagValues($node, $meta_tags);
+  }
+
+  /**
+   * Applies social values to Open Graph and Twitter Card Metatag fields.
+   */
+  private function applyMetatagSocialValues(NodeInterface $node, string $title, string $description): void {
+    $meta_tags = $this->getMetatagValues($node);
+    $canonical_url = $this->getNodeCanonicalUrl($node);
+
+    $meta_tags['og_title'] = $title;
+    $meta_tags['og_description'] = $description;
+    $meta_tags['twitter_cards_title'] = $title;
+    $meta_tags['twitter_cards_description'] = $description;
+
+    if ($canonical_url !== '') {
+      $meta_tags['og_url'] = $canonical_url;
+      $meta_tags['twitter_cards_page_url'] = $canonical_url;
+      $meta_tags['canonical_url'] = $meta_tags['canonical_url'] ?? $canonical_url;
+    }
+
+    $this->setMetatagValues($node, $meta_tags);
+  }
+
+  /**
    * Extract a clean content preview for meta generation.
    *
    * Strips figure/figcaption elements, image tags, and common image credit
    * patterns so the LLM receives only meaningful body text.
    */
-  private function getCleanContentPreview(string $content, int $max_length = 500): string {
+  private function getCleanContentPreview(string $content, int $max_length = 5000): string {
     // Remove <figure>, <figcaption>, <caption> elements and their content.
     $content = preg_replace('/<figure[^>]*>.*?<\/figure>/si', '', $content);
     $content = preg_replace('/<figcaption[^>]*>.*?<\/figcaption>/si', '', $content);
@@ -396,12 +514,9 @@ class MetaGeneratorController extends ControllerBase {
     $content = preg_replace('/\b(Image|Photo|Picture|Photograph)\s+(courtesy|credit|by|via|source)\s*[:.]?\s*[^.]*\./si', '', $content);
     $content = preg_replace('/\bCredit\s*:\s*[^.]*\./si', '', $content);
 
-    // Strip remaining HTML tags.
-    $content = strip_tags($content);
-
-    // Collapse whitespace.
-    $content = preg_replace('/\s+/', ' ', $content);
-    $content = trim($content);
+    $content = function_exists('ttd_topics_filter_text')
+      ? \ttd_topics_filter_text($content)
+      : trim(preg_replace('/\s+/', ' ', strip_tags($content)));
 
     return mb_substr($content, 0, $max_length);
   }
@@ -541,14 +656,8 @@ class MetaGeneratorController extends ControllerBase {
       $seo_module = $this->detectSeoModule();
 
       // Save to SEO module's OG fields if available.
-      if ($seo_module === 'metatag' && $node->hasField('field_meta_tags')) {
-        $meta_tags = $node->get('field_meta_tags')->value ?? [];
-        if (is_string($meta_tags)) {
-          $meta_tags = unserialize($meta_tags);
-        }
-        $meta_tags['og_title'] = $title;
-        $meta_tags['og_description'] = $description;
-        $node->set('field_meta_tags', serialize($meta_tags));
+      if ($seo_module === 'metatag' && $this->getMetatagFieldName($node) !== NULL) {
+        $this->applyMetatagSocialValues($node, $title, $description);
       }
 
       // Store in our own fields for reference.
@@ -613,11 +722,35 @@ class MetaGeneratorController extends ControllerBase {
     }
 
     try {
+      $seo_module = $this->detectSeoModule();
+
       if ($node->hasField('field_ttd_generated_og_title')) {
         $node->set('field_ttd_generated_og_title', NULL);
       }
       if ($node->hasField('field_ttd_generated_og_desc')) {
         $node->set('field_ttd_generated_og_desc', NULL);
+      }
+
+      if ($seo_module === 'metatag' && $this->getMetatagFieldName($node) !== NULL) {
+        $meta_tags = $this->getMetatagValues($node);
+        unset(
+          $meta_tags['og_title'],
+          $meta_tags['og_description'],
+          $meta_tags['twitter_cards_title'],
+          $meta_tags['twitter_cards_description']
+        );
+
+        $fallback_title = $node->hasField('field_ttd_generated_meta_title')
+          ? (string) $node->get('field_ttd_generated_meta_title')->value
+          : '';
+        $fallback_description = $node->hasField('field_ttd_generated_meta_desc')
+          ? (string) $node->get('field_ttd_generated_meta_desc')->value
+          : '';
+
+        $this->setMetatagValues($node, $meta_tags);
+        if ($fallback_title !== '' && $fallback_description !== '') {
+          $this->applyMetatagSeoValues($node, $fallback_title, $fallback_description);
+        }
       }
 
       $node->save();
@@ -722,13 +855,20 @@ class MetaGeneratorController extends ControllerBase {
       $seo_module = $this->detectSeoModule();
 
       // Clear SEO module fields.
-      if ($seo_module === 'metatag' && $node->hasField('field_meta_tags')) {
-        $meta_tags = $node->get('field_meta_tags')->value ?? [];
-        if (is_string($meta_tags)) {
-          $meta_tags = unserialize($meta_tags);
-        }
-        unset($meta_tags['title'], $meta_tags['description']);
-        $node->set('field_meta_tags', serialize($meta_tags));
+      if ($seo_module === 'metatag' && $this->getMetatagFieldName($node) !== NULL) {
+        $meta_tags = $this->getMetatagValues($node);
+        unset(
+          $meta_tags['title'],
+          $meta_tags['description'],
+          $meta_tags['canonical_url'],
+          $meta_tags['og_title'],
+          $meta_tags['og_description'],
+          $meta_tags['og_url'],
+          $meta_tags['twitter_cards_title'],
+          $meta_tags['twitter_cards_description'],
+          $meta_tags['twitter_cards_page_url']
+        );
+        $this->setMetatagValues($node, $meta_tags);
       }
 
       // Clear our reference fields.
@@ -739,6 +879,8 @@ class MetaGeneratorController extends ControllerBase {
         'field_ttd_pending_meta_desc',
         'field_ttd_meta_title',
         'field_ttd_meta_description',
+        'field_ttd_generated_og_title',
+        'field_ttd_generated_og_desc',
       ];
 
       foreach ($clear_fields as $field_name) {

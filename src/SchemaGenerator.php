@@ -3,7 +3,10 @@
 namespace Drupal\ttd_topics;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\node\NodeInterface;
 use Drupal\path_alias\AliasManagerInterface;
+use Drupal\taxonomy\TermInterface;
 
 /**
  * Service for generating schema.org metadata for TopicalBoost.
@@ -51,7 +54,7 @@ class SchemaGenerator {
    */
   public function getNodeTopicsSchema($nid) {
     $config = \Drupal::config('ttd_topics.settings');
-    $min_display_count = $config->get('post_topic_minimum_display_count');
+    $min_display_count = (int) ($config->get('post_topic_minimum_display_count') ?? 0);
 
     // Get site configuration - all dynamic.
     $site_config = \Drupal::config('system.site');
@@ -145,32 +148,36 @@ class SchemaGenerator {
 
     $data['@graph'][] = $primary_image;
 
-    // Get rejected TTD IDs first.
-    $rejected_ttd_ids = $this->getRejectedTopics($nid);
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
 
     // Create Article schema with proper schema.org properties:
-    // - "about": high-salience topics (what the article IS about)
-    // - "mentions": low-salience topics (what the article references)
-    $article = [
-      '@type' => 'Article',
-    ];
+    // - "mainEntity": the primary topic.
+    // - "about": high-salience topics (what the article IS about).
+    // - "mentions": low-salience and untiered topics (what the article references).
+    $article = $node instanceof NodeInterface
+      ? $this->buildNodeArticleSchema($node, $base_url)
+      : ['@type' => 'Article'];
 
-    // Get "about" topics (high salience > 0.5)
-    $about_topics = $this->getTopicsBySalience($nid, 'about', $rejected_ttd_ids);
-    if (!empty($about_topics)) {
-      $about_items = $this->formatTopicsForSchema($about_topics, $base_url);
-      if (!empty($about_items)) {
-        $article['about'] = $about_items;
-      }
+    $schema_topics = $node instanceof NodeInterface
+      ? $this->getSchemaTopicsForNode($node, $min_display_count)
+      : ['mainEntity' => [], 'about' => [], 'mentions' => []];
+    $schema_topic_ttd_ids = $this->collectTopicTtdIds($schema_topics);
+    $entity_data_by_id = $this->getEntitiesDataBatch($schema_topic_ttd_ids);
+    $schema_types_by_id = $this->getEntitySchemaTypesBatch($schema_topic_ttd_ids);
+
+    $main_entity_items = $this->formatTopicsForSchema($schema_topics['mainEntity'], $base_url, $entity_data_by_id, $schema_types_by_id);
+    if (!empty($main_entity_items)) {
+      $article['mainEntity'] = reset($main_entity_items);
     }
 
-    // Get "mentions" topics (low salience <= 0.5)
-    $mentions_topics = $this->getTopicsBySalience($nid, 'mentions', $rejected_ttd_ids);
-    if (!empty($mentions_topics)) {
-      $mentions_items = $this->formatTopicsForSchema($mentions_topics, $base_url);
-      if (!empty($mentions_items)) {
-        $article['mentions'] = $mentions_items;
-      }
+    $about_items = $this->formatTopicsForSchema($schema_topics['about'], $base_url, $entity_data_by_id, $schema_types_by_id);
+    if (!empty($about_items)) {
+      $article['about'] = $about_items;
+    }
+
+    $mentions_items = $this->formatTopicsForSchema($schema_topics['mentions'], $base_url, $entity_data_by_id, $schema_types_by_id);
+    if (!empty($mentions_items)) {
+      $article['mentions'] = $mentions_items;
     }
 
     // Add custom schema images to Article if available.
@@ -179,12 +186,245 @@ class SchemaGenerator {
       $article['image'] = $schema_images;
     }
 
-    // Only add the Article schema if there are about or mentions.
-    if (!empty($article['about']) || !empty($article['mentions'])) {
+    if ($node) {
+      $authors = $this->getCustomAuthorSchema($node, $base_url, $config);
+      if (!empty($authors)) {
+        $article['author'] = $authors;
+      }
+    }
+
+    // Only add the Article schema if it has TopicalBoost-enhanced data.
+    if (!empty($article['mainEntity']) || !empty($article['about']) || !empty($article['mentions']) || !empty($article['image']) || !empty($article['author'])) {
       $data['@graph'][] = $article;
     }
 
     return $data;
+  }
+
+  /**
+   * Builds the page-level article schema fields to match the WordPress output.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node being rendered.
+   * @param string $base_url
+   *   The site base URL.
+   *
+   * @return array
+   *   Base Article/NewsArticle schema.
+   */
+  protected function buildNodeArticleSchema(NodeInterface $node, string $base_url): array {
+    try {
+      $node_url = $node->toUrl('canonical', ['absolute' => TRUE])->toString();
+    }
+    catch (\Exception $e) {
+      $node_url = $base_url . '/node/' . $node->id();
+    }
+
+    $article = [
+      '@type' => 'NewsArticle',
+      '@id' => $node_url . '#article',
+      'isPartOf' => [
+        '@id' => $node_url,
+      ],
+      'headline' => $node->label(),
+      'datePublished' => date('c', $node->getCreatedTime()),
+      'dateModified' => date('c', $node->getChangedTime()),
+      'mainEntityOfPage' => [
+        '@id' => $node_url,
+      ],
+      'publisher' => [
+        '@id' => $base_url . '/#organization',
+      ],
+      'inLanguage' => 'en-US',
+    ];
+
+    $word_count = $this->getNodeWordCount($node);
+    if ($word_count > 0) {
+      $article['wordCount'] = $word_count;
+    }
+
+    return $article;
+  }
+
+  /**
+   * Gets an approximate frontend word count for article schema.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node being rendered.
+   *
+   * @return int
+   *   Word count.
+   */
+  protected function getNodeWordCount(NodeInterface $node): int {
+    $text = '';
+
+    if ($node->hasField('body') && !$node->get('body')->isEmpty()) {
+      $body = $node->get('body')->first();
+      $text .= ' ' . (string) ($body->value ?? '');
+      $text .= ' ' . (string) ($body->summary ?? '');
+    }
+
+    $text = trim(strip_tags(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    if ($text === '') {
+      return 0;
+    }
+
+    return str_word_count($text);
+  }
+
+  /**
+   * Gets schema.org metadata for a TopicalBoost topic archive page.
+   */
+  public function getTopicArchiveSchema(TermInterface $term): array {
+    $base_url = \Drupal::request()->getSchemeAndHttpHost();
+    $term_url = $term->toUrl('canonical', ['absolute' => TRUE])->toString();
+    $main_entity = [
+      '@type' => 'Thing',
+      '@id' => $term_url . '#mainEntity',
+      'name' => $term->label(),
+      'url' => $term_url,
+    ];
+
+    $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+      ? $term->get('field_ttd_id')->value
+      : NULL;
+    if ($ttd_id) {
+      $entity = $this->getEntityData($ttd_id);
+      if ($entity) {
+        $schema_types = $this->getEntitySchemaTypes($ttd_id) ?: ['Thing'];
+        $config = \Drupal::config('ttd_topics.settings');
+        if ($config->get('disable_event_temporal_properties')) {
+          $schema_types = array_map(fn($type) => $type === 'Event' ? 'Thing' : $type, $schema_types);
+        }
+        $main_entity['@type'] = count($schema_types) > 1 ? $schema_types : $schema_types[0];
+        $main_entity = $this->formatEntityData($main_entity, $entity, $schema_types[0]);
+      }
+    }
+
+    return [
+      '@context' => 'https://schema.org',
+      '@graph' => [
+        [
+          '@type' => 'CollectionPage',
+          '@id' => $term_url . '#webpage',
+          'url' => $term_url,
+          'name' => $term->label(),
+          'isPartOf' => [
+            '@id' => $base_url . '/#website',
+          ],
+          'mainEntity' => $main_entity,
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Builds custom author Person schema for a node.
+   */
+  protected function getCustomAuthorSchema(NodeInterface $node, string $base_url, $config): array {
+    if (!$config->get('author_manager_enabled') || !$config->get('custom_author_schema_enabled')) {
+      return [];
+    }
+
+    $field_name = $config->get('author_field_name') ?: 'uid';
+    $entities = [];
+    if ($field_name === 'uid') {
+      $entities = [$node->getOwner()];
+    }
+    elseif ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
+      $entities = $node->get($field_name)->referencedEntities();
+    }
+
+    $authors = [];
+    foreach ($entities as $entity) {
+      if (!$entity instanceof EntityInterface) {
+        continue;
+      }
+
+      $name = $this->getMappedAuthorValue($entity, $config->get('author_name_field') ?: 'display_name');
+      if ($name === '') {
+        $name = $entity->label();
+      }
+      if ($name === '') {
+        continue;
+      }
+
+      $author = [
+        '@type' => 'Person',
+        '@id' => $base_url . '#/schema/Person/' . $entity->getEntityTypeId() . '-' . $entity->id(),
+        'name' => $name,
+      ];
+
+      if ($url = $this->getEntityUrl($entity)) {
+        $author['url'] = $url;
+      }
+      if ($image = $this->getMappedAuthorImage($entity, $config->get('author_image_field') ?: '')) {
+        $author['image'] = $image;
+      }
+      if ($description = $this->getMappedAuthorValue($entity, $config->get('author_description_field') ?: '')) {
+        $author['description'] = $description;
+      }
+
+      $authors[] = array_filter($author);
+    }
+
+    return $authors;
+  }
+
+  /**
+   * Gets a mapped scalar author value from an entity.
+   */
+  protected function getMappedAuthorValue(EntityInterface $entity, string $field_name): string {
+    if ($field_name === '') {
+      return '';
+    }
+    if ($field_name === 'display_name' || $field_name === 'title' || $field_name === 'name' || $field_name === 'label') {
+      return trim((string) $entity->label());
+    }
+    if ($field_name === 'account_name' && method_exists($entity, 'getAccountName')) {
+      return trim((string) $entity->getAccountName());
+    }
+    if ($field_name === 'mail' && method_exists($entity, 'getEmail')) {
+      return trim((string) $entity->getEmail());
+    }
+    if (!method_exists($entity, 'hasField') || !$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+      return '';
+    }
+
+    $item = $entity->get($field_name)->first();
+    $value = $item->value ?? $item->summary ?? '';
+    return trim(strip_tags((string) $value));
+  }
+
+  /**
+   * Gets a mapped author image URL from an entity image field.
+   */
+  protected function getMappedAuthorImage(EntityInterface $entity, string $field_name): string {
+    if ($field_name === '' || !method_exists($entity, 'hasField') || !$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+      return '';
+    }
+
+    $file = $entity->get($field_name)->entity;
+    if (!$file || !method_exists($file, 'getFileUri')) {
+      return '';
+    }
+
+    return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+  }
+
+  /**
+   * Gets an absolute canonical URL for an entity when available.
+   */
+  protected function getEntityUrl(EntityInterface $entity): string {
+    try {
+      if ($entity->hasLinkTemplate('canonical')) {
+        return $entity->toUrl('canonical', ['absolute' => TRUE])->toString();
+      }
+    }
+    catch (\Exception $e) {
+      return '';
+    }
+    return '';
   }
 
   /**
@@ -211,6 +451,100 @@ class SchemaGenerator {
     }
 
     return [];
+  }
+
+  /**
+   * Gets valid schema topics for a node, grouped by WordPress-compatible tier.
+   *
+   * WordPress treats untiered topics as mentions and lets manual, forced, and
+   * high-salience topics bypass the display threshold. Schema output should
+   * follow the same rules so visible topics and structured data stay aligned.
+   */
+  protected function getSchemaTopicsForNode(NodeInterface $node, int $min_display_count): array {
+    $grouped = [
+      'mainEntity' => [],
+      'about' => [],
+      'mentions' => [],
+    ];
+
+    if (!$node->hasField('field_ttd_topics') || $node->get('field_ttd_topics')->isEmpty()) {
+      return $grouped;
+    }
+
+    $topics = $node->get('field_ttd_topics')->referencedEntities();
+    $term_ids = array_map(static fn($term) => (int) $term->id(), $topics);
+    $term_counts = function_exists('ttd_topics_get_topic_node_counts')
+      ? \ttd_topics_get_topic_node_counts($term_ids)
+      : [];
+    $term_aliases = $this->getTermAliasesBatch($term_ids);
+    $salience_data = function_exists('ttd_get_node_salience_data')
+      ? \ttd_get_node_salience_data($node->id())
+      : [];
+    $manual_term_ids = $node->hasField('field_manual_topics')
+      ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
+      : [];
+    $rejected_term_ids = $node->hasField('field_ttd_rejected_topics')
+      ? array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'))
+      : [];
+
+    foreach ($topics as $term) {
+      if (!$term instanceof TermInterface) {
+        continue;
+      }
+
+      $term_id = (int) $term->id();
+      $is_manual = in_array($term_id, $manual_term_ids, TRUE);
+      $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+      if ($is_hidden || (!$is_manual && in_array($term_id, $rejected_term_ids, TRUE))) {
+        continue;
+      }
+
+      $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+        ? (int) $term->get('field_ttd_id')->value
+        : 0;
+      if (!$ttd_id) {
+        continue;
+      }
+
+      $count = (int) ($term_counts[$term_id] ?? 0);
+      $tier = $salience_data[$ttd_id]['salience_category'] ?? 'mentions';
+      if (!in_array($tier, ['mainEntity', 'about', 'mentions'], TRUE)) {
+        $tier = 'mentions';
+      }
+
+      $is_forced = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
+      $is_high_salience = in_array($tier, ['mainEntity', 'about'], TRUE);
+      if (!$is_manual && !$is_forced && !$is_high_salience && $count < $min_display_count) {
+        continue;
+      }
+
+      $alias = $term_aliases[$term_id] ?? '/taxonomy/term/' . $term_id;
+      $topic = (object) [
+        'tid' => $term_id,
+        'name' => $term->label(),
+        'field_ttd_id_value' => $ttd_id,
+        'field_hide_value' => 0,
+        'alias' => $alias,
+        'post_count' => $count,
+      ];
+
+      $grouped[$tier][] = $topic;
+    }
+
+    foreach ($grouped as &$topics_by_tier) {
+      usort($topics_by_tier, static function ($a, $b) {
+        $count_compare = ($b->post_count ?? 0) <=> ($a->post_count ?? 0);
+        return $count_compare !== 0 ? $count_compare : strcasecmp($a->name, $b->name);
+      });
+    }
+    unset($topics_by_tier);
+
+    if (count($grouped['mainEntity']) > 1) {
+      $extra_main_entities = array_splice($grouped['mainEntity'], 1);
+      $grouped['about'] = array_merge($grouped['about'], $extra_main_entities);
+    }
+
+    return $grouped;
   }
 
   /**
@@ -275,7 +609,7 @@ class SchemaGenerator {
    * @return array
    *   Array of formatted schema.org items.
    */
-  protected function formatTopicsForSchema(array $topics, $base_url) {
+  protected function formatTopicsForSchema(array $topics, $base_url, ?array $entity_data_by_id = NULL, ?array $schema_types_by_id = NULL) {
     $items = [];
 
     foreach ($topics as $topic) {
@@ -284,12 +618,17 @@ class SchemaGenerator {
         continue;
       }
 
-      $entity = $this->getEntityData($topic->field_ttd_id_value);
+      $ttd_id = (int) $topic->field_ttd_id_value;
+      $entity = $entity_data_by_id !== NULL
+        ? ($entity_data_by_id[$ttd_id] ?? NULL)
+        : $this->getEntityData($ttd_id);
       if (!$entity) {
         continue;
       }
 
-      $schema_types = $this->getEntitySchemaTypes($topic->field_ttd_id_value);
+      $schema_types = $schema_types_by_id !== NULL
+        ? ($schema_types_by_id[$ttd_id] ?? [])
+        : $this->getEntitySchemaTypes($ttd_id);
       if (empty($schema_types)) {
         $schema_types = ['Thing'];
       }
@@ -308,6 +647,13 @@ class SchemaGenerator {
         'url' => !empty($entity['official_website']) ? $entity['official_website'] : $base_url . $topic->alias,
       ];
 
+      if (!empty($entity['mid'])) {
+        $output_data['@id'] = 'kg:/g/' . ltrim($entity['mid'], '/m/');
+      }
+      elseif (!empty($entity['wb_qid'])) {
+        $output_data['@id'] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
+      }
+
       // Format the entity data (skip temporal properties for demoted Events).
       $effective_type = $schema_types[0];
       $output_data = $this->formatEntityData($output_data, $entity, $effective_type);
@@ -316,6 +662,101 @@ class SchemaGenerator {
     }
 
     return $items;
+  }
+
+  /**
+   * Collects unique TTD entity IDs from grouped schema topics.
+   */
+  protected function collectTopicTtdIds(array $grouped_topics): array {
+    $ids = [];
+    foreach ($grouped_topics as $topics) {
+      foreach ($topics as $topic) {
+        if (!empty($topic->field_ttd_id_value)) {
+          $ids[] = (int) $topic->field_ttd_id_value;
+        }
+      }
+    }
+
+    return array_values(array_unique($ids));
+  }
+
+  /**
+   * Loads taxonomy term aliases for schema topics in one query.
+   */
+  protected function getTermAliasesBatch(array $term_ids): array {
+    if (empty($term_ids)) {
+      return [];
+    }
+
+    $paths_by_tid = [];
+    foreach (array_unique(array_map('intval', $term_ids)) as $term_id) {
+      $paths_by_tid[$term_id] = '/taxonomy/term/' . $term_id;
+    }
+
+    $aliases = [];
+    foreach ($paths_by_tid as $term_id => $path) {
+      $aliases[$term_id] = $path;
+    }
+
+    if (!$this->database->schema()->tableExists('path_alias')) {
+      return $aliases;
+    }
+
+    $query = $this->database->select('path_alias', 'pa')
+      ->fields('pa', ['path', 'alias'])
+      ->condition('path', array_values($paths_by_tid), 'IN')
+      ->condition('status', 1);
+
+    $path_to_tid = array_flip($paths_by_tid);
+    foreach ($query->execute() as $record) {
+      if (isset($path_to_tid[$record->path])) {
+        $aliases[(int) $path_to_tid[$record->path]] = $record->alias;
+      }
+    }
+
+    return $aliases;
+  }
+
+  /**
+   * Loads entity rows for schema topics in one query.
+   */
+  protected function getEntitiesDataBatch(array $ttd_ids): array {
+    if (empty($ttd_ids)) {
+      return [];
+    }
+
+    $entities = [];
+    $query = $this->database->select('ttd_entities', 'e')
+      ->fields('e')
+      ->condition('ttd_id', $ttd_ids, 'IN');
+
+    foreach ($query->execute() as $record) {
+      $entities[(int) $record->ttd_id] = (array) $record;
+    }
+
+    return $entities;
+  }
+
+  /**
+   * Loads schema type names for schema topics in one query.
+   */
+  protected function getEntitySchemaTypesBatch(array $ttd_ids): array {
+    if (empty($ttd_ids)) {
+      return [];
+    }
+
+    $types = [];
+    $query = $this->database->select('ttd_entity_schema_types', 'est');
+    $query->join('ttd_schema_types', 'st', 'st.ttd_id = est.schema_type_id');
+    $query->fields('est', ['entity_id'])
+      ->fields('st', ['name'])
+      ->condition('est.entity_id', $ttd_ids, 'IN');
+
+    foreach ($query->execute() as $record) {
+      $types[(int) $record->entity_id][] = $record->name;
+    }
+
+    return $types;
   }
 
   /**
@@ -366,7 +807,10 @@ class SchemaGenerator {
     }
 
     // Description.
-    if (isset($entity['wb_description'])) {
+    if (!empty($entity['kg_description'])) {
+      $output_data['description'] = $entity['kg_description'];
+    }
+    elseif (isset($entity['wb_description'])) {
       $output_data['description'] = $entity['wb_description'];
     }
 
@@ -573,6 +1017,21 @@ class SchemaGenerator {
     if (!empty($entity['rotten_tomatoes_id'])) {
       $links[] = 'https://www.rottentomatoes.com/' . $entity['rotten_tomatoes_id'];
     }
+    if (!empty($entity['wb_qid'])) {
+      $links[] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
+    }
+    if (!empty($entity['wikipedia_url'])) {
+      $links[] = $entity['wikipedia_url'];
+    }
+    if (!empty($entity['twitter_username'])) {
+      $links[] = 'https://twitter.com/' . ltrim($entity['twitter_username'], '@');
+    }
+    if (!empty($entity['facebook_id'])) {
+      $links[] = 'https://www.facebook.com/' . $entity['facebook_id'];
+    }
+    if (!empty($entity['imdb_id'])) {
+      $links[] = 'https://www.imdb.com/title/' . $entity['imdb_id'];
+    }
     if (!empty($entity['goodreads_work_id'])) {
       $links[] = 'https://www.goodreads.com/work/show/' . $entity['goodreads_work_id'];
     }
@@ -583,8 +1042,7 @@ class SchemaGenerator {
       $links[] = 'https://open.spotify.com/album/' . $entity['spotify_album_id'];
     }
 
-    // Rest of existing links...
-    return $links;
+    return array_values(array_unique($links));
   }
 
   /**

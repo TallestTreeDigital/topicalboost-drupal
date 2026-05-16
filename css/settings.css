@@ -83,15 +83,12 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #8c8f94;
-  padding: 14px 16px 4px;
-  margin: 4px 12px 0;
-  border-top: 1px solid #e0e0e0;
+  padding: 10px 16px 4px;
+  margin: 0;
 }
 
 .ttd-nav-group-label:first-child {
   padding-top: 4px;
-  border-top: none;
-  margin-top: 0;
 }
 
 .ttd-nav-item {
@@ -123,6 +120,93 @@
   flex: 1;
   min-width: 0;
   padding: 20px 24px 4px;
+}
+
+.ttd-settings-content-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.ttd-settings-search-bar {
+  position: relative;
+  width: 260px;
+}
+
+.ttd-settings-search-bar .ttd-search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  border: 2px solid #8c8f94;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ttd-settings-search-bar .ttd-search-icon::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 2px;
+  right: -5px;
+  bottom: -3px;
+  background: #8c8f94;
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+
+.ttd-settings-search-bar input {
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px solid #8c8f94;
+  border-radius: 3px;
+  padding: 0 28px 0 31px;
+  font-size: 13px;
+}
+
+.ttd-settings-search-bar input:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+  outline: none;
+}
+
+.ttd-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #646970;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.ttd-search-no-results {
+  display: none;
+  margin: 12px 0;
+  color: #646970;
+  font-size: 13px;
+}
+
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel {
+  display: none;
+}
+
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel.ttd-search-match {
+  display: block;
+}
+
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel > .ttd-panel-title:first-child,
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel > h2:first-child {
+  display: block;
 }
 
 /* ==========================================================================
@@ -192,6 +276,98 @@
 .ttd-settings-panel .form-item .form-item__suffix,
 .ttd-settings-panel .js-form-item .form-item__suffix {
   grid-column: 2;
+}
+
+/* WP-style settings tables used by parity-specific panels. */
+.ttd-settings-panel .form-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 16px;
+}
+
+.ttd-settings-panel .form-table th {
+  width: 200px;
+  padding: 12px 10px 12px 0;
+  color: #50575e;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ttd-settings-panel .ttd-author-manager-table th {
+  white-space: nowrap;
+}
+
+.ttd-settings-panel .form-table td {
+  padding: 12px 0;
+  vertical-align: top;
+}
+
+.ttd-settings-panel .form-table tr + tr {
+  border-top: 1px solid #f0f0f1;
+}
+
+.ttd-settings-panel .form-table .form-item,
+.ttd-settings-panel .form-table .js-form-item {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.ttd-settings-panel .form-table .form-item > label,
+.ttd-settings-panel .form-table .js-form-item > label {
+  display: inline;
+  padding: 0;
+  color: #1d2327;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+.ttd-settings-panel .form-table .form-item__description,
+.ttd-settings-panel .form-table .description {
+  display: block;
+  grid-column: auto;
+  margin: 4px 0 0;
+}
+
+.ttd-settings-panel .form-table .ttd-topics-toggle-field .form-item,
+.ttd-settings-panel .form-table .ttd-topics-toggle-field .js-form-item {
+  display: inline;
+  padding: 0;
+  border: 0;
+}
+
+.ttd-settings-panel .form-table .ttd-topics-toggle-field .form-item__description {
+  margin-left: 44px;
+}
+
+.ttd-settings-panel .form-table .ttd-author-count {
+  display: inline;
+  margin-left: 8px;
+}
+
+.ttd-settings-panel .ttd-panel-title + p.description,
+.ttd-settings-panel #ttd-author-manager-settings > p.description {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  color: #8c8f94;
+}
+
+.ttd-settings-panel #ttd-author-manager-settings > h3 {
+  margin-top: 18px;
+}
+
+.ttd-settings-panel .ttd-author-manager-table select.ttd-topics-field-group,
+.ttd-settings-panel .ttd-author-field-mapping select.ttd-topics-field-group {
+  width: 100%;
+  min-width: 0;
+  max-width: 640px;
+  display: block;
 }
 
 /* Input fields sizing */
@@ -427,14 +603,14 @@
 .ttd-settings-panel .api-key-container .form-item,
 .ttd-settings-panel .api-key-container .js-form-item {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
   gap: 0 14px;
   align-items: start;
 }
 
 .api-key-indicator {
   display: inline-block;
-  margin-left: 8px;
+  margin-left: 0;
 }
 
 /* ==========================================================================
@@ -519,6 +695,25 @@
   background: var(--gin-bg-layer, #2e3338);
 }
 
+.gin--dark-mode .ttd-settings-search-bar input {
+  background: var(--gin-bg-layer2, #23272b);
+  color: var(--gin-color-text, #d4d4d4);
+  border-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-search-bar .ttd-search-icon {
+  border-color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-settings-search-bar .ttd-search-icon::after {
+  background: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-search-clear,
+.gin--dark-mode .ttd-search-no-results {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
 .gin--dark-mode .ttd-settings-wrap .ttd-page-header h1 {
   color: var(--gin-color-text, #d4d4d4);
 }
@@ -526,7 +721,6 @@
 /* --- Nav --- */
 .gin--dark-mode .ttd-nav-group-label {
   color: var(--gin-color-text-light, #8c8f94);
-  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 .gin--dark-mode .ttd-nav-item {
@@ -573,6 +767,21 @@
   border-bottom-color: var(--gin-border-color, #454b51);
 }
 
+.gin--dark-mode .ttd-settings-panel .form-table tr + tr {
+  border-top-color: var(--gin-border-color, #454b51);
+}
+
+.gin--dark-mode .ttd-settings-panel .form-table th,
+.gin--dark-mode .ttd-settings-panel .form-table .form-item__description,
+.gin--dark-mode .ttd-settings-panel .form-table .description {
+  color: var(--gin-color-text-light, #a0a4a8);
+}
+
+.gin--dark-mode .ttd-settings-panel .form-table .form-item > label,
+.gin--dark-mode .ttd-settings-panel .form-table .js-form-item > label {
+  color: var(--gin-color-text, #d4d4d4);
+}
+
 /* --- Toggle labels (bold text, needs brighter color) --- */
 .gin--dark-mode .ttd-settings-panel .ttd-topics-toggle-field .form-item > label,
 .gin--dark-mode .ttd-settings-panel .ttd-topics-toggle-field .js-form-item > label {
@@ -582,6 +791,10 @@
 /* --- Toggle slider track in dark mode --- */
 .gin--dark-mode .ttd-toggle-slider {
   background-color: #5a5f65;
+}
+
+.gin--dark-mode .ttd-toggle-slider.active {
+  background-color: var(--gin-color-primary, #2271b1);
 }
 
 /* --- Inputs, textareas, selects --- */
@@ -699,63 +912,27 @@
   color: var(--gin-color-text, #d4d4d4);
 }
 
-/* --- Title Casing + Position: dark mode --- */
-.gin--dark-mode #edit-meta-title-case-format label.form-item__label,
-.gin--dark-mode #edit-metabox-position label.form-item__label {
+/* --- Title Casing: dark mode --- */
+.gin--dark-mode #edit-meta-title-case-format label.form-item__label {
   background: #35373b;
   border-color: #555;
   color: #d4d4d4;
 }
 
-.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label,
-.gin--dark-mode #edit-metabox-position input[type="radio"]:checked + label.form-item__label {
-  background: #2271b1;
-  border-color: #2271b1;
-  color: #fff;
-}
-
-/* --- TopicalBoost Position radios --- */
-#edit-metabox-position.form-radios {
-  display: inline-flex;
-  gap: 0;
-}
-
-#edit-metabox-position .js-form-item {
-  margin: 0;
-}
-
-#edit-metabox-position input[type="radio"] {
-  display: none;
-}
-
-#edit-metabox-position input[type="radio"]:checked + label {
+.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label {
   background: #2271b1;
   border-color: #2271b1;
   color: #fff;
 }
 
 /* Fieldset wrapper cleanup for radios-as-buttons */
-#edit-meta-title-case-format--wrapper.fieldset,
-#edit-metabox-position--wrapper.fieldset {
+#edit-meta-title-case-format--wrapper.fieldset {
   border: none;
   padding: 0;
   margin: 0;
 }
 
-.gin--dark-mode #edit-metabox-position label {
-  background: #2b2d31;
-  border-color: #3f4145;
-  color: #d4d4d4;
-}
-
-.gin--dark-mode #edit-metabox-position input[type="radio"]:checked + label {
-  background: #2271b1;
-  border-color: #2271b1;
-  color: #fff;
-}
-
-.gin--dark-mode #edit-meta-title-case-format--wrapper.fieldset,
-.gin--dark-mode #edit-metabox-position--wrapper.fieldset {
+.gin--dark-mode #edit-meta-title-case-format--wrapper.fieldset {
   border: none;
   background: transparent;
 }
@@ -911,8 +1088,7 @@
   margin: 0;
 }
 
-#edit-meta-title-case-format label.form-item__label,
-#edit-metabox-position label.form-item__label {
+#edit-meta-title-case-format label.form-item__label {
   display: inline-block;
   padding: 8px 24px;
   border: 1px solid #8c8f94;
@@ -927,13 +1103,11 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-#edit-meta-title-case-format .js-form-item:first-child label.form-item__label,
-#edit-metabox-position .js-form-item:first-child label.form-item__label {
+#edit-meta-title-case-format .js-form-item:first-child label.form-item__label {
   border-radius: 5px 0 0 5px;
 }
 
-#edit-meta-title-case-format .js-form-item:last-child label.form-item__label,
-#edit-metabox-position .js-form-item:last-child label.form-item__label {
+#edit-meta-title-case-format .js-form-item:last-child label.form-item__label {
   border-radius: 0 5px 5px 0;
   border-right-width: 1px;
 }
@@ -951,4 +1125,128 @@
 #edit-meta-title-case-format input[type="radio"]:checked + label:hover {
   background: #135e96;
   border-color: #135e96;
+}
+
+/* Final dark-mode hardening for Gin/admin cascade order. */
+.gin--dark-mode .ttd-settings-wrap .ttd-nav-item.active {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap input.ttd-topics-field-group,
+.gin--dark-mode .ttd-settings-wrap textarea.ttd-topics-field-group,
+.gin--dark-mode .ttd-settings-wrap select.ttd-topics-field-group,
+.gin--dark-mode .ttd-settings-wrap .ttd-topics-field-group.form-element,
+.gin--dark-mode .ttd-settings-wrap .ttd-topics-field-group.form-textarea {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap input.ttd-topics-field-group::placeholder,
+.gin--dark-mode .ttd-settings-wrap textarea.ttd-topics-field-group::placeholder {
+  color: var(--gin-color-text-light, #8c8f94) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success {
+  background: var(--gin-bg-layer2, #23272b) !important;
+}
+
+/* WP-parity segmented radio controls. */
+.ttd-settings-wrap #edit-meta-title-case-format.form-radios {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  width: max-content !important;
+  padding: 2px !important;
+  margin: 0 !important;
+  background: #f0f0f1 !important;
+  border: 1px solid #8c8f94 !important;
+  border-radius: 4px !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format .js-form-item {
+  margin: 0 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"] {
+  display: none !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  padding: 0 14px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 3px !important;
+  background: transparent !important;
+  color: #50575e !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
+  background: #e5e5e6 !important;
+  color: #1d2327 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label {
+  background: #2271b1 !important;
+  color: #fff !important;
+  font-weight: 500 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label:hover {
+  background: #135e96 !important;
+  color: #fff !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+  color: var(--gin-color-text-light, #a7aaad) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
+    background: #23272b !important;
+    border-color: #454b51 !important;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+    color: #a7aaad !important;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
+    background: #2e3338 !important;
+    color: #d4d4d4 !important;
+  }
+}
+
+.ttd-settings-wrap .ttd-meta-generator-settings-title {
+  margin: 22px 0 14px !important;
+  padding: 0 !important;
+  border: none !important;
+  color: #1d2327 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap .ttd-meta-generator-settings-title {
+  color: var(--gin-color-text, #d4d4d4) !important;
 }

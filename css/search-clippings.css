@@ -26,7 +26,7 @@
    ========================================================================== */
 
 @media (prefers-color-scheme: dark) {
-  body:not(.gin--dark-mode) .topicalboost-widget-error {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .topicalboost-widget-error {
     background: #3d3000;
     border-color: #856404;
     color: #dba617;

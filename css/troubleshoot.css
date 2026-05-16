@@ -77,3 +77,50 @@
   background: #f6f7f7;
   border-radius: 4px;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-troubleshoot-actions .description,
+.gin--dark-mode .ttd-retry-info,
+.gin--dark-mode .ttd-time-ago {
+  color: var(--gin-color-text-light, #a7aaad) !important;
+}
+
+.gin--dark-mode .ttd-troubleshoot-table th,
+.gin--dark-mode .ttd-troubleshoot-table td {
+  border-bottom-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode .ttd-troubleshoot-table thead th,
+.gin--dark-mode .ttd-troubleshoot-table tbody tr:hover,
+.gin--dark-mode .ttd-empty-state {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  color: var(--gin-color-text-light, #a7aaad) !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-troubleshoot-actions .description,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-retry-info,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-time-ago {
+    color: #a7aaad !important;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-troubleshoot-table th,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-troubleshoot-table td {
+    border-bottom-color: #454b51 !important;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-troubleshoot-table thead th,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-troubleshoot-table tbody tr:hover,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-empty-state {
+    background: #23272b !important;
+    color: #a7aaad !important;
+  }
+}

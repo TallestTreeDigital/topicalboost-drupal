@@ -41,7 +41,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
     }
 
     // Check if the node is eligible for analysis.
-    $is_eligible = $node->isPublished() || $force_analysis;
+    $config = \Drupal::config('ttd_topics.settings');
+    $analysis_in_progress = $node->hasField('field_ttd_analysis_in_progress') && (bool) $node->get('field_ttd_analysis_in_progress')->value;
+    $is_held_for_analysis = (bool) $config->get('block_until_analyzed') && $analysis_in_progress && !$node->isPublished();
+    $is_eligible = $node->isPublished() || $force_analysis || $is_held_for_analysis;
     $is_analyzed = !$node->get('field_ttd_last_analyzed')->isEmpty();
 
     if (!$is_eligible || ($is_analyzed && !$force_analysis)) {
@@ -59,7 +62,6 @@ class TtdTopicsAnalysis extends JobTypeBase {
       $node->set('field_ttd_analysis_in_progress', FALSE);
 
       // If block_until_analyzed is enabled, publish the node after analysis.
-      $config = \Drupal::config('ttd_topics.settings');
       if ($config->get('block_until_analyzed') && !$node->isPublished()) {
         $node->setPublished();
         \Drupal::logger('topicalboost')->info('Published node @nid after analysis completed (block_until_analyzed).', ['@nid' => $node->id()]);
@@ -391,11 +393,12 @@ class TtdTopicsAnalysis extends JobTypeBase {
    *   Entity data from API response.
    */
   private function storeDemandMetricsForTerm($term_id, array $entity_data) {
-    // Check if entity has keyword_difficulty and/or search_volume
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential.
     $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
     $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
 
-    if (!$has_kd && !$has_sv) {
+    if (!$has_kd && !$has_sv && !$has_tp) {
       return;
     }
 
@@ -408,6 +411,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
 
     if ($has_sv) {
       $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
     }
 
     // Store using module function

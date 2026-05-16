@@ -27,7 +27,12 @@
             descriptionWarningLength: 150,
             debounceDelay: 150,
             minKeywords: 1,
-            numOptions: 5
+            hideKeywords: false,
+            numOptions: 5,
+            storagePrefix: 'ttd_meta_draft_',
+            radioNameSuffix: '',
+            previewStyle: 'serp',
+            ogImageUrl: ''
         },
 
         // State
@@ -154,19 +159,20 @@
          * Render the 2-column layout with keywords on top
          */
         render: function() {
+            const hideKeywords = this.options.hideKeywords;
             const html = `
                 <div class="ttd-meta-generator">
                     <!-- Keywords Row -->
-                    <div class="ttd-meta-keywords-row">
-                        <span class="ttd-meta-keywords-label">${Drupal.t('Focus topic:')}</span>
+                    <div class="ttd-meta-keywords-row${hideKeywords ? ' ttd-keywords-hidden' : ''}"${hideKeywords ? ' style="display:none"' : ''}>
+                        <span class="ttd-meta-keywords-label">${Drupal.t('MAIN & ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your Main Topic and Also About tiers. Social meta generates from the article content directly.')}">[?]</span></span>
                         <div class="ttd-meta-keywords-chips" id="ttd-keywords-list">
                             <span class="ttd-meta-loading-inline">${Drupal.t('Loading...')}</span>
                         </div>
-                        <div class="ttd-meta-keywords-actions">
-                            <button type="button" class="button button--primary ttd-meta-generate-btn" disabled>
-                                ${Drupal.t('Generate')}
-                            </button>
-                        </div>
+                    </div>
+                    <div class="ttd-meta-keywords-actions">
+                        <button type="button" class="button button--primary ttd-meta-generate-btn"${hideKeywords ? '' : ' disabled'}>
+                            ${Drupal.t('Generate')}
+                        </button>
                     </div>
 
                     <!-- Two Column Layout -->
@@ -176,7 +182,7 @@
                             <div class="ttd-meta-column-header">${Drupal.t('Title')} <span class="ttd-meta-info-icon" title="${Drupal.t('This appears in Google search results and browser tabs, not on your page. Your article headline stays unchanged. Keep under 60 characters or Google may rewrite it.')}">[?]</span></div>
                             <div class="ttd-meta-column-content" id="ttd-titles-list">
                                 <div class="ttd-meta-column-empty">
-                                    ${Drupal.t('Select keyword and click Generate')}
+                                    ${hideKeywords ? Drupal.t('Click Generate') : Drupal.t('Select keyword and click Generate')}
                                 </div>
                             </div>
                         </div>
@@ -186,7 +192,7 @@
                             <div class="ttd-meta-column-header">${Drupal.t('Description')}</div>
                             <div class="ttd-meta-column-content" id="ttd-descriptions-list">
                                 <div class="ttd-meta-column-empty">
-                                    ${Drupal.t('Select keyword and click Generate')}
+                                    ${hideKeywords ? Drupal.t('Click Generate') : Drupal.t('Select keyword and click Generate')}
                                 </div>
                             </div>
                         </div>
@@ -276,6 +282,12 @@
             const $columns = this.$container.find('.ttd-meta-two-columns');
             const $keywordsRow = this.$container.find('.ttd-meta-keywords-row');
 
+            if (this.options.hideKeywords) {
+                $columns.show();
+                this.$container.find('.ttd-meta-generate-btn').prop('disabled', false);
+                return;
+            }
+
             if (!topics || topics.length === 0) {
                 $list.html('<span class="ttd-meta-no-keywords">' + Drupal.t('No Main/About topics. Add manually or drag from mentions.') + '</span>');
                 $columns.hide();
@@ -342,7 +354,7 @@
 
             return `
                 <label class="${chipClasses.join(' ')}">
-                    <input type="radio" name="ttd-target-keyword" class="ttd-meta-keyword-radio"
+                    <input type="radio" name="ttd-target-keyword${this.options.radioNameSuffix}" class="ttd-meta-keyword-radio"
                         value="${this.escapeAttr(topic.name)}"
                         data-kd="${topic.keyword_difficulty || ''}"
                         data-volume="${volume || ''}"
@@ -381,18 +393,24 @@
             const num = parseInt(volume, 10);
             if (num >= 1000000) {
                 const val = num / 1000000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'M/mo';
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'M';
             } else if (num >= 1000) {
                 const val = num / 1000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'K/mo';
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'K';
             }
-            return num + '/mo';
+            return num.toString();
         },
 
         /**
          * Handle keyword radio change (single selection)
          */
         handleKeywordChange: function() {
+            if (this.options.hideKeywords) {
+                this.state.selectedKeywords = [];
+                this.$container.find('.ttd-meta-generate-btn').prop('disabled', false);
+                return;
+            }
+
             const $radios = this.$container.find('.ttd-meta-keyword-radio');
             const $chips = this.$container.find('.ttd-meta-keyword-chip');
             this.state.selectedKeywords = [];
@@ -449,8 +467,8 @@
                         const generatedTitles = response.data.variations.map(v => this.unescapeText(v.title));
                         this.state.descriptionOptions = response.data.variations.map(v => this.unescapeText(v.description));
 
-                        // Prepend original post title as first option (so users can compare)
-                        if (this.options.postTitle) {
+                        // Prepend original post title for SEO only, so users can compare.
+                        if (this.options.postTitle && !this.options.hideKeywords) {
                             this.state.titleOptions = [this.options.postTitle, ...generatedTitles];
                             this.state.originalTitleIndex = 0; // Track which is the original
                         } else {
@@ -492,7 +510,7 @@
 
                 html += `
                     <div class="${optionClass}">
-                        <input type="radio" name="ttd-title-select" class="ttd-title-radio" value="${index}" />
+                        <input type="radio" name="ttd-title-select${this.options.radioNameSuffix}" class="ttd-title-radio" value="${index}" />
                         <div class="ttd-meta-option-input-wrapper">
                             ${label}
                             <textarea class="ttd-meta-option-input ttd-title-input" data-index="${index}">${this.escapeHtml(title)}</textarea>
@@ -518,7 +536,7 @@
 
                 html += `
                     <div class="ttd-meta-option-editable">
-                        <input type="radio" name="ttd-desc-select" class="ttd-desc-radio" value="${index}" />
+                        <input type="radio" name="ttd-desc-select${this.options.radioNameSuffix}" class="ttd-desc-radio" value="${index}" />
                         <div class="ttd-meta-option-input-wrapper">
                             <textarea class="ttd-meta-option-input ttd-desc-input" data-index="${index}">${this.escapeHtml(desc)}</textarea>
                             <span class="ttd-meta-option-char-count ${charClass}">${charCount}/${this.options.descriptionMaxLength}</span>
@@ -678,19 +696,36 @@
             const siteName = siteUrl.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
             const breadcrumb = siteName + ' › ' + (this.options.postSlug || 'article');
 
-            const html = `
-                <div class="ttd-preview-serp">
-                    <div class="ttd-preview-serp-header">
-                        <span class="ttd-preview-serp-favicon"></span>
-                        <div class="ttd-preview-serp-site">
-                            <span class="ttd-preview-serp-sitename">${this.escapeHtml(siteName)}</span>
-                            <span class="ttd-preview-serp-breadcrumb">${this.escapeHtml(breadcrumb)}</span>
+            let html;
+            if (this.options.previewStyle === 'social') {
+                const imageHtml = this.options.ogImageUrl
+                    ? `<div class="ttd-preview-social-image ttd-has-image"><img src="${this.escapeAttr(this.options.ogImageUrl)}" alt="" /></div>`
+                    : '<div class="ttd-preview-social-image"></div>';
+                html = `
+                    <div class="ttd-preview-social-card">
+                        ${imageHtml}
+                        <div class="ttd-preview-social-body">
+                            <div class="ttd-preview-social-domain">${this.escapeHtml(siteName)}</div>
+                            <div class="ttd-preview-social-title">${highlightedTitle}</div>
+                            <div class="ttd-preview-social-desc">${highlightedDesc}</div>
                         </div>
                     </div>
-                    <div class="ttd-preview-serp-title">${highlightedTitle}</div>
-                    <div class="ttd-preview-serp-desc">${highlightedDesc}</div>
-                </div>
-            `;
+                `;
+            } else {
+                html = `
+                    <div class="ttd-preview-serp">
+                        <div class="ttd-preview-serp-header">
+                            <span class="ttd-preview-serp-favicon"></span>
+                            <div class="ttd-preview-serp-site">
+                                <span class="ttd-preview-serp-sitename">${this.escapeHtml(siteName)}</span>
+                                <span class="ttd-preview-serp-breadcrumb">${this.escapeHtml(breadcrumb)}</span>
+                            </div>
+                        </div>
+                        <div class="ttd-preview-serp-title">${highlightedTitle}</div>
+                        <div class="ttd-preview-serp-desc">${highlightedDesc}</div>
+                    </div>
+                `;
+            }
 
             $preview.html(html).show();
         },
@@ -774,7 +809,7 @@
             };
 
             try {
-                localStorage.setItem('ttd_meta_draft_' + this.options.nodeId, JSON.stringify(data));
+                localStorage.setItem(this.options.storagePrefix + this.options.nodeId, JSON.stringify(data));
                 // Show brief save indicator
                 this.showAutoSaveIndicator();
             } catch (e) {
@@ -809,7 +844,7 @@
             if (!this.options.nodeId || !window.localStorage) return false;
 
             try {
-                const saved = localStorage.getItem('ttd_meta_draft_' + this.options.nodeId);
+                const saved = localStorage.getItem(this.options.storagePrefix + this.options.nodeId);
                 if (!saved) return false;
 
                 const data = JSON.parse(saved);
@@ -843,7 +878,7 @@
         clearLocalStorage: function() {
             if (!this.options.nodeId || !window.localStorage) return;
             try {
-                localStorage.removeItem('ttd_meta_draft_' + this.options.nodeId);
+                localStorage.removeItem(this.options.storagePrefix + this.options.nodeId);
             } catch (e) {}
         },
 
@@ -945,36 +980,41 @@
      */
     Drupal.behaviors.ttdMetaGenerator = {
         attach: function (context, settings) {
-            const $container = $(once('ttd-meta-generator', '#ttd-meta-generator-container', context));
-
-            if ($container.length === 0) {
-                return;
-            }
-
             const config = settings.ttdMetaGenerator || {};
-            const nodeId = config.nodeId || $container.data('node-id');
             const postUrl = config.postUrl || window.location.href;
             const postSlug = config.postSlug || '';
             const postTitle = config.postTitle || '';
             const apiBase = config.apiBase || '/api/topicalboost/meta';
             const csrfToken = config.nonce || '';
 
-            if (!nodeId) {
-                return;
+            function updateCombinedTab($container, tabId, hasContent) {
+                const $tab = $container.closest('.ttd-combined-tabbed').find('.ttd-combined-tab[data-tab="' + tabId + '"]');
+                if (!$tab.length) return;
+
+                $tab.find('.ttd-combined-tab-check, .ttd-combined-tab-pending').remove();
+                $tab.append(hasContent ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>');
             }
 
-            // Initialize the meta generator
-            function initMetaGenerator() {
-                MetaGenerator.init($container, {
+            function initGenerator($container, overrides) {
+                const nodeId = config.nodeId || $container.data('node-id');
+                if (!nodeId) {
+                    return;
+                }
+
+                const generator = Object.create(MetaGenerator);
+                const isSocial = !!overrides.isSocial;
+
+                function buildOptions() {
+                    return $.extend({
                     nodeId: nodeId,
                     postUrl: postUrl,
                     postSlug: postSlug,
                     postTitle: postTitle,
                     minKeywords: 1,
-                    existingMeta: config.existingMeta || null,
+                    existingMeta: isSocial ? (config.existingSocialMeta || null) : (config.existingMeta || null),
                     onGenerate: function(keywords, callback) {
                         $.ajax({
-                            url: apiBase + '/generate',
+                            url: apiBase + (isSocial ? '/generate-social' : '/generate'),
                             type: 'POST',
                             contentType: 'application/json',
                             headers: {
@@ -992,7 +1032,7 @@
                     },
                     onSave: function(meta, callback) {
                         $.ajax({
-                            url: apiBase + '/save',
+                            url: apiBase + (isSocial ? '/save-social' : '/save'),
                             type: 'POST',
                             contentType: 'application/json',
                             headers: {
@@ -1003,7 +1043,12 @@
                                 meta_title: meta.title,
                                 meta_description: meta.description
                             }),
-                            success: callback,
+                            success: function(response) {
+                                callback(response);
+                                if (response.success) {
+                                    updateCombinedTab($container, isSocial ? 'social' : 'seo', true);
+                                }
+                            },
                             error: function() {
                                 callback({ success: false, data: { message: Drupal.t('Network error') } });
                             }
@@ -1014,49 +1059,74 @@
                         $('.ttd-meta-preview-title').text(meta.title);
                         $('.ttd-meta-preview-desc').text(meta.description);
                     }
-                });
+                    }, overrides);
+                }
 
-                // Load keywords
-                $.ajax({
-                    url: apiBase + '/keywords/' + nodeId,
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.success && response.data && response.data.keywords) {
-                            MetaGenerator.loadKeywords(response.data.keywords);
-                        }
+                function initMetaGenerator() {
+                    const options = buildOptions();
+                    generator.init($container, options);
+
+                    if (options.hideKeywords) {
+                        generator.loadKeywords([]);
+                    } else {
+                        $.ajax({
+                            url: apiBase + '/keywords/' + nodeId,
+                            type: 'GET',
+                            success: function(response) {
+                                if (response.success && response.data && response.data.keywords) {
+                                    generator.loadKeywords(response.data.keywords);
+                                }
+                            }
+                        });
                     }
-                });
-            }
+                }
 
-            // Track if already initialized
-            var initialized = false;
+                let initialized = false;
 
-            function tryInit() {
-                if (!initialized && $container.is(':visible')) {
-                    initialized = true;
-                    initMetaGenerator();
+                function tryInit() {
+                    if (!initialized && $container.is(':visible')) {
+                        initialized = true;
+                        initMetaGenerator();
+                    }
+                }
+
+                tryInit();
+
+                const $details = $container.closest('details');
+                if ($details.length) {
+                    $details.on('toggle', function() {
+                        if (this.open) {
+                            tryInit();
+                        }
+                    });
+                }
+
+                const $combined = $container.closest('.ttd-combined-tabbed');
+                if ($combined.length) {
+                    $combined.on('click', '.ttd-combined-tab', function() {
+                        setTimeout(tryInit, 0);
+                    });
                 }
             }
 
-            // Check if container is visible now
-            tryInit();
+            $(once('ttd-meta-generator', '#ttd-meta-generator-container', context)).each(function () {
+                initGenerator($(this), {});
+            });
 
-            // Also listen for details element toggle (in case it starts collapsed)
-            var $details = $container.closest('details');
-            if ($details.length) {
-                $details.on('toggle', function() {
-                    if (this.open) {
-                        tryInit();
-                    }
+            $(once('ttd-social-meta-generator', '#ttd-social-meta-generator-container', context)).each(function () {
+                initGenerator($(this), {
+                    isSocial: true,
+                    minKeywords: 0,
+                    hideKeywords: true,
+                    titleMaxLength: 90,
+                    titleWarningLength: 80,
+                    descriptionMaxLength: 200,
+                    descriptionWarningLength: 185,
+                    storagePrefix: 'ttd_social_meta_draft_',
+                    radioNameSuffix: '-social',
+                    previewStyle: 'social',
+                    ogImageUrl: config.ogImageUrl || $(this).data('og-image') || ''
                 });
-            }
-
-            // Handle regenerate button
-            $(once('ttd-meta-regenerate', '.ttd-meta-regenerate-btn', context)).on('click', function() {
-                $('.ttd-meta-existing').hide();
-                $container.show();
-                initialized = false; // Allow re-init
-                initMetaGenerator();
             });
         }
     };

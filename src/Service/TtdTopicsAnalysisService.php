@@ -3,6 +3,7 @@
 namespace Drupal\ttd_topics\Service;
 
 use Drupal\node\NodeInterface;
+use Drupal\ttd_topics\Event\AnalysisCompleteEvent;
 use Drupal\taxonomy\Entity\Term;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -182,6 +183,8 @@ class TtdTopicsAnalysisService {
    */
   private function saveAnalysisResults(NodeInterface $node, array $results, $save_entity = TRUE) {
     $topicalboost = [];
+    $api_term_ids = [];
+    $api_ttd_ids = [];
     $post_id = $node->id();
 
     foreach ($results['entities'] as $entity) {
@@ -189,9 +192,8 @@ class TtdTopicsAnalysisService {
       if (!empty($name)) {
         $term_id = $this->getOrCreateTerm($name, $entity['id'], $entity, $save_entity);
         if ($term_id) {
-          $topicalboost[] = [
-            'target_id' => $term_id,
-          ];
+          $api_term_ids[] = (int) $term_id;
+          $api_ttd_ids[] = (int) $entity['id'];
 
           // Store demand metrics (KD/KV) if present
           $this->storeDemandMetricsForTerm($term_id, $entity);
@@ -202,7 +204,7 @@ class TtdTopicsAnalysisService {
             foreach ($entity['Contents'] as $content) {
               if (isset($content['customer_id']) && intval($content['customer_id']) === intval($post_id)) {
                 $salience_score = $content['salience'] ?? $content['salience_score'] ?? NULL;
-                $salience_category = $content['salience_category'] ?? NULL;
+                $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
                 if ($salience_score !== NULL || $salience_category !== NULL) {
                   $this->storeSalienceForEntity($entity['id'], $post_id, $salience_score, $salience_category);
                 }
@@ -213,9 +215,21 @@ class TtdTopicsAnalysisService {
         }
       }
     }
+
+    $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
+      ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
+      : $api_term_ids;
+    foreach ($final_topic_ids as $term_id) {
+      $topicalboost[] = ['target_id' => $term_id];
+    }
+
     $node->set('field_ttd_topics', $topicalboost);
     if ($save_entity) {
       $node->save();
+      \Drupal::service('event_dispatcher')->dispatch(
+        new AnalysisCompleteEvent($node, $final_topic_ids),
+        'ttd_topics.analysis_complete'
+      );
     }
   }
 
@@ -229,14 +243,13 @@ class TtdTopicsAnalysisService {
    * @param float|null $salience_score
    *   The salience score (0-1).
    * @param string|null $salience_category
-   *   The salience category ('about' or 'mentions').
+   *   The salience category ('mainEntity', 'about', or 'mentions').
    */
   private function storeSalienceForEntity($entity_id, $post_id, $salience_score, $salience_category = NULL) {
     $database = \Drupal::database();
 
-    // If category not provided, derive from score
-    if ($salience_category === NULL && $salience_score !== NULL) {
-      $salience_category = $salience_score > 0.5 ? 'about' : 'mentions';
+    if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+      $salience_category = NULL;
     }
 
     try {

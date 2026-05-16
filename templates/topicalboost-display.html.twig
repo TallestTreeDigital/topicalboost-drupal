@@ -20,7 +20,7 @@
  */
 #}
 
-{% set filter_mode = options.frontend_filter_mode|default('all') %}
+{% set filter_mode = options.frontend_filter_mode|default('mentions_behind_toggle') %}
 
 {% if filtered_topics %}
   {# Separate topics by salience category #}
@@ -34,49 +34,49 @@
     {% endif %}
   {% endfor %}
 
-  <div class="topicalboost-section">
-    <div class="topicalboost-inline-mentions">
-      <span class="mentions-label">{{ topics_list_label }}:</span>
-      <div class="mentions-list">
+  <div class="topicalboost-section ttd-topics-display">
+    <div class="topicalboost-inline-mentions ttd-topics-content">
+      <h5 class="mentions-label">{{ topics_list_label }}</h5>
+      <div class="mentions-list ttd-topics-links" data-max-visible="{{ maximum_visible_post_topics }}">
         {% if filter_mode == 'all' %}
           {# Show all topics up to max_visible #}
           {% set visible_count = 0 %}
           {% for topic in filtered_topics %}
             {% if visible_count < maximum_visible_post_topics %}
-              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag">
+              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
                 {{ topic.term.label|trim }}
               </a>
               {% set visible_count = visible_count + 1 %}
             {% else %}
-              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag hidden">
+              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
                 {{ topic.term.label|trim }}
               </a>
             {% endif %}
           {% endfor %}
           {% if filtered_topics|length > maximum_visible_post_topics %}
-            <button class="toggle-mentions-btn" type="button">+{{ filtered_topics|length - maximum_visible_post_topics }} more</button>
+            <div class="toggle-mentions-btn ttd-topics-show-extra-button" role="button" tabindex="0">+{{ filtered_topics|length - maximum_visible_post_topics }} more</div>
           {% endif %}
 
         {% elseif filter_mode == 'mentions_behind_toggle' %}
           {# Show about/mainEntity openly, mentions behind Show More #}
           {% for topic in about_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag">
+            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}
           {% for topic in mentions_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag hidden">
+            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}
           {% if mentions_topics|length > 0 %}
-            <button class="toggle-mentions-btn" type="button">+{{ mentions_topics|length }} more</button>
+            <div class="toggle-mentions-btn ttd-topics-show-extra-button" role="button" tabindex="0">+{{ mentions_topics|length }} more</div>
           {% endif %}
 
         {% elseif filter_mode == 'high_salience_only' %}
           {# Only show mainEntity + about tiers #}
           {% for topic in about_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag">
+            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}

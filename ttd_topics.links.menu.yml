@@ -1,48 +1,6 @@
 topicalboost.settings_form:
   title: TopicalBoost
-  description: Configure TopicalBoost AI-powered topic analysis and schema generation.
+  description: Configure topic analysis, display, schema, widgets, and API settings.
   parent: system.admin_config_content
   route_name: topicalboost.settings_form
   weight: 10
-
-topicalboost.bulk_analysis:
-  title: TopicalBoost Bulk Analysis
-  description: Analyze multiple content items at once with filtering and batch processing.
-  parent: system.admin_config_content
-  route_name: topicalboost.bulk_analysis
-  weight: 11
-
-topicalboost.health_checks:
-  title: TopicalBoost Health
-  description: Diagnostic dashboard for TopicalBoost environment, API, database, and content checks.
-  parent: system.admin_config_content
-  route_name: topicalboost.health_checks
-  weight: 12
-
-topicalboost.new_topics:
-  title: TopicalBoost New Topics
-  description: Recently discovered topics with date filtering and visibility controls.
-  parent: system.admin_config_content
-  route_name: topicalboost.new_topics
-  weight: 13
-
-topicalboost.queue_status:
-  title: TopicalBoost Queue Status
-  description: View analysis queue job status and history.
-  parent: system.admin_config_content
-  route_name: topicalboost.queue_status
-  weight: 14
-
-topicalboost.widgets:
-  title: TopicalBoost Widgets
-  description: Citations and Top Stories widgets dashboard.
-  parent: system.admin_config_content
-  route_name: topicalboost.widgets
-  weight: 15
-
-topicalboost.troubleshoot:
-  title: TopicalBoost Troubleshoot
-  description: Manage stuck posts, rejected topics, and other troubleshooting tools.
-  parent: system.admin_config_content
-  route_name: topicalboost.troubleshoot
-  weight: 16

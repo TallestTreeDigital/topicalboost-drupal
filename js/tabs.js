@@ -8,12 +8,12 @@
       function activateTab(tabId) {
         // Remove active class from all nav items and panels
         $('.ttd-nav-item').removeClass('active');
-        $('.ttd-settings-panel').removeClass('active');
+        $('.ttd-settings-panel').removeClass('active').css('display', '');
 
         // Add active class to corresponding nav item and panel
         var $activeItem = $('.ttd-nav-item[data-tab="' + tabId + '"]');
         $activeItem.addClass('active');
-        $('#' + tabId).addClass('active');
+        $('#' + tabId).addClass('active').show();
 
         // Show/hide submit button based on whether current tab has settings
         var hasSettings = $activeItem.attr('data-has-settings') !== 'false';
@@ -47,11 +47,9 @@
           'watchlist': 'tab-watchlist',
           'widgets': 'tab-widgets',
           'schema': 'tab-schema',
+          'authors': 'tab-authors',
           'developer': 'tab-developer',
-          'sync': 'tab-sync',
-          'analytics': 'tab-analytics',
-          'bulk-analysis': 'tab-bulk-analysis',
-          'troubleshoot': 'tab-troubleshoot'
+          'changelog': 'tab-changelog'
         };
 
         // If there's a hash, use it
@@ -62,7 +60,7 @@
         // If no hash, check localStorage for last active tab
         try {
           var savedTab = localStorage.getItem('ttd-topics-active-tab');
-          if (savedTab && $('#' + savedTab).length > 0) {
+          if (savedTab && $('#' + savedTab).length > 0 && $('.ttd-nav-item[data-tab="' + savedTab + '"]').length > 0) {
             return savedTab;
           }
         } catch (e) {
@@ -101,11 +99,9 @@
           'tab-watchlist': '#watchlist',
           'tab-widgets': '#widgets',
           'tab-schema': '#schema',
+          'tab-authors': '#authors',
           'tab-developer': '#developer',
-          'tab-sync': '#sync',
-          'tab-analytics': '#analytics',
-          'tab-bulk-analysis': '#bulk-analysis',
-          'tab-troubleshoot': '#troubleshoot'
+          'tab-changelog': '#changelog'
         };
         var hash = hashMap[targetPanel];
         if (hash) {
@@ -200,6 +196,73 @@
           });
         });
       }, 100);
+
+      // WordPress-style settings search.
+      var $wrap = $('.ttd-settings-wrap', context).addBack('.ttd-settings-wrap');
+      var $search = $('#ttd-settings-search', context);
+      var $clear = $('#ttd-settings-search-clear', context);
+      var $noResults = $('.ttd-search-no-results', context);
+
+      function resetSettingsSearch() {
+        $wrap.removeClass('ttd-searching ttd-no-results');
+        $('.ttd-settings-panel').removeClass('ttd-search-match').css('display', '');
+        $('.ttd-settings-panel .form-item, .ttd-settings-panel .js-form-item, .ttd-settings-panel .ttd-topics-toggle-field').show();
+        $('.ttd-settings-panel.active').show();
+        $clear.hide();
+        $noResults.hide();
+      }
+
+      function runSettingsSearch() {
+        var query = ($search.val() || '').toLowerCase().trim();
+
+        if (!query) {
+          resetSettingsSearch();
+          return;
+        }
+
+        var matches = 0;
+        $wrap.addClass('ttd-searching').removeClass('ttd-no-results');
+        $clear.show();
+        $('.ttd-settings-panel').removeClass('ttd-search-match').hide();
+
+        $('.ttd-settings-panel').each(function () {
+          var $panel = $(this);
+          var panelMatches = 0;
+
+          $panel.find('.form-item, .js-form-item').each(function () {
+            var $item = $(this);
+            var matched = $item.text().toLowerCase().indexOf(query) !== -1;
+            $item.toggle(matched);
+            if (matched) {
+              panelMatches++;
+              matches++;
+            }
+          });
+
+          $panel.find('.ttd-topics-toggle-field').each(function () {
+            var $field = $(this);
+            $field.toggle($field.find('.form-item:visible, .js-form-item:visible').length > 0);
+          });
+
+          if (panelMatches > 0) {
+            $panel.addClass('ttd-search-match').show();
+          }
+        });
+
+        if (matches === 0) {
+          $wrap.addClass('ttd-no-results');
+          $noResults.show();
+        } else {
+          $noResults.hide();
+        }
+      }
+
+      $search.once('ttd-settings-search').on('input', runSettingsSearch);
+      $clear.once('ttd-settings-search-clear').on('click', function () {
+        $search.val('');
+        resetSettingsSearch();
+        $search.trigger('focus');
+      });
     }
   };
 

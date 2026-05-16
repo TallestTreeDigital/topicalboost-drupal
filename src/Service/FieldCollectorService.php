@@ -200,7 +200,9 @@ class FieldCollectorService {
         case 'string':
         case 'string_long':
           if (isset($item->value)) {
-            $text = strip_tags($item->value);
+            $text = function_exists('ttd_topics_filter_text')
+              ? \ttd_topics_filter_text($item->value)
+              : strip_tags($item->value);
           }
           break;
 
@@ -216,9 +218,13 @@ class FieldCollectorService {
                 '#format' => $item->format,
               ];
               $rendered = \Drupal::service('renderer')->renderPlain($build);
-              $text = strip_tags($rendered);
+              $text = function_exists('ttd_topics_filter_text')
+                ? \ttd_topics_filter_text((string) $rendered)
+                : strip_tags($rendered);
             } else {
-              $text = strip_tags($item->value);
+              $text = function_exists('ttd_topics_filter_text')
+                ? \ttd_topics_filter_text($item->value)
+                : strip_tags($item->value);
             }
           }
           break;
@@ -633,4 +639,4 @@ class FieldCollectorService {
 
     return TRUE;
   }
-} 
+}

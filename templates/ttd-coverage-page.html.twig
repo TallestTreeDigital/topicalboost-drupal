@@ -1,134 +1,104 @@
 {#
-  Template for the TopicalBoost Coverage Comparison page.
+  Template for the TopicalBoost Coverage page.
 
   Variables:
-  - local_data: Array of local metrics (nodes, topics, relationships)
+  - local_data: Array of local metrics and per-content-type coverage stats.
 #}
 
-<div class="ttd-coverage-container">
-  <h2>Topic Coverage Status</h2>
-
-  {# Filter/Config Notice #}
-  <div class="ttd-notice-section">
-    <p class="ttd-config-info">
-      This page compares your local site's topic coverage with data from the TopicalBoost API.
-    </p>
-  </div>
-
-  {# API Error Message (populated via JavaScript) #}
+<div class="ttd-topic-coverage-page ttd-coverage-container">
   <div id="ttd-api-error" class="ttd-error-message" style="display: none;"></div>
 
-  {# Cache Info and Refresh Button #}
-  <div class="ttd-cache-info-section">
-    <div id="ttd-cache-info" class="ttd-cache-info">
-      Loading API data...
+  <div class="postbox ttd-coverage-postbox">
+    <div class="postbox-header">
+      <h3>Coverage</h3>
     </div>
-    <button id="ttd-refresh-metrics" class="button button-primary ttd-refresh-button">
-      <span class="ttd-refresh-icon">⟳</span> Refresh Metrics
-    </button>
+    <div class="inside">
+      <table class="widefat striped ttd-coverage-table">
+        <thead>
+          <tr>
+            <th>Post Type</th>
+            <th>Total</th>
+            <th>With Topics</th>
+            <th>Without Topics</th>
+            <th>Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for type_name, stats in local_data.type_stats %}
+            <tr>
+              <td>{{ type_name }}</td>
+              <td><span class="ttd-count-link">{{ stats.total }}</span></td>
+              <td><span class="ttd-count-link">{{ stats.with_topics }}</span></td>
+              <td><span class="ttd-count-link">{{ stats.without_topics }}</span></td>
+              <td>
+                <div class="ttd-coverage-bar-container">
+                  <div class="ttd-coverage-bar ttd-coverage-{{ stats.bar_class }}" style="{{ stats.bar_style }}" data-coverage="{{ stats.coverage_percentage }}"></div>
+                  <span class="ttd-coverage-value{% if stats.coverage_percentage < 50 %} ttd-coverage-value-outside{% endif %}">{{ stats.coverage_percentage }}%</span>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  {# Main Comparison Table #}
-  <div class="ttd-comparison-table-wrapper">
-    <h3>Overall Metrics Comparison</h3>
-    <table class="ttd-comparison-table">
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th>Local vs API</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-metric="posts">
-          <td class="ttd-metric-name">Posts</td>
-          <td class="ttd-comparison-values">
-            <span class="ttd-local-val" data-value="{{ local_data.total_nodes }}">{{ local_data.total_nodes }}</span>
-            <span class="ttd-sep"> / </span>
-            <span class="ttd-api-val" id="api-posts-val">-</span>
-          </td>
-          <td class="ttd-status-cell" id="status-posts">-</td>
-        </tr>
-        <tr data-metric="topics">
-          <td class="ttd-metric-name">Topics</td>
-          <td class="ttd-comparison-values">
-            <span class="ttd-local-val" data-value="{{ local_data.total_topics }}">{{ local_data.total_topics }}</span>
-            <span class="ttd-sep"> / </span>
-            <span class="ttd-api-val" id="api-topics-val">-</span>
-          </td>
-          <td class="ttd-status-cell" id="status-topics">-</td>
-        </tr>
-        <tr data-metric="relationships">
-          <td class="ttd-metric-name">Relationships</td>
-          <td class="ttd-comparison-values">
-            <span class="ttd-local-val" data-value="{{ local_data.total_relationships }}">{{ local_data.total_relationships }}</span>
-            <span class="ttd-sep"> / </span>
-            <span class="ttd-api-val" id="api-relationships-val">-</span>
-          </td>
-          <td class="ttd-status-cell" id="status-relationships">-</td>
-        </tr>
-        <tr data-metric="coverage">
-          <td class="ttd-metric-name">Coverage %</td>
-          <td class="ttd-comparison-values">
-            <span class="ttd-local-val" data-value="{{ local_data.coverage_percentage }}">{{ local_data.coverage_percentage }}%</span>
-            <span class="ttd-sep"> / </span>
-            <span class="ttd-api-val" id="api-coverage-val">-</span>
-          </td>
-          <td class="ttd-status-cell" id="status-coverage">-</td>
-        </tr>
-        <tr data-metric="avg_relationships">
-          <td class="ttd-metric-name">Avg Topics/Post</td>
-          <td class="ttd-comparison-values">
-            <span class="ttd-local-val" data-value="{{ local_data.avg_topics_per_post }}">{{ local_data.avg_topics_per_post }}</span>
-            <span class="ttd-sep"> / </span>
-            <span class="ttd-api-val" id="api-avg-val">-</span>
-          </td>
-          <td class="ttd-status-cell" id="status-avg">-</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  {# Content Type Coverage Breakdown #}
-  {% if local_data.type_stats %}
-  <div class="ttd-type-coverage-wrapper">
-    <h3>Coverage by Content Type</h3>
-    <table class="ttd-type-coverage-table">
-      <thead>
-        <tr>
-          <th>Content Type</th>
-          <th>Total Posts</th>
-          <th>With Topics</th>
-          <th>Coverage</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for type_name, stats in local_data.type_stats %}
-        <tr class="ttd-type-row">
-          <td class="ttd-type-name">{{ type_name }}</td>
-          <td class="ttd-type-total">{{ stats.total }}</td>
-          <td class="ttd-type-with-topics">{{ stats.with_topics }}</td>
-          <td class="ttd-type-coverage">
-            <div class="ttd-coverage-bar-container">
-              <div class="ttd-coverage-bar ttd-coverage-{{ stats.bar_class }}" style="{{ stats.bar_style }}" data-coverage="{{ stats.coverage_percentage }}">
-              </div>
-            </div>
-            <span class="ttd-coverage-text">{{ stats.coverage_percentage }}%</span>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% if local_data.coverage_percentage < 50 %}
+    <div class="ttd-coverage-guidance">
+      <span class="ttd-coverage-guidance-icon" aria-hidden="true">i</span>
+      <span class="ttd-coverage-guidance-text">Run a <a href="/admin/config/content/topicalboost/bulk-analysis">bulk analysis</a> to improve coverage</span>
+    </div>
   {% endif %}
 
-  {# Legend #}
-  <div class="ttd-legend">
-    <p><strong>Color Legend:</strong></p>
-    <ul>
-      <li><span class="ttd-legend-high"></span> High coverage (90%+)</li>
-      <li><span class="ttd-legend-medium"></span> Medium coverage (50-89%)</li>
-      <li><span class="ttd-legend-low"></span> Low coverage (&lt;50%)</li>
-    </ul>
+  <div class="postbox ttd-sync-postbox">
+    <div class="postbox-header">
+      <h3>Data Sync</h3>
+      <button id="ttd-refresh-metrics" class="button ttd-refresh-button" type="button">Refresh</button>
+    </div>
+    <div class="inside">
+      <div id="ttd-cache-info" class="ttd-cache-info">Loading API data...</div>
+      <table class="widefat striped ttd-comparison-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Local</th>
+            <th>API</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-metric="posts">
+            <td class="ttd-metric-name">Posts</td>
+            <td><span class="ttd-local-val" data-value="{{ local_data.total_nodes }}">{{ local_data.total_nodes }}</span></td>
+            <td><span class="ttd-api-val" id="api-posts-val">Loading...</span></td>
+            <td class="ttd-status-cell" id="status-posts">Checking...</td>
+          </tr>
+          <tr data-metric="topics">
+            <td class="ttd-metric-name">Topics</td>
+            <td><span class="ttd-local-val" data-value="{{ local_data.total_topics }}">{{ local_data.total_topics }}</span></td>
+            <td><span class="ttd-api-val" id="api-topics-val">Loading...</span></td>
+            <td class="ttd-status-cell" id="status-topics">Checking...</td>
+          </tr>
+          <tr data-metric="relationships">
+            <td class="ttd-metric-name">Relationships</td>
+            <td><span class="ttd-local-val" data-value="{{ local_data.total_relationships }}">{{ local_data.total_relationships }}</span></td>
+            <td><span class="ttd-api-val" id="api-relationships-val">Loading...</span></td>
+            <td class="ttd-status-cell" id="status-relationships">Checking...</td>
+          </tr>
+          <tr data-metric="coverage">
+            <td class="ttd-metric-name">Coverage</td>
+            <td><span class="ttd-local-val" data-value="{{ local_data.coverage_percentage }}">{{ local_data.coverage_percentage }}%</span></td>
+            <td><span class="ttd-api-val" id="api-coverage-val">Loading...</span></td>
+            <td class="ttd-status-cell" id="status-coverage">Checking...</td>
+          </tr>
+          <tr data-metric="avg_relationships">
+            <td class="ttd-metric-name">Avg Topics/Post</td>
+            <td><span class="ttd-local-val" data-value="{{ local_data.avg_topics_per_post }}">{{ local_data.avg_topics_per_post }}</span></td>
+            <td><span class="ttd-api-val" id="api-avg-val">Loading...</span></td>
+            <td class="ttd-status-cell" id="status-avg">Checking...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>

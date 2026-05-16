@@ -173,14 +173,9 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
    * Apply entities to a specific node.
    */
   private function applyEntitiesToNode(NodeInterface $node, $entities) {
-    $topicalboost = [];
+    $api_term_ids = [];
+    $api_ttd_ids = [];
     $failed_entities = [];
-    $existing_terms = [];
-
-    // Get already-assigned term IDs to avoid duplicates
-    foreach ($node->field_ttd_topics->getValue() as $item) {
-      $existing_terms[] = $item['target_id'];
-    }
 
     foreach ($entities as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
@@ -194,11 +189,8 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       try {
         $term_id = $this->getOrCreateTerm($name, $ttd_id, $entity);
         if ($term_id) {
-          // Only add if not already assigned to this node
-          if (!in_array($term_id, $existing_terms)) {
-            $topicalboost[] = ['target_id' => $term_id];
-            $existing_terms[] = $term_id;
-          }
+          $api_term_ids[] = (int) $term_id;
+          $api_ttd_ids[] = (int) $ttd_id;
         } else {
           \Drupal::logger('ttd_topics')->warning(
             'Failed to create/find term for entity @ttd_id: @name',
@@ -215,11 +207,10 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       }
     }
 
-    if (!empty($topicalboost)) {
-      foreach ($topicalboost as $topic) {
-        $node->field_ttd_topics->appendItem($topic);
-      }
-    }
+    $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
+      ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
+      : $api_term_ids;
+    $node->set('field_ttd_topics', array_map(static fn($term_id) => ['target_id' => $term_id], $final_topic_ids));
   }
 
   /**
@@ -252,7 +243,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
         ];
 
         $available_fields = [
-          'mid', 'nl_name', 'nl_type', 'wikipedia_url', 'kg_name', 'kg_image',
+          'mid', 'nl_name', 'nl_type', 'wikipedia_url', 'kg_name', 'kg_description', 'kg_image',
           'wb_qid', 'wb_name', 'wb_description', 'wb_date_modified', 'wb_instances',
           'wb_image', 'wb_logo_image', 'official_website', 'country', 'genre',
           'creator', 'author', 'producer', 'director', 'screenwriter', 'cast_member',
@@ -302,10 +293,10 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
             try {
               // Extract salience data if present
               $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;
-              $salience_category = $content['salience_category'] ?? NULL;
+              $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
 
-              // Validate salience_category is a valid value
-              if ($salience_category !== NULL && !in_array($salience_category, ['about', 'mentions'], TRUE)) {
+              // Validate salience_category is a valid value.
+              if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
                 $salience_category = NULL;
               }
 
@@ -514,11 +505,12 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
    *   Entity data from API response.
    */
   private function storeDemandMetricsForTerm($term_id, $entity_data) {
-    // Check if entity has keyword_difficulty and/or search_volume
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential.
     $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
     $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
 
-    if (!$has_kd && !$has_sv) {
+    if (!$has_kd && !$has_sv && !$has_tp) {
       return;
     }
 
@@ -531,6 +523,10 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
     if ($has_sv) {
       $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
     }
 
     // Store using module function

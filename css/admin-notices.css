@@ -1,0 +1,39 @@
+.ttd-admin-notices {
+  margin: 1rem 0;
+}
+
+.ttd-admin-notice {
+  position: relative;
+  margin: 0 0 1rem;
+  padding-right: 3rem;
+}
+
+.ttd-admin-notice__content p {
+  margin: 0;
+}
+
+.ttd-admin-notice__content ul {
+  margin: 0.25rem 0 0.25rem 1.25rem;
+  list-style: disc;
+}
+
+.ttd-admin-notice__dismiss {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.ttd-admin-notice__dismiss:hover,
+.ttd-admin-notice__dismiss:focus {
+  background: rgba(0, 0, 0, 0.08);
+  outline: none;
+}

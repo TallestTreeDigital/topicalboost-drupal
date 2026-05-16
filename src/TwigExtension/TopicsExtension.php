@@ -72,7 +72,7 @@ class TopicsExtension extends AbstractExtension {
    * @return string
    *   The rendered topics section.
    */
-  public function displayTopics(NodeInterface $node = NULL, array $options = []) {
+  public function displayTopics(?NodeInterface $node = NULL, array $options = []) {
     // If no node provided, try to get current node from route
     if ($node === NULL) {
       $node = \Drupal::routeMatch()->getParameter('node');
@@ -87,10 +87,11 @@ class TopicsExtension extends AbstractExtension {
       return '';
     }
 
-    // Check if frontend is enabled or user is logged in.
+    // Check if frontend is enabled or the user has the configured permission.
     $frontend_enabled = $config->get('enable_frontend');
-    $user_logged_in = \Drupal::currentUser()->isAuthenticated();
-    $show_topicalboost = $frontend_enabled || $user_logged_in;
+    $required_permission = $config->get('required_permission') ?: 'administer topicalboost';
+    $user_has_permission = \Drupal::currentUser()->hasPermission($required_permission);
+    $show_topicalboost = $frontend_enabled || $user_has_permission;
 
     // Manual calls to topicalboost_display() should work regardless of automatic mentions setting
     // Only check frontend display permissions unless forced
@@ -132,7 +133,7 @@ class TopicsExtension extends AbstractExtension {
    * @return array
    *   Array of topic data with metadata.
    */
-  public function getTopicsData(NodeInterface $node = NULL, array $options = []) {
+  public function getTopicsData(?NodeInterface $node = NULL, array $options = []) {
     // If no node provided, try to get current node from route
     if ($node === NULL) {
       $node = \Drupal::routeMatch()->getParameter('node');
@@ -147,10 +148,11 @@ class TopicsExtension extends AbstractExtension {
       return [];
     }
 
-    // Check if frontend is enabled or user is logged in.
+    // Check if frontend is enabled or the user has the configured permission.
     $frontend_enabled = $config->get('enable_frontend');
-    $user_logged_in = \Drupal::currentUser()->isAuthenticated();
-    $show_topicalboost = $frontend_enabled || $user_logged_in;
+    $required_permission = $config->get('required_permission') ?: 'administer topicalboost';
+    $user_has_permission = \Drupal::currentUser()->hasPermission($required_permission);
+    $show_topicalboost = $frontend_enabled || $user_has_permission;
 
     // Manual calls to topicalboost_data() should work regardless of automatic mentions setting
     // Only check frontend display permissions unless forced

@@ -292,38 +292,38 @@
    ========================================================================== */
 
 @media (prefers-color-scheme: dark) {
-  body:not(.gin--dark-mode) .ttd-schema-preview {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-preview {
     background: #2a2a2a;
     border-color: #3a3a3a;
   }
 
-  body:not(.gin--dark-mode) .ttd-schema-placeholder {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-placeholder {
     color: #6b6b6b;
   }
 
-  body:not(.gin--dark-mode) .ttd-schema-format-info strong {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-format-info strong {
     color: #e8e8e8;
   }
 
-  body:not(.gin--dark-mode) .ttd-schema-format-info small {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-format-info small {
     color: #6b6b6b;
   }
 
-  body:not(.gin--dark-mode) .ttd-focal-picker {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-focal-picker {
     border-color: #3a3a3a;
   }
 
-  body:not(.gin--dark-mode) .ttd-focal-coords {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-focal-coords {
     color: #6b6b6b;
   }
 
-  body:not(.gin--dark-mode) .ttd-schema-upload-btn {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-upload-btn {
     background: transparent;
     border-color: #3a3a3a;
     color: #6db3f2;
   }
 
-  body:not(.gin--dark-mode) .ttd-schema-upload-btn:hover {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-upload-btn:hover {
     border-color: #6db3f2;
   }
 }

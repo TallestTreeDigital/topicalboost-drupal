@@ -4,15 +4,15 @@ topicalboost.settings_tab:
   base_route: topicalboost.settings_form
   weight: 0
 
-topicalboost.widgets_tab:
-  title: Widgets
-  route_name: topicalboost.widgets
+topicalboost.bulk_analysis_tab:
+  title: Bulk Analysis
+  route_name: topicalboost.bulk_analysis
   base_route: topicalboost.settings_form
   weight: 1
 
-topicalboost.health_tab:
-  title: Health
-  route_name: topicalboost.health_checks
+topicalboost.coverage_tab:
+  title: Topic Coverage
+  route_name: topicalboost.coverage
   base_route: topicalboost.settings_form
   weight: 2
 
@@ -21,9 +21,3 @@ topicalboost.new_topics_tab:
   route_name: topicalboost.new_topics
   base_route: topicalboost.settings_form
   weight: 3
-
-topicalboost.queue_status_tab:
-  title: Queue Status
-  route_name: topicalboost.queue_status
-  base_route: topicalboost.settings_form
-  weight: 4

@@ -111,7 +111,8 @@ class CoverageController extends ControllerBase {
     }
 
     $nodes_with_topics_query->innerJoin('node__field_ttd_topics', 'ft', 'n.nid = ft.entity_id');
-    $nodes_with_topics = $nodes_with_topics_query->countQuery()->execute()->fetchField();
+    $nodes_with_topics_query->addExpression('COUNT(DISTINCT n.nid)', 'count');
+    $nodes_with_topics = $nodes_with_topics_query->execute()->fetchField();
 
     // Get total topic relationships (assignments).
     // Use raw SQL to count distinct entity_id + target_id combinations
@@ -123,9 +124,15 @@ class CoverageController extends ControllerBase {
 
     $params = [];
     if (!empty($enabled_content_types)) {
-      $placeholders = implode(',', array_fill(0, count($enabled_content_types), '?'));
+      $enabled_content_types = array_values($enabled_content_types);
+      $placeholders = [];
+      foreach ($enabled_content_types as $index => $type) {
+        $placeholder = ':type_' . $index;
+        $placeholders[] = $placeholder;
+        $params[$placeholder] = $type;
+      }
+      $placeholders = implode(',', $placeholders);
       $query_string .= " AND n.type IN ($placeholders)";
-      $params = $enabled_content_types;
     }
 
     $total_relationships = (int)$this->database->query($query_string, $params)->fetchField();
@@ -136,9 +143,9 @@ class CoverageController extends ControllerBase {
 
     $total_topics = $topics_query->countQuery()->execute()->fetchField();
 
-    // Calculate average topics per post.
-    $avg_topics_per_post = $total_nodes > 0 ? round($total_relationships / $total_nodes, 2) : 0;
-    $coverage_percentage = $total_nodes > 0 ? round(($nodes_with_topics / $total_nodes) * 100, 2) : 0;
+    // Calculate average topics per covered post, matching the WordPress report.
+    $avg_topics_per_post = $nodes_with_topics > 0 ? round($total_relationships / $nodes_with_topics, 1) : 0;
+    $coverage_percentage = $total_nodes > 0 ? round(($nodes_with_topics / $total_nodes) * 100, 1) : 0;
 
     // Get per-type breakdown.
     $type_stats = $this->getContentTypeBreakdown($enabled_content_types);
@@ -146,7 +153,7 @@ class CoverageController extends ControllerBase {
     return [
       'total_nodes' => (int) $total_nodes,
       'nodes_with_topics' => (int) $nodes_with_topics,
-      'nodes_without_topics' => (int) ($total_nodes - $nodes_with_topics),
+      'nodes_without_topics' => (int) max(0, $total_nodes - $nodes_with_topics),
       'total_relationships' => (int) $total_relationships,
       'total_topics' => (int) $total_topics,
       'avg_topics_per_post' => $avg_topics_per_post,
@@ -196,21 +203,20 @@ class CoverageController extends ControllerBase {
         ->condition('n.type', $type)
         ->condition('n.status', 1);
       $with_topics_query->innerJoin('node__field_ttd_topics', 'ft', 'n.nid = ft.entity_id');
-      $with_topics = $with_topics_query->countQuery()
-        ->execute()
-        ->fetchField();
+      $with_topics_query->addExpression('COUNT(DISTINCT n.nid)', 'count');
+      $with_topics = $with_topics_query->execute()->fetchField();
 
-      $coverage = $total > 0 ? round(($with_topics / $total) * 100, 2) : 0;
+      $coverage = $total > 0 ? round(($with_topics / $total) * 100, 1) : 0;
 
       $bar_class = $coverage >= 90 ? 'high' : ($coverage >= 50 ? 'medium' : 'low');
-      $bar_style = 'width: ' . (int) $coverage . '%;';
+      $bar_style = 'width: ' . min(100, (int) $coverage) . '%;';
 
       $type_stats[$type] = [
         'total' => (int) $total,
         'with_topics' => (int) $with_topics,
-        'without_topics' => (int) ($total - $with_topics),
+        'without_topics' => (int) max(0, $total - $with_topics),
         'coverage_percentage' => $coverage,
-        'bar_width' => (int) $coverage,
+        'bar_width' => min(100, (int) $coverage),
         'bar_class' => $bar_class,
         'bar_style' => $bar_style,
       ];

@@ -73,6 +73,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
 
     $config = \Drupal::config('ttd_topics.settings');
     $threshold_count = $config->get('post_topic_minimum_display_count') ?: 10;
+    $has_been_analyzed = $node->hasField('field_ttd_last_analyzed') && !$node->get('field_ttd_last_analyzed')->isEmpty();
 
     // Get all topics for this node
     $topics = $node->get('field_ttd_topics')->referencedEntities();
@@ -96,24 +97,23 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       $count = $post_counts[$term_id] ?? 0;
       $is_manual = in_array($term_id, $manual_topic_ids);
       $is_rejected = in_array($term_id, $rejected_topic_ids);
+      $demand = in_array($tier, ['mainEntity', 'about'], TRUE) ? $this->buildDemandBadgeData($term_id) : NULL;
 
       $topic_data = [
         'term' => $term,
         'count' => $count,
+        'count_display' => $this->formatCount($count),
         'is_manual' => $is_manual,
         'is_rejected' => $is_rejected,
         'tier' => $tier,
+        'demand' => $demand,
       ];
 
       // Classify by tier
       if ($tier === 'mainEntity') {
         $main_entity = $topic_data;
       } elseif ($tier === 'about') {
-        if ($count >= $threshold_count) {
-          $about_topics[] = $topic_data;
-        } else {
-          $below_threshold_topics[] = $topic_data;
-        }
+        $about_topics[] = $topic_data;
       } elseif ($tier === 'mentions') {
         if ($count >= $threshold_count) {
           $mentions_topics[] = $topic_data;
@@ -125,10 +125,16 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       }
     }
 
-    // Sort by count descending
-    usort($about_topics, function($a, $b) { return $b['count'] - $a['count']; });
-    usort($mentions_topics, function($a, $b) { return $b['count'] - $a['count']; });
-    usort($below_threshold_topics, function($a, $b) { return $b['count'] - $a['count']; });
+    // Sort like WordPress: count descending, then alphabetically.
+    $sort_topics = function($a, $b) {
+      if ($b['count'] !== $a['count']) {
+        return $b['count'] - $a['count'];
+      }
+      return strcasecmp($a['term']->label(), $b['term']->label());
+    };
+    usort($about_topics, $sort_topics);
+    usort($mentions_topics, $sort_topics);
+    usort($below_threshold_topics, $sort_topics);
 
     return [
       '#theme' => 'ttd_admin_topics',
@@ -144,10 +150,99 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
           'ttdTopics' => [
             'nodeId' => $node->id(),
             'thresholdCount' => $threshold_count,
+            'hasBeenAnalyzed' => $has_been_analyzed,
           ],
         ],
       ],
     ];
+  }
+
+  /**
+   * Builds traffic-potential badge data matching the WordPress editor.
+   */
+  private function buildDemandBadgeData(int $term_id): array {
+    $metrics = function_exists('ttd_get_demand_metrics') ? \ttd_get_demand_metrics($term_id) : NULL;
+
+    if (!$metrics || !isset($metrics['keyword_difficulty'])) {
+      return [
+        'class' => 'ttd-kd-no-data',
+        'display' => '--',
+        'title' => $this->t('Demand data not yet available. Click to fetch.'),
+      ];
+    }
+
+    $kd = (int) $metrics['keyword_difficulty'];
+    $traffic_potential = isset($metrics['traffic_potential']) ? (int) $metrics['traffic_potential'] : 0;
+    if ($traffic_potential <= 0) {
+      return [
+        'class' => 'ttd-kd-no-data',
+        'display' => '--',
+        'title' => $this->t('Traffic potential not yet available. Click to fetch.'),
+      ];
+    }
+
+    $label = $this->getDifficultyLabel($kd);
+    $display = $this->formatCount($traffic_potential);
+
+    return [
+      'class' => $this->getDifficultyClass($kd),
+      'display' => $display,
+      'title' => $this->t("Traffic Potential: @traffic\nDifficulty: @difficulty/100 (@label)\n\nClick to refresh", [
+        '@traffic' => $display,
+        '@difficulty' => $kd,
+        '@label' => $label,
+      ]),
+      'keyword_difficulty' => $kd,
+      'traffic_potential' => $traffic_potential,
+      'search_volume' => isset($metrics['search_volume']) ? (int) $metrics['search_volume'] : 0,
+    ];
+  }
+
+  /**
+   * Formats counts the same way the WordPress editor badges do.
+   */
+  private function formatCount(int $count): string {
+    if ($count >= 1000000) {
+      $value = $count / 1000000;
+      return rtrim(rtrim(number_format($value, $value == floor($value) ? 0 : 1), '0'), '.') . 'M';
+    }
+    if ($count >= 1000) {
+      $value = $count / 1000;
+      return rtrim(rtrim(number_format($value, $value == floor($value) ? 0 : 1), '0'), '.') . 'K';
+    }
+    return (string) $count;
+  }
+
+  /**
+   * Maps keyword difficulty to the shared badge class.
+   */
+  private function getDifficultyClass(int $kd): string {
+    if ($kd <= 30) {
+      return 'ttd-kd-easy';
+    }
+    if ($kd <= 60) {
+      return 'ttd-kd-medium';
+    }
+    if ($kd <= 80) {
+      return 'ttd-kd-hard';
+    }
+    return 'ttd-kd-very-hard';
+  }
+
+  /**
+   * Human label for keyword difficulty.
+   */
+  private function getDifficultyLabel(int $kd): string {
+    if ($kd <= 30) {
+      return (string) $this->t('Easy');
+    }
+    if ($kd <= 60) {
+      return (string) $this->t('Medium');
+    }
+    if ($kd <= 80) {
+      return (string) $this->t('Hard');
+    }
+    return (string) $this->t('Very Hard');
   }
 
 }

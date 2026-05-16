@@ -13,19 +13,29 @@ if (file_exists($local_config) && filesize($local_config) > 0) {
 
 // Define the API endpoint as a constant (only if not already defined by local-config.php)
 if (!defined('TOPICALBOOST_API_ENDPOINT')) {
-  define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+  $use_beta_api = FALSE;
+  try {
+    $use_beta_api = (bool) \Drupal::config('ttd_topics.settings')->get('use_beta_api');
+  }
+  catch (\Throwable $e) {
+    $use_beta_api = FALSE;
+  }
+  define('TOPICALBOOST_API_ENDPOINT', $use_beta_api ? 'https://beta.api.topicalboost.com' : 'https://api.topicalboost.com');
 }
 
 use Drupal\advancedqueue\Job;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Drupal\taxonomy\Entity\Term;
@@ -79,21 +89,75 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
 }
 
 /**
+ * Implements hook_token_info().
+ */
+function ttd_topics_token_info(): array {
+  return [
+    'tokens' => [
+      'node' => [
+        'topicalboost-topics' => [
+          'name' => t('TopicalBoost topics display'),
+          'description' => t('Rendered TopicalBoost topics display for the node.'),
+        ],
+      ],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function ttd_topics_tokens($type, $tokens, array $data, array $options, BubbleableMetadata $bubbleable_metadata): array {
+  $replacements = [];
+  if ($type !== 'node' || empty($data['node']) || !$data['node'] instanceof NodeInterface) {
+    return $replacements;
+  }
+
+  $node = $data['node'];
+  foreach ($tokens as $name => $original) {
+    if ($name !== 'topicalboost-topics') {
+      continue;
+    }
+
+    $build = ttd_topics_build_frontend_topics_display($node);
+    $replacements[$original] = !empty($build)
+      ? (string) \Drupal::service('renderer')->renderPlain($build)
+      : '';
+
+    $bubbleable_metadata->addCacheableDependency($node);
+    if (!empty($build)) {
+      $bubbleable_metadata->addCacheableDependency(BubbleableMetadata::createFromRenderArray($build));
+    }
+  }
+
+  return $replacements;
+}
+
+/**
  * Implements hook_preprocess_HOOK() for node templates.
  */
 function ttd_topics_preprocess_node(&$variables) {
   $config = \Drupal::config('ttd_topics.settings');
   $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+  $bundle = $variables['node']->getType();
 
-  if (in_array($variables['node']->getType(), $enabled_content_types)) {
+  if (ttd_topics_is_node_pinned_on_current_topic($variables['node'])) {
+    $variables['attributes']['class'][] = 'ttd-pinned-post';
+  }
 
-    // Check if frontend is enabled or user is logged in.
+  if (ttd_topics_author_manager_should_hide_author($bundle)) {
+    $variables['display_submitted'] = FALSE;
+  }
+
+  if (in_array($bundle, $enabled_content_types)) {
+
+    // Check if frontend is enabled or the user has the configured permission.
     $frontend_enabled = $config->get('enable_frontend');
-    $user_logged_in = \Drupal::currentUser()->isAuthenticated();
+    $user_has_permission = ttd_topics_account_has_required_permission();
     $automatic_mentions_enabled = $config->get('enable_automatic_mentions') ?? TRUE;
 
     // Still process topics for schema, but control display.
-    $variables['show_ttd_topics'] = $frontend_enabled || $user_logged_in;
+    $variables['show_ttd_topics'] = $frontend_enabled || $user_has_permission;
 
     // Only add topics for automatic display if automatic mentions is enabled
     if ($automatic_mentions_enabled) {
@@ -113,10 +177,85 @@ function ttd_topics_preprocess_node(&$variables) {
 }
 
 /**
+ * Checks whether a node is pinned on the current TopicalBoost topic page.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The node being rendered.
+ *
+ * @return bool
+ *   TRUE when the node is pinned to the current topic archive.
+ */
+function ttd_topics_is_node_pinned_on_current_topic(NodeInterface $node): bool {
+  $term = \Drupal::routeMatch()->getParameter('taxonomy_term');
+  if (!$term instanceof Term || $term->bundle() !== 'ttd_topics' || !$term->hasField('field_pinned_posts')) {
+    return FALSE;
+  }
+
+  foreach ($term->get('field_pinned_posts') as $ref) {
+    if ((int) $ref->target_id === (int) $node->id()) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Gets the configured permission for TopicalBoost topic management.
+ *
+ * @return string
+ *   Permission machine name.
+ */
+function ttd_topics_get_required_permission() {
+  $permission = trim((string) \Drupal::config('ttd_topics.settings')->get('required_permission'));
+  return $permission !== '' ? $permission : 'administer topicalboost';
+}
+
+/**
+ * Checks whether an account has the configured TopicalBoost permission.
+ *
+ * @param \Drupal\Core\Session\AccountInterface|null $account
+ *   Account to check, or NULL for the current user.
+ *
+ * @return bool
+ *   TRUE when the account has the configured permission.
+ */
+function ttd_topics_account_has_required_permission(?AccountInterface $account = NULL) {
+  $account = $account ?: \Drupal::currentUser();
+  return $account->hasPermission(ttd_topics_get_required_permission());
+}
+
+/**
+ * Determines whether default Drupal author UI/output should be hidden.
+ */
+function ttd_topics_author_manager_should_hide_author(string $bundle): bool {
+  $config = \Drupal::config('ttd_topics.settings');
+  if (!$config->get('author_manager_enabled')) {
+    return FALSE;
+  }
+
+  $force_show = array_filter($config->get('author_force_show_content_types') ?: []);
+  if (in_array($bundle, $force_show, TRUE)) {
+    return FALSE;
+  }
+
+  $hidden = array_filter($config->get('author_hide_content_types') ?: []);
+  return in_array($bundle, $hidden, TRUE);
+}
+
+/**
  * Implements hook_form_FORM_ID_alter() for node_form.
  */
 function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state, $form_id) {
   $node = $form_state->getFormObject()->getEntity();
+  if (ttd_topics_author_manager_should_hide_author($node->bundle())) {
+    if (isset($form['author'])) {
+      $form['author']['#access'] = FALSE;
+    }
+    if (isset($form['uid'])) {
+      $form['uid']['#access'] = FALSE;
+    }
+  }
 
   if ($node->hasField('field_ttd_topics')) {
     $config = \Drupal::config('ttd_topics.settings');
@@ -126,19 +265,20 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     $form['field_ttd_topics']['#access'] = FALSE;
 
     $metabox_position = $config->get('metabox_position') ?: 'side';
-
     if ($metabox_position === 'normal') {
-      // Main content area: place below editor, no sidebar group.
       $form['ttd_topics'] = [
-        '#type' => 'details',
-        '#title' => t('TopicalBoost'),
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['ttd-editor-metabox', 'ttd-editor-metabox-normal'],
+        ],
         '#weight' => 50,
-        '#optional' => FALSE,
-        '#open' => TRUE,
+      ];
+      $form['ttd_topics']['metabox_title'] = [
+        '#markup' => '<h2 class="ttd-editor-metabox-title">' . t('TopicalBoost') . '</h2>',
+        '#weight' => -100,
       ];
     }
     else {
-      // Sidebar (default).
       $form['ttd_topics'] = [
         '#type' => 'details',
         '#title' => t('TopicalBoost'),
@@ -154,6 +294,22 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
     // Check if analysis is in progress.
     $analysis_in_progress = $node->get('field_ttd_analysis_in_progress')->value;
+    $meta_gen_enabled = $config->get('enable_meta_generator') ?? FALSE;
+    $use_combined_editor = ($metabox_position === 'normal' && $meta_gen_enabled && $is_saved && !$analysis_in_progress);
+    $topics_field_value = $is_saved ? $node->get('field_ttd_topics')->getValue() : [];
+    $has_topics = !empty($topics_field_value);
+    $existing_title = $node->hasField('field_ttd_generated_meta_title')
+      ? $node->get('field_ttd_generated_meta_title')->value
+      : '';
+    $existing_description = $node->hasField('field_ttd_generated_meta_desc')
+      ? $node->get('field_ttd_generated_meta_desc')->value
+      : '';
+    $existing_og_title = $node->hasField('field_ttd_generated_og_title')
+      ? $node->get('field_ttd_generated_og_title')->value
+      : '';
+    $existing_og_description = $node->hasField('field_ttd_generated_og_desc')
+      ? $node->get('field_ttd_generated_og_desc')->value
+      : '';
 
     // Show status when node is held by block-until-analyzed.
     $block_until_analyzed = $config->get('block_until_analyzed');
@@ -164,29 +320,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       ];
     }
 
-    if ($is_saved && !$analysis_in_progress) {
-      // Add the "Run Analysis" button with explanation.
-      $form['ttd_topics']['run_analysis_wrapper'] = [
-        '#type' => 'container',
-        '#weight' => -10,
-        '#attributes' => ['id' => 'ttd-topics-run-analysis-wrapper'],
-      ];
-
-      $form['ttd_topics']['run_analysis_wrapper']['run_analysis'] = [
-        '#type' => 'button',
-        '#value' => t('Run Analysis'),
-        '#ajax' => [
-          'callback' => 'ttd_topics_run_analysis_ajax_callback',
-          'wrapper' => 'ttd-topics-run-analysis-wrapper',
-          'progress' => [
-            'type' => 'throbber',
-            'message' => t('Running analysis...'),
-          ],
-        ],
-        '#suffix' => '<span class="ttd-help-icon" data-tooltip="' . t('This optional button analyzes draft posts so you can see topics before the post goes live, or re-analyze published posts after they\'ve been edited. Posts are automatically analyzed on first publish.') . '">?</span>',
-      ];
-    }
-    elseif ($analysis_in_progress) {
+    if ($analysis_in_progress) {
       $form['ttd_topics']['analysis_in_progress'] = [
         '#markup' => '
           <div class="ttd-analysis-progress" role="status" aria-live="polite" aria-label="' . t('Analysis in progress') . '">
@@ -221,6 +355,26 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Add custom CSS to style the explanation.
     $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
 
+    if ($use_combined_editor) {
+      $form['#attached']['library'][] = 'ttd_topics/meta_generator';
+      $form['#attached']['library'][] = 'ttd_topics/combined_tabs';
+
+      $analysis_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>';
+      $seo_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.5-4.5"></path></svg>';
+      $social_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.5 6.8-4"></path><path d="m8.6 13.5 6.8 4"></path></svg>';
+
+      $form['ttd_topics']['combined_open'] = [
+        '#markup' => Markup::create('<div class="ttd-combined-metabox ttd-combined-tabbed">
+          <div class="ttd-combined-tabs" role="tablist">
+            <button type="button" class="ttd-combined-tab ttd-combined-tab-active" data-tab="topics" role="tab" aria-selected="true">' . $analysis_icon . ' Analysis' . ($has_topics ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
+            <button type="button" class="ttd-combined-tab" data-tab="seo" role="tab" aria-selected="false">' . $seo_icon . ' SEO Meta' . (($existing_title && $existing_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
+            <button type="button" class="ttd-combined-tab" data-tab="social" role="tab" aria-selected="false">' . $social_icon . ' Social Meta' . (($existing_og_title && $existing_og_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
+          </div>
+          <div class="ttd-combined-panel ttd-combined-panel-active" data-panel="topics" role="tabpanel">'),
+        '#weight' => 0,
+      ];
+    }
+
     // Render the new Admin Topics Block (WP beta features).
     if ($node->id() && !$analysis_in_progress) {
       $block_manager = \Drupal::service('plugin.manager.block');
@@ -238,6 +392,13 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       $form['ttd_topics']['empty'] = [
         '#markup' => '<p>' . t('Topics will appear here after the first analysis.') . '</p>',
         '#weight' => 10,
+      ];
+    }
+
+    if ($use_combined_editor) {
+      $form['ttd_topics']['topics_panel_close'] = [
+        '#markup' => Markup::create('</div><div class="ttd-combined-panel" data-panel="seo" role="tabpanel">'),
+        '#weight' => 20,
       ];
     }
 
@@ -273,47 +434,59 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     }
 
     // Add Meta Generator section (if enabled in settings).
-    $meta_gen_enabled = $config->get('enable_meta_generator') ?? FALSE;
     if ($meta_gen_enabled && $is_saved && !$node->get('field_ttd_analysis_in_progress')->value) {
-      // Check topics directly from the node field to avoid variable scoping issues
-      $topics_field_value = $node->get('field_ttd_topics')->getValue();
-      $has_topics = !empty($topics_field_value);
+      $meta_key = $use_combined_editor ? 'ttd_topics' : 'ttd_meta_generator';
 
-      // Get existing generated meta if any.
-      $existing_title = $node->hasField('field_ttd_generated_meta_title')
-        ? $node->get('field_ttd_generated_meta_title')->value
-        : '';
-      $existing_description = $node->hasField('field_ttd_generated_meta_desc')
-        ? $node->get('field_ttd_generated_meta_desc')->value
-        : '';
+      if (!$use_combined_editor) {
+        $form['ttd_meta_generator'] = [
+          '#type' => 'details',
+          '#title' => t('SEO Meta Generator'),
+          '#weight' => 51,
+          '#optional' => FALSE,
+          '#open' => TRUE,
+        ];
+      }
 
-      $meta_group = ($metabox_position === 'normal') ? [] : ['#group' => 'advanced'];
-      $form['ttd_meta_generator'] = [
-        '#type' => 'details',
-        '#title' => t('SEO Meta Generator'),
-        '#weight' => ($metabox_position === 'normal') ? 51 : -5,
-        '#optional' => FALSE,
-        '#open' => TRUE,
-      ] + $meta_group;
+      $form['#attached']['library'][] = 'ttd_topics/meta_generator';
+
+      $settings = [
+        'nodeId' => $node->id(),
+        'postUrl' => $node->toUrl()->setAbsolute()->toString(),
+        'postTitle' => $node->getTitle(),
+        'apiBase' => '/api/topicalboost/meta',
+        'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
+        'existingSocialMeta' => ($existing_og_title && $existing_og_description) ? [
+          'title' => $existing_og_title,
+          'description' => $existing_og_description,
+        ] : NULL,
+      ];
+
+      if ($existing_title && $existing_description) {
+        $settings['existingMeta'] = [
+          'title' => $existing_title,
+          'description' => $existing_description,
+        ];
+      }
+
+      $form['#attached']['drupalSettings']['ttdMetaGenerator'] = $settings;
 
       if (!$has_topics) {
-        $form['ttd_meta_generator']['no_topics'] = [
+        $form[$meta_key]['no_topics'] = [
           '#markup' => '<p>' . t('Run TopicalBoost analysis first to detect topics, then generate SEO-optimized meta.') . '</p>',
+          '#weight' => 30,
         ];
       }
       else {
-        // Add container for the meta generator UI.
-        $form['ttd_meta_generator']['container'] = [
-          '#type' => 'container',
-          '#attributes' => [
-            'id' => 'ttd-meta-generator-container',
-            'data-node-id' => $node->id(),
-          ],
-        ];
+        if ($use_combined_editor) {
+          $form[$meta_key]['meta_wrapper_open'] = [
+            '#markup' => Markup::create('<div class="ttd-meta-generator-wrapper">'),
+            '#weight' => 25,
+          ];
+        }
 
         // Show existing meta if available.
         if ($existing_title && $existing_description) {
-          $form['ttd_meta_generator']['existing'] = [
+          $form[$meta_key]['existing'] = [
             '#markup' => '
               <div class="ttd-meta-existing">
                 <h4>' . t('Current Generated Meta') . '</h4>
@@ -323,42 +496,62 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
                 </div>
                 <button type="button" class="button ttd-meta-regenerate-btn">' . t('Regenerate') . '</button>
               </div>',
-            '#weight' => -10,
+            '#weight' => 28,
           ];
         }
 
-        // Attach libraries and settings.
-        $form['ttd_meta_generator']['#attached']['library'][] = 'ttd_topics/meta_generator';
-        // Get existing social meta if any.
-        $existing_og_title = $node->hasField('field_ttd_generated_og_title')
-          ? $node->get('field_ttd_generated_og_title')->value
-          : '';
-        $existing_og_description = $node->hasField('field_ttd_generated_og_desc')
-          ? $node->get('field_ttd_generated_og_desc')->value
-          : '';
-
-        $settings = [
-          'nodeId' => $node->id(),
-          'postUrl' => $node->toUrl()->setAbsolute()->toString(),
-          'postTitle' => $node->getTitle(),
-          'apiBase' => '/api/topicalboost/meta',
-          'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
-          'socialApiBase' => '/api/topicalboost/meta',
-          'existingSocialMeta' => ($existing_og_title && $existing_og_description) ? [
-            'title' => $existing_og_title,
-            'description' => $existing_og_description,
-          ] : NULL,
+        $form[$meta_key]['container'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'id' => 'ttd-meta-generator-container',
+            'data-node-id' => $node->id(),
+          ],
+          '#weight' => 30,
         ];
 
-        // Pass existing meta to JS so it can load it into the editable UI.
-        if ($existing_title && $existing_description) {
-          $settings['existingMeta'] = [
-            'title' => $existing_title,
-            'description' => $existing_description,
+        if ($use_combined_editor) {
+          $form[$meta_key]['meta_wrapper_close'] = [
+            '#markup' => Markup::create('</div>'),
+            '#weight' => 35,
+          ];
+        }
+      }
+
+      if ($use_combined_editor) {
+        $form[$meta_key]['social_panel_open'] = [
+          '#markup' => Markup::create('</div><div class="ttd-combined-panel" data-panel="social" role="tabpanel">'),
+          '#weight' => 40,
+        ];
+
+        if (!$has_topics) {
+          $form[$meta_key]['social_no_topics'] = [
+            '#markup' => '<p>' . t('Run TopicalBoost analysis first to generate social meta.') . '</p>',
+            '#weight' => 42,
+          ];
+        }
+        else {
+          $form[$meta_key]['social_wrapper_open'] = [
+            '#markup' => Markup::create('<div class="ttd-meta-generator-wrapper">'),
+            '#weight' => 42,
+          ];
+          $form[$meta_key]['social_container'] = [
+            '#type' => 'container',
+            '#attributes' => [
+              'id' => 'ttd-social-meta-generator-container',
+              'data-node-id' => $node->id(),
+            ],
+            '#weight' => 44,
+          ];
+          $form[$meta_key]['social_wrapper_close'] = [
+            '#markup' => Markup::create('</div>'),
+            '#weight' => 46,
           ];
         }
 
-        $form['ttd_meta_generator']['#attached']['drupalSettings']['ttdMetaGenerator'] = $settings;
+        $form[$meta_key]['combined_close'] = [
+          '#markup' => Markup::create('</div></div>'),
+          '#weight' => 50,
+        ];
       }
     }
 
@@ -399,14 +592,13 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
           }
         }
 
-        $schema_group = ($metabox_position === 'normal') ? [] : ['#group' => 'advanced'];
         $form['ttd_schema_images'] = [
           '#type' => 'details',
           '#title' => t('Schema Images'),
-          '#weight' => ($metabox_position === 'normal') ? 52 : -3,
+          '#weight' => 52,
           '#optional' => FALSE,
           '#open' => FALSE,
-        ] + $schema_group;
+        ];
 
         $focal_html = '';
         if ($source_url) {
@@ -504,8 +696,13 @@ function ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id)
     $config = \Drupal::config('ttd_topics.settings');
     if ($config->get('hide_seo_module_ui')) {
       // Hide Metatag module form elements.
-      if (isset($form['field_meta_tags'])) {
-        $form['field_meta_tags']['#access'] = FALSE;
+      $form_object = $form_state->getFormObject();
+      $entity = method_exists($form_object, 'getEntity') ? $form_object->getEntity() : NULL;
+      if ($entity instanceof NodeInterface) {
+        $metatag_field = ttd_topics_get_metatag_field_name($entity);
+        if ($metatag_field && isset($form[$metatag_field])) {
+          $form[$metatag_field]['#access'] = FALSE;
+        }
       }
       // Hide Yoast SEO module form elements.
       if (isset($form['field_yoast_seo'])) {
@@ -524,16 +721,27 @@ function ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id)
  */
 function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
   $config = \Drupal::config('ttd_topics.settings');
-  $min_display_count = $config->get('post_topic_minimum_display_count');
+  $min_display_count = (int) ($config->get('post_topic_minimum_display_count') ?? 0);
   $filtered_topics = [];
 
   // Load the terms from the field_ttd_topics field.
   if (!empty($node->field_ttd_topics)) {
-    $rejected_term_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
+    $rejected_term_ids = $node->hasField('field_ttd_rejected_topics')
+      ? array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'))
+      : [];
+    $manual_term_ids = $node->hasField('field_manual_topics')
+      ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
+      : [];
     $term_ids = [];
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
-      if ($term && !$term->get('field_hide')->value && !in_array($term->id(), $rejected_term_ids)) {
+      if (!$term) {
+        continue;
+      }
+      $tid = (int) $term->id();
+      $is_manual = in_array($tid, $manual_term_ids, TRUE);
+      $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+      if (!$is_hidden && ($is_manual || !in_array($tid, $rejected_term_ids, TRUE))) {
         $term_ids[] = $term->id();
       }
     }
@@ -546,27 +754,38 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
 
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
-      if ($term && !$term->get('field_hide')->value) {
-        $tid = $term->id();
+      if ($term) {
+        $tid = (int) $term->id();
+        $is_manual = in_array($tid, $manual_term_ids, TRUE);
+        $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+        if ($is_hidden) {
+          continue;
+        }
 
         // Skip rejected topics.
-        if (in_array($tid, $rejected_term_ids)) {
+        if (!$is_manual && in_array($tid, $rejected_term_ids, TRUE)) {
           continue;
         }
 
         $count = $term_counts[$tid] ?? 0;
+        $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+          ? (int) $term->get('field_ttd_id')->value
+          : 0;
+        $entity_salience = $salience_data[$ttd_id] ?? ['salience_score' => NULL, 'salience_category' => NULL];
+        $tier = $entity_salience['salience_category'] ?: 'mentions';
+        if (!in_array($tier, ['mainEntity', 'about', 'mentions'], TRUE)) {
+          $tier = 'mentions';
+        }
+        $is_force_show = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
+        $is_high_salience = in_array($tier, ['mainEntity', 'about'], TRUE);
 
-        // Only include terms associated with at least the minimum display count.
-        if ($count >= $min_display_count) {
-          // Get salience data using ttd_id.
-          $ttd_id = $term->hasField('field_ttd_id') ? (int) $term->get('field_ttd_id')->value : 0;
-          $entity_salience = $salience_data[$ttd_id] ?? ['salience_score' => NULL, 'salience_category' => NULL];
-
+        // Match WordPress: manual, forced, and main/about topics bypass threshold.
+        if ($is_manual || $is_force_show || $is_high_salience || $count >= $min_display_count) {
           $filtered_topics[] = [
             'term' => $term,
             'count' => $count,
             'salience_score' => $entity_salience['salience_score'],
-            'salience_category' => $entity_salience['salience_category'],
+            'salience_category' => $tier,
           ];
         }
       }
@@ -609,41 +828,78 @@ function ttd_topics_node_view(array &$build, EntityInterface $entity, EntityView
     // Attach the frontend library.
     $build['#attached']['library'][] = 'ttd_topics/ttd_topics.frontend';
 
-    // Only add topics display for full view mode (single post pages).
     if ($view_mode == 'full') {
-      // Check if frontend is enabled or user is logged in.
-      $frontend_enabled = $config->get('enable_frontend');
-      $user_logged_in = \Drupal::currentUser()->isAuthenticated();
-      $automatic_mentions_enabled = $config->get('enable_automatic_mentions') ?? TRUE;
-
-      // Master toggle: if automatic mentions is disabled, don't automatically add topics
-      if (!$automatic_mentions_enabled) {
-        return;
-      }
-
-      if ($frontend_enabled || $user_logged_in) {
-        // Get the same data that's processed in preprocess.
-        $filtered_topics = ttd_topics_get_filtered_topics_for_node($entity);
-
-        if (!empty($filtered_topics)) {
-          // Add the topics display at the bottom of the content.
-          $build['topicalboost_display'] = [
-            '#theme' => 'topicalboost_display',
-            '#node' => $entity,
-            '#filtered_topics' => $filtered_topics,
-            '#topics_list_label' => $config->get('topics_list_label'),
-            '#maximum_visible_post_topics' => $config->get('maximum_visible_post_topics'),
-            '#options' => [
-              'frontend_filter_mode' => $config->get('frontend_filter_mode') ?: 'all',
-            ],
-            '#taxonomy_label_singular' => $config->get('taxonomy_label_singular') ?: 'Topic',
-            '#taxonomy_label_plural' => $config->get('taxonomy_label_plural') ?: 'Topics',
-            '#weight' => 100, // Place at the bottom.
-          ];
-        }
+      $topics_display = ttd_topics_build_frontend_topics_display($entity, TRUE);
+      if (!empty($topics_display)) {
+        $topics_display['#weight'] = 100;
+        $build['topicalboost_display'] = $topics_display;
       }
     }
   }
+}
+
+/**
+ * Builds the shared frontend topics display render array for a node.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The node whose topics should be rendered.
+ * @param bool $respect_automatic_mentions
+ *   Whether to obey the automatic frontend insertion setting.
+ *
+ * @return array
+ *   A render array, or an empty array when nothing should render.
+ */
+function ttd_topics_build_frontend_topics_display(NodeInterface $node, bool $respect_automatic_mentions = FALSE): array {
+  if (!$node->hasField('field_ttd_topics')) {
+    return [];
+  }
+
+  $config = \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+  if (!in_array($node->getType(), $enabled_content_types, TRUE)) {
+    return [];
+  }
+
+  if ($respect_automatic_mentions && !($config->get('enable_automatic_mentions') ?? TRUE)) {
+    return [];
+  }
+
+  if (!$config->get('enable_frontend') && !ttd_topics_account_has_required_permission()) {
+    return [];
+  }
+
+  $filtered_topics = ttd_topics_get_filtered_topics_for_node($node);
+  if (empty($filtered_topics)) {
+    return [];
+  }
+
+  $cache_tags = $node->getCacheTags();
+  foreach ($filtered_topics as $topic) {
+    if (!empty($topic['term']) && $topic['term'] instanceof EntityInterface) {
+      $cache_tags = \Drupal\Core\Cache\Cache::mergeTags($cache_tags, $topic['term']->getCacheTags());
+    }
+  }
+  $cache_tags = \Drupal\Core\Cache\Cache::mergeTags($cache_tags, ['config:ttd_topics.settings']);
+
+  return [
+    '#theme' => 'topicalboost_display',
+    '#node' => $node,
+    '#filtered_topics' => $filtered_topics,
+    '#topics_list_label' => $config->get('topics_list_label'),
+    '#maximum_visible_post_topics' => $config->get('maximum_visible_post_topics') ?: 5,
+    '#options' => [
+      'frontend_filter_mode' => $config->get('frontend_filter_mode') ?: 'mentions_behind_toggle',
+    ],
+    '#taxonomy_label_singular' => $config->get('taxonomy_label_singular') ?: 'Topic',
+    '#taxonomy_label_plural' => $config->get('taxonomy_label_plural') ?: 'Topics',
+    '#attached' => [
+      'library' => ['ttd_topics/ttd_topics.frontend'],
+    ],
+    '#cache' => [
+      'contexts' => ['route', 'user.permissions'],
+      'tags' => $cache_tags,
+    ],
+  ];
 }
 
 /**
@@ -761,6 +1017,79 @@ function ttd_topics_element_info_alter(array &$info) {
     ],
     '#theme_wrappers' => ['checkboxes'],
   ];
+}
+
+/**
+ * Filters HTML content into clean analysis text while preserving structure.
+ *
+ * Mirrors the WordPress plugin's filter_text() behavior for paragraphs,
+ * headings, lists, shortcodes, Gutenberg comments, and HTML entities.
+ */
+function ttd_topics_filter_text(string $text): string {
+  if ($text === '') {
+    return '';
+  }
+
+  // Remove Gutenberg block comments and WordPress-style shortcodes.
+  $text = preg_replace('/<!--\s*\/?wp:[^>]*-->/i', "\n\n", $text);
+  $text = preg_replace('/\[(\w[\w-]*)(?:[^\]]*)\].*?\[\/\1\]/s', ' ', $text);
+  $text = preg_replace('/\[[^\]]+\]/', ' ', $text);
+
+  // Convert block boundaries to line breaks before stripping tags.
+  $block_tags = 'p|div|section|article|header|footer|blockquote|h[1-6]|ul|ol|table|tr';
+  $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+  $text = preg_replace('/<li\b[^>]*>/i', '', $text);
+  $text = preg_replace('/<\/li\s*>/i', "\n", $text);
+  $text = preg_replace('/<(' . $block_tags . ')\b[^>]*>/i', "\n\n", $text);
+  $text = preg_replace('/<\/(' . $block_tags . ')\s*>/i', "\n\n", $text);
+
+  $text = strip_tags($text);
+  $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+  $text = preg_replace('/[ \t\x{00A0}]+/u', ' ', $text);
+  $text = preg_replace('/[ \t\r]*\n[ \t\r]*/', "\n", $text);
+  $text = preg_replace('/\n{3,}/', "\n\n", $text);
+
+  return trim($text);
+}
+
+/**
+ * Merge fresh API topic IDs with manual topics using WordPress parity rules.
+ *
+ * Manual topics survive reanalysis unless the API now returns the same TTD
+ * entity, in which case the topic is promoted to API-managed and removed from
+ * the manual list. Stale API topics are not preserved.
+ */
+function ttd_topics_merge_analysis_topic_ids_with_manual(NodeInterface $node, array $api_term_ids, array $api_ttd_ids): array {
+  $api_term_ids = array_values(array_unique(array_map('intval', $api_term_ids)));
+  $api_ttd_lookup = array_fill_keys(array_map('intval', $api_ttd_ids), TRUE);
+
+  if (!$node->hasField('field_manual_topics')) {
+    return $api_term_ids;
+  }
+
+  $manual_term_ids = array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'));
+  $preserved_manual_ids = [];
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+
+  foreach ($manual_term_ids as $manual_term_id) {
+    $term = $term_storage->load($manual_term_id);
+    if (!$term) {
+      continue;
+    }
+
+    $manual_ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+      ? (int) $term->get('field_ttd_id')->value
+      : 0;
+    if ($manual_ttd_id && isset($api_ttd_lookup[$manual_ttd_id])) {
+      continue;
+    }
+
+    $preserved_manual_ids[] = $manual_term_id;
+  }
+
+  $node->set('field_manual_topics', array_map(static fn($tid) => ['target_id' => $tid], array_values(array_unique($preserved_manual_ids))));
+
+  return array_values(array_unique(array_merge($api_term_ids, $preserved_manual_ids)));
 }
 
 // /**
@@ -964,35 +1293,41 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
     $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
     
     if (in_array($entity->bundle(), $enabled_content_types)) {
-    $is_newly_published = $entity->isPublished() && (!$entity->original || !$entity->original->isPublished());
+      $is_newly_published = $entity->isPublished() && (!$entity->original || !$entity->original->isPublished());
+      $has_been_analyzed = $entity->hasField('field_ttd_last_analyzed') && !$entity->get('field_ttd_last_analyzed')->isEmpty();
 
-    if ($is_newly_published) {
-      try {
-        $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
-        $queue = $queue_storage->load('ttd_topics_analysis');
-        if ($queue) {
-          $job = Job::create('ttd_topics_analysis', [
-            'node_id' => $entity->id() ? $entity->id() : $entity->uuid(),
-            'force_analysis' => FALSE,
-          ]);
-          $queue->enqueueJob($job);
+      if ($is_newly_published && !$has_been_analyzed) {
+        try {
+          $block_until_analyzed = (bool) $config->get('block_until_analyzed');
+          $analysis_in_progress = $entity->hasField('field_ttd_analysis_in_progress') && (bool) $entity->get('field_ttd_analysis_in_progress')->value;
 
-          // Set analysis in progress.
-          $entity->set('field_ttd_analysis_in_progress', TRUE);
+          $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+          $queue = $queue_storage->load('ttd_topics_analysis');
+          if ($queue) {
+            if (!$analysis_in_progress) {
+              $job = Job::create('ttd_topics_analysis', [
+                'node_id' => $entity->id() ? $entity->id() : $entity->uuid(),
+                'force_analysis' => $block_until_analyzed,
+              ]);
+              $queue->enqueueJob($job);
+            }
 
-          // Block until analyzed: hold the node as unpublished until analysis completes.
-          if ($config->get('block_until_analyzed')) {
-            $entity->setUnpublished();
-            \Drupal::messenger()->addWarning(t('This content is being held for TopicalBoost analysis and will be published automatically when complete.'));
+            // Set analysis in progress.
+            $entity->set('field_ttd_analysis_in_progress', TRUE);
+
+            // Block until analyzed: hold the node as unpublished until analysis completes.
+            if ($block_until_analyzed) {
+              $entity->setUnpublished();
+              \Drupal::messenger()->addWarning(t('This content is being held for TopicalBoost analysis and will be published automatically when complete.'));
+            }
+          }
+          else {
+            \Drupal::logger('topicalboost')->error('TopicalBoost analysis queue not found');
           }
         }
-        else {
-          \Drupal::logger('topicalboost')->error('TopicalBoost analysis queue not found');
+        catch (\Exception $e) {
+          \Drupal::logger('topicalboost')->error('Error queueing TopicalBoost analysis job: @message', ['@message' => $e->getMessage()]);
         }
-      }
-      catch (\Exception $e) {
-        \Drupal::logger('topicalboost')->error('Error queueing TopicalBoost analysis job: @message', ['@message' => $e->getMessage()]);
-      }
       }
     }
   }
@@ -1105,6 +1440,63 @@ function ttd_topics_cron() {
   catch (\Exception $e) {
     // Silently fail.
   }
+
+  $state = \Drupal::state();
+  $now = \Drupal::time()->getRequestTime();
+  $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+  $queue = $queue_storage->load('ttd_topics_analysis');
+
+  // Keep API-owned hidden entities in sync without waiting for a manual sync.
+  $hidden_sync_queued = FALSE;
+  if (\Drupal::database()->schema()->tableExists('advancedqueue')) {
+    $hidden_sync_queued = (bool) \Drupal::database()->select('advancedqueue', 'aq')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', 'ttd_sync_hidden_entities')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+  if ($queue && !$hidden_sync_queued && ($now - (int) $state->get('ttd_hidden_entities_sync_last_queued', 0)) >= 15 * 60) {
+    try {
+      $queue->enqueueJob(Job::create('ttd_sync_hidden_entities', ['trigger' => 'cron']));
+      $state->set('ttd_hidden_entities_sync_last_queued', $now);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue hidden entities sync: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
+  // Let cron finalize a completed sync even if the admin UI is not open.
+  if ($state->get('ttd_active_sync')) {
+    try {
+      \Drupal::service('ttd_topics.sync_service')->getProgress();
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Sync progress check failed: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
+  // Hourly auto-sync check. The service only starts a pull when the API has
+  // materially more data and the site setting is enabled.
+  if (($now - (int) $state->get('ttd_auto_sync_last_checked', 0)) >= 60 * 60) {
+    $state->set('ttd_auto_sync_last_checked', $now);
+    try {
+      \Drupal::service('ttd_topics.sync_service')->autoSyncCheck();
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Auto-sync check failed: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
+  // Keep subscription and domain notice state reasonably fresh.
+  ttd_topics_maybe_refresh_api_status();
 
   // Check for nodes stuck in "block until analyzed" state > 15 minutes.
   $config = \Drupal::config('ttd_topics.settings');
@@ -1309,30 +1701,83 @@ function ttd_topics_get_ttd_entity_info($ttd_id) {
 function ttd_topics_format_entity_info_for_display($entity_info) {
   $rows = [];
   $skip_fields = ['ttd_id', 'createdAt', 'updatedAt', 'count', 'hide'];
+  $field_config = [
+    'name' => ['label' => 'Name', 'format' => 'text'],
+    'mid' => ['label' => 'MID', 'format' => 'text'],
+    'nl_name' => ['label' => 'Natural Language Name', 'format' => 'text'],
+    'nl_type' => ['label' => 'Natural Language Type', 'format' => 'text'],
+    'wikipedia_url' => ['label' => 'Wikipedia URL', 'format' => 'url'],
+    'kg_name' => ['label' => 'Knowledge Graph Name', 'format' => 'text'],
+    'kg_description' => ['label' => 'Knowledge Graph Description', 'format' => 'text'],
+    'kg_image' => ['label' => 'Knowledge Graph Image', 'format' => 'image'],
+    'wb_qid' => ['label' => 'Wikibase QID', 'format' => 'text'],
+    'wb_name' => ['label' => 'Wikibase Name', 'format' => 'text'],
+    'wb_description' => ['label' => 'Wikibase Description', 'format' => 'text'],
+    'wb_date_modified' => ['label' => 'WB Date Modified', 'format' => 'text'],
+    'wb_instances' => ['label' => 'WB Instances', 'format' => 'text'],
+    'wb_image' => ['label' => 'WB Image', 'format' => 'image'],
+    'wb_logo_image' => ['label' => 'WB Logo Image', 'format' => 'image'],
+    'official_website' => ['label' => 'Official Website', 'format' => 'url'],
+    'country' => ['label' => 'Country', 'format' => 'text'],
+    'genre' => ['label' => 'Genre', 'format' => 'text'],
+    'creator' => ['label' => 'Creator', 'format' => 'text'],
+    'author' => ['label' => 'Author', 'format' => 'text'],
+    'producer' => ['label' => 'Producer', 'format' => 'text'],
+    'director' => ['label' => 'Director', 'format' => 'text'],
+    'screenwriter' => ['label' => 'Screenwriter', 'format' => 'text'],
+    'cast_member' => ['label' => 'Cast Member', 'format' => 'text'],
+    'characters' => ['label' => 'Characters', 'format' => 'text'],
+    'composer' => ['label' => 'Composer', 'format' => 'text'],
+    'publication_date' => ['label' => 'Publication Date', 'format' => 'text'],
+    'duration' => ['label' => 'Duration', 'format' => 'text'],
+    'start_time' => ['label' => 'Start Time', 'format' => 'text'],
+    'end_time' => ['label' => 'End Time', 'format' => 'text'],
+    'inception' => ['label' => 'Inception', 'format' => 'text'],
+    'date_of_birth' => ['label' => 'Date of Birth', 'format' => 'text'],
+    'series' => ['label' => 'Series', 'format' => 'text'],
+    'season' => ['label' => 'Season', 'format' => 'text'],
+    'mpa_film_rating' => ['label' => 'MPA Film Rating', 'format' => 'text'],
+    'imdb_id' => ['label' => 'IMDB ID', 'format' => 'text'],
+    'rotten_tomatoes_id' => ['label' => 'Rotten Tomatoes ID', 'format' => 'text'],
+    'goodreads_work_id' => ['label' => 'Goodreads Work ID', 'format' => 'text'],
+    'allmusic_album_id' => ['label' => 'AllMusic Album ID', 'format' => 'text'],
+    'spotify_album_id' => ['label' => 'Spotify Album ID', 'format' => 'text'],
+    'freebase_id' => ['label' => 'Freebase ID', 'format' => 'text'],
+    'google_knowledge_graph_id' => ['label' => 'Google Knowledge Graph ID', 'format' => 'text'],
+    'isbn_13' => ['label' => 'ISBN-13', 'format' => 'text'],
+    'twitter_username' => ['label' => 'Twitter Username', 'format' => 'text'],
+    'facebook_id' => ['label' => 'Facebook ID', 'format' => 'text'],
+    'linkedin_personal_profile_id' => ['label' => 'LinkedIn Personal Profile ID', 'format' => 'text'],
+    'schema_types' => ['label' => 'Schema Types', 'format' => 'list'],
+    'wb_categories' => ['label' => 'WB Categories', 'format' => 'list'],
+  ];
 
-  foreach ($entity_info as $key => $value) {
+  $ordered_keys = array_unique(array_merge(array_keys($field_config), array_keys($entity_info)));
+  foreach ($ordered_keys as $key) {
     if (in_array($key, $skip_fields)) {
       continue;
     }
+    if (!array_key_exists($key, $entity_info)) {
+      continue;
+    }
+    $value = $entity_info[$key];
 
     // Skip empty or null values.
     if (empty($value) && $value !== '0') {
       continue;
     }
 
-    if ($key === 'schema_types' || $key === 'wb_categories') {
-      $value = is_array($value) ? implode(', ', $value) : $value;
-    }
-    elseif ($key === 'wb_instances') {
-      $value = json_encode(json_decode($value), JSON_PRETTY_PRINT);
-    }
+    $config = $field_config[$key] ?? [
+      'label' => ucwords(str_replace('_', ' ', $key)),
+      'format' => 'text',
+    ];
 
     $rows[] = [
-      'field' => ucwords(str_replace('_', ' ', $key)),
+      'field' => $config['label'],
       'value' => [
         'data' => [
           '#type' => 'markup',
-          '#markup' => '<pre>' . htmlspecialchars($value) . '</pre>',
+          '#markup' => ttd_topics_format_entity_field_value($value, $config['format'], $entity_info),
         ],
       ],
     ];
@@ -1342,14 +1787,67 @@ function ttd_topics_format_entity_info_for_display($entity_info) {
 }
 
 /**
+ * Formats an entity data value for display on topic edit forms.
+ *
+ * @param mixed $value
+ *   Entity field value.
+ * @param string $format
+ *   Display format: text, list, url, or image.
+ * @param array $entity_info
+ *   Full entity row, used for image alt text.
+ *
+ * @return string
+ *   Safe HTML markup.
+ */
+function ttd_topics_format_entity_field_value($value, $format, array $entity_info) {
+  if (is_array($value)) {
+    $value = implode(', ', array_filter($value, static function ($item) {
+      return $item !== NULL && $item !== '';
+    }));
+  }
+  elseif (is_object($value)) {
+    $value = json_encode($value, JSON_PRETTY_PRINT);
+  }
+
+  $value = (string) $value;
+  if ($format === 'text' && (str_starts_with(trim($value), '[') || str_starts_with(trim($value), '{'))) {
+    $decoded = json_decode($value);
+    if ($decoded !== NULL) {
+      $value = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+  }
+
+  $escaped = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+  $url = filter_var($value, FILTER_VALIDATE_URL) ? $value : NULL;
+
+  if ($format === 'image' && $url) {
+    $safe_url = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+    $alt = htmlspecialchars((string) ($entity_info['name'] ?? $entity_info['wb_name'] ?? $entity_info['kg_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    return '<div class="ttd-entity-image"><img src="' . $safe_url . '" alt="' . $alt . '" style="max-width: 180px; max-height: 120px; display: block; margin-bottom: 6px;" /><a href="' . $safe_url . '" target="_blank" rel="noopener noreferrer">' . t('View full image') . '</a></div>';
+  }
+
+  if ($format === 'url' && $url) {
+    $safe_url = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+    return '<a href="' . $safe_url . '" target="_blank" rel="noopener noreferrer">' . $escaped . '</a>';
+  }
+
+  if ($format === 'list') {
+    return $escaped;
+  }
+
+  return '<pre>' . $escaped . '</pre>';
+}
+
+/**
  * Implements hook_entity_access().
  */
 function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountInterface $account) {
-  if ($entity->getEntityTypeId() === 'taxonomy_term' && $entity->bundle() === 'topicalboost') {
+  if ($entity->getEntityTypeId() === 'taxonomy_term' && $entity->bundle() === 'ttd_topics') {
     if ($operation === 'view' && $entity->hasField('field_hide')) {
       // Get minimum display count from config.
       $config = \Drupal::config('ttd_topics.settings');
       $min_display_count = $config->get('post_topic_minimum_display_count');
+      $frontend_enabled = (bool) $config->get('enable_frontend');
 
       // Get post count for this term.
       $count = \Drupal::database()->select('taxonomy_index', 'ti')
@@ -1357,6 +1855,13 @@ function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountIn
         ->countQuery()
         ->execute()
         ->fetchField();
+
+      // Return 404 if public display is disabled and the user lacks access.
+      if (!$frontend_enabled && !ttd_topics_account_has_required_permission($account)) {
+        return AccessResult::forbidden()
+          ->addCacheableDependency($entity)
+          ->addCacheContexts(['user.permissions']);
+      }
 
       // Return 404 if hidden OR below minimum count for anonymous users.
       if (($entity->get('field_hide')->value || $count < $min_display_count) && $account->isAnonymous()) {
@@ -1389,23 +1894,175 @@ function ttd_topics_run_analysis_ajax_callback(array &$form, FormStateInterface 
       $node->save();
 
       $message = t('Analysis has been queued and will run in the background. Please check back in a few minutes.');
+      $queued = TRUE;
     }
     else {
       $message = t('Error: TTD Topics analysis queue not found.');
+      $queued = FALSE;
     }
   }
   catch (\Exception $e) {
     $message = t('Error queueing TTD Topics analysis: @message', ['@message' => $e->getMessage()]);
+    $queued = FALSE;
     \Drupal::logger('topicalboost')->error('Error queueing TTD Topics analysis job: @message', ['@message' => $e->getMessage()]);
   }
 
   $response = new AjaxResponse();
-  $response->addCommand(new ReplaceCommand(
-    '#ttd-topics-run-analysis-wrapper',
-    '<div id="ttd-topics-run-analysis-wrapper"><p>' . $message . '</p></div>'
-  ));
+  if ($queued) {
+    $response->addCommand(new ReplaceCommand(
+      '#ttd-topics-run-analysis-wrapper',
+      [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ttd-topics-run-analysis-wrapper'],
+        'progress' => [
+          '#markup' => '
+            <div class="ttd-analysis-progress compact" role="status" aria-live="polite" aria-label="' . t('Analysis in progress') . '">
+              <div class="ttd-analysis-progress-content">
+                <div class="ttd-analysis-spinner" aria-hidden="true"></div>
+                <div class="ttd-analysis-text">
+                  <h4 class="ttd-analysis-title">' . t('Running TopicalBoost Analysis') . '</h4>
+                  <p class="ttd-analysis-status">' . $message . '<span class="ttd-analysis-dots"><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span><span class="ttd-analysis-dot"></span></span></p>
+                </div>
+              </div>
+            </div>',
+        ],
+        '#attached' => [
+          'library' => ['ttd_topics/analysis_progress'],
+          'drupalSettings' => [
+            'ttdTopics' => [
+              'nodeId' => $node->id(),
+              'enableStatusPolling' => TRUE,
+              'enableDynamicStatus' => FALSE,
+            ],
+          ],
+        ],
+      ]
+    ));
+  }
+  else {
+    $response->addCommand(new ReplaceCommand(
+      '#ttd-topics-run-analysis-wrapper',
+      '<div id="ttd-topics-run-analysis-wrapper"><div class="messages messages--error"><p>' . $message . '</p></div></div>'
+    ));
+  }
 
   return $response;
+}
+
+/**
+ * Checks whether TopicalBoost is enabled for a node bundle.
+ */
+function ttd_topics_node_is_enabled(NodeInterface $node, $config = NULL): bool {
+  $config = $config ?: \Drupal::config('ttd_topics.settings');
+  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+  return in_array($node->bundle(), $enabled_content_types, TRUE);
+}
+
+/**
+ * Gets the Metatag field name for a node, regardless of local machine name.
+ */
+function ttd_topics_get_metatag_field_name(NodeInterface $node): ?string {
+  foreach (['field_meta_tags', 'field_metatag'] as $field_name) {
+    if ($node->hasField($field_name)) {
+      return $field_name;
+    }
+  }
+
+  foreach ($node->getFieldDefinitions() as $field_name => $definition) {
+    if ($definition->getType() === 'metatag') {
+      return $field_name;
+    }
+  }
+
+  return NULL;
+}
+
+/**
+ * Checks whether TopicalBoost should emit generated SEO tags directly.
+ */
+function ttd_topics_should_emit_generated_meta(NodeInterface $node): bool {
+  $module_handler = \Drupal::moduleHandler();
+
+  if ($module_handler->moduleExists('metatag') && ttd_topics_get_metatag_field_name($node) !== NULL) {
+    return FALSE;
+  }
+
+  if ($module_handler->moduleExists('yoast_seo') && $node->hasField('field_yoast_seo')) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Gets generated SEO/social values stored by TopicalBoost for a node.
+ */
+function ttd_topics_get_generated_meta_values(NodeInterface $node): array {
+  $title = $node->hasField('field_ttd_generated_meta_title')
+    ? trim((string) $node->get('field_ttd_generated_meta_title')->value)
+    : '';
+  $description = $node->hasField('field_ttd_generated_meta_desc')
+    ? trim((string) $node->get('field_ttd_generated_meta_desc')->value)
+    : '';
+  $og_title = $node->hasField('field_ttd_generated_og_title')
+    ? trim((string) $node->get('field_ttd_generated_og_title')->value)
+    : '';
+  $og_description = $node->hasField('field_ttd_generated_og_desc')
+    ? trim((string) $node->get('field_ttd_generated_og_desc')->value)
+    : '';
+  $canonical_url = '';
+
+  try {
+    $canonical_url = $node->toUrl('canonical', ['absolute' => TRUE])->toString();
+  }
+  catch (\Exception $e) {
+    $canonical_url = '';
+  }
+
+  return [
+    'title' => $title,
+    'description' => $description,
+    'og_title' => $og_title !== '' ? $og_title : $title,
+    'og_description' => $og_description !== '' ? $og_description : $description,
+    'canonical_url' => $canonical_url,
+  ];
+}
+
+/**
+ * Emits direct frontend meta tags when no SEO module can render them.
+ */
+function ttd_topics_attach_generated_meta(array &$attachments, NodeInterface $node): void {
+  $meta = ttd_topics_get_generated_meta_values($node);
+
+  $tag_definitions = [
+    'topicalboost_meta_description' => ['meta', ['name' => 'description', 'content' => $meta['description']]],
+    'topicalboost_og_title' => ['meta', ['property' => 'og:title', 'content' => $meta['og_title']]],
+    'topicalboost_og_description' => ['meta', ['property' => 'og:description', 'content' => $meta['og_description']]],
+    'topicalboost_og_url' => ['meta', ['property' => 'og:url', 'content' => $meta['canonical_url']]],
+    'topicalboost_twitter_card' => ['meta', ['name' => 'twitter:card', 'content' => 'summary_large_image']],
+    'topicalboost_twitter_title' => ['meta', ['name' => 'twitter:title', 'content' => $meta['og_title']]],
+    'topicalboost_twitter_description' => ['meta', ['name' => 'twitter:description', 'content' => $meta['og_description']]],
+    'topicalboost_twitter_url' => ['meta', ['name' => 'twitter:url', 'content' => $meta['canonical_url']]],
+  ];
+
+  foreach ($tag_definitions as $key => [$tag, $attributes]) {
+    $content = $attributes['content'] ?? $attributes['href'] ?? '';
+    if ($content === '') {
+      continue;
+    }
+
+    $attachments['#attached']['html_head'][] = [
+      [
+        '#type' => 'html_tag',
+        '#tag' => $tag,
+        '#attributes' => $attributes,
+      ],
+      $key,
+    ];
+  }
+
+  $attachments['#cache']['contexts'] = Cache::mergeContexts($attachments['#cache']['contexts'] ?? [], ['route']);
+  $attachments['#cache']['tags'] = Cache::mergeTags($attachments['#cache']['tags'] ?? [], $node->getCacheTags());
 }
 
 /**
@@ -1417,6 +2074,19 @@ function ttd_topics_preprocess_html(&$variables) {
   $config = \Drupal::config('ttd_topics.settings');
   if ($config->get('skeleton_style')) {
     $variables['attributes']['class'][] = 'ttd-skeleton-style';
+  }
+
+  $node = \Drupal::routeMatch()->getParameter('node');
+  if ($node instanceof NodeInterface && ttd_topics_node_is_enabled($node, $config) && ttd_topics_should_emit_generated_meta($node)) {
+    $meta = ttd_topics_get_generated_meta_values($node);
+    if ($meta['title'] !== '') {
+      if (isset($variables['head_title']) && is_array($variables['head_title'])) {
+        $variables['head_title']['title'] = $meta['title'];
+      }
+      else {
+        $variables['head_title'] = $meta['title'];
+      }
+    }
   }
 }
 
@@ -1434,9 +2104,12 @@ function ttd_topics_page_attachments(array &$attachments) {
   }
 
   $node = \Drupal::routeMatch()->getParameter('node');
-  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
-  
-  if ($node && in_array($node->bundle(), $enabled_content_types)) {
+
+  if ($node instanceof NodeInterface && ttd_topics_node_is_enabled($node, $config)) {
+    if (ttd_topics_should_emit_generated_meta($node)) {
+      ttd_topics_attach_generated_meta($attachments, $node);
+    }
+
     try {
       $debug = (bool) $config->get('debug_mode');
       if ($debug) {
@@ -1469,6 +2142,33 @@ function ttd_topics_page_attachments(array &$attachments) {
       \Drupal::logger('topicalboost')->error('Schema generation error: @message', [
         '@message' => $e->getMessage(),
         '@trace' => $e->getTraceAsString(),
+      ]);
+    }
+  }
+
+  $term = \Drupal::routeMatch()->getParameter('taxonomy_term');
+  if ($term instanceof Term && $term->bundle() === 'ttd_topics') {
+    try {
+      $schema_generator = \Drupal::service('ttd_topics.schema_generator');
+      $schema_data = $schema_generator->getTopicArchiveSchema($term);
+      if (!empty($schema_data) && !empty($schema_data['@graph'])) {
+        $attachments['#attached']['html_head'][] = [
+          [
+            '#type' => 'html_tag',
+            '#tag' => 'script',
+            '#value' => json_encode($schema_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            '#attributes' => [
+              'type' => 'application/ld+json',
+              'class' => 'schema-graph topicalboost-topic-archive-schema',
+            ],
+          ],
+          'topicalboost_topic_archive_schema',
+        ];
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('topicalboost')->error('Topic archive schema generation error: @message', [
+        '@message' => $e->getMessage(),
       ]);
     }
   }
@@ -1684,6 +2384,66 @@ function ttd_topics_search_reset(array &$form, FormStateInterface $form_state) {
 }
 
 /**
+ * Validates bulk hide/show actions on the TopicalBoost topic list.
+ */
+function ttd_topics_bulk_terms_validate(array &$form, FormStateInterface $form_state): void {
+  $action = $form_state->getValue('ttd_topics_bulk_action');
+  $selected_terms = array_filter((array) $form_state->getValue('ttd_topics_bulk_terms', []));
+
+  if (!in_array($action, ['ttd_hide', 'ttd_unhide'], TRUE)) {
+    $form_state->setErrorByName('ttd_topics_bulk_action', t('Choose a bulk action.'));
+  }
+
+  if (empty($selected_terms)) {
+    $form_state->setErrorByName('ttd_topics_bulk_terms', t('Select at least one topic.'));
+  }
+}
+
+/**
+ * Applies bulk hide/show actions on the TopicalBoost topic list.
+ */
+function ttd_topics_bulk_terms_submit(array &$form, FormStateInterface $form_state): void {
+  if (!\Drupal::currentUser()->hasPermission('administer taxonomy')) {
+    \Drupal::messenger()->addError(t('You do not have permission to update topics.'));
+    return;
+  }
+
+  $action = $form_state->getValue('ttd_topics_bulk_action');
+  $selected_terms = array_map('intval', array_filter((array) $form_state->getValue('ttd_topics_bulk_terms', [])));
+  $hide = $action === 'ttd_hide';
+  $updated = 0;
+  $cache_tags = ['taxonomy_term_list:ttd_topics'];
+
+  /** @var \Drupal\taxonomy\TermStorageInterface $term_storage */
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  foreach ($term_storage->loadMultiple($selected_terms) as $term) {
+    if (!$term instanceof Term || $term->bundle() !== 'ttd_topics' || !$term->hasField('field_hide')) {
+      continue;
+    }
+
+    $term->set('field_hide', $hide);
+    $term->save();
+    $cache_tags[] = 'taxonomy_term:' . $term->id();
+    $updated++;
+  }
+
+  if ($updated > 0) {
+    \Drupal::service('cache_tags.invalidator')->invalidateTags($cache_tags);
+    $message = $hide
+      ? \Drupal::translation()->formatPlural($updated, '1 topic hidden.', '@count topics hidden.')
+      : \Drupal::translation()->formatPlural($updated, '1 topic unhidden.', '@count topics unhidden.');
+    \Drupal::messenger()->addStatus($message);
+  }
+  else {
+    \Drupal::messenger()->addWarning(t('No topics were updated.'));
+  }
+
+  $current_path = \Drupal::request()->getPathInfo();
+  $query = \Drupal::request()->query->all();
+  $form_state->setRedirectUrl(Url::fromUserInput($current_path, ['query' => $query]));
+}
+
+/**
  * Submit handler to save pinned posts from the taxonomy term form.
  */
 function ttd_topics_pinned_posts_submit(array &$form, FormStateInterface $form_state) {
@@ -1711,11 +2471,11 @@ function ttd_topics_pinned_posts_submit(array &$form, FormStateInterface $form_s
 }
 
 /**
- * Implements hook_views_pre_render().
+ * Implements hook_views_post_execute().
  *
  * Injects pinned posts at the top of taxonomy term page views for ttd_topics.
  */
-function ttd_topics_views_pre_render(\Drupal\views\ViewExecutable $view) {
+function ttd_topics_views_post_execute(\Drupal\views\ViewExecutable $view) {
   // Only target the taxonomy term page view.
   if ($view->id() !== 'taxonomy_term' || $view->current_display !== 'page_1') {
     return;
@@ -1787,6 +2547,157 @@ function ttd_topics_views_pre_render(\Drupal\views\ViewExecutable $view) {
 }
 
 /**
+ * Implements hook_preprocess_HOOK() for views-view-table.html.twig.
+ */
+function ttd_topics_preprocess_views_view_table(array &$variables) {
+  $view = $variables['view'] ?? NULL;
+  if (!$view || $view->id() !== 'content' || empty($variables['rows'])) {
+    return;
+  }
+
+  if (\Drupal::config('ttd_topics.settings')->get('hide_seo_module_ui')) {
+    ttd_topics_remove_admin_content_seo_columns($variables);
+  }
+
+  $variables['header']['ttd_topics'] = [
+    'attributes' => new Attribute(['class' => ['views-field', 'views-field-ttd-topics']]),
+    'content' => t('Topics'),
+    'default_classes' => FALSE,
+  ];
+
+  foreach ($variables['rows'] as $index => &$row) {
+    $node = $view->result[$index]->_entity ?? NULL;
+    $cell = $node instanceof NodeInterface
+      ? ttd_topics_build_admin_content_topics_cell($node)
+      : '';
+    $row['columns']['ttd_topics'] = [
+      'attributes' => new Attribute(['class' => ['views-field', 'views-field-ttd-topics']]),
+      'content' => [
+        [
+          'field_output' => ['#markup' => $cell],
+        ],
+      ],
+      'default_classes' => FALSE,
+      'fields' => ['ttd-topics'],
+    ];
+  }
+}
+
+/**
+ * Removes SEO module columns from Drupal's admin content table.
+ *
+ * @param array $variables
+ *   Views table preprocess variables.
+ */
+function ttd_topics_remove_admin_content_seo_columns(array &$variables): void {
+  $seo_column_keys = [];
+
+  foreach ($variables['header'] ?? [] as $key => $column) {
+    $label = $column['content'] ?? '';
+    if (ttd_topics_is_admin_content_seo_column($key, $label)) {
+      $seo_column_keys[] = $key;
+    }
+  }
+
+  if (empty($seo_column_keys)) {
+    return;
+  }
+
+  foreach ($seo_column_keys as $key) {
+    unset($variables['header'][$key], $variables['fields'][$key]);
+    foreach ($variables['rows'] as &$row) {
+      unset($row['columns'][$key]);
+    }
+  }
+}
+
+/**
+ * Checks whether a Views table column belongs to an SEO module.
+ *
+ * @param string|int $key
+ *   Column key.
+ * @param mixed $label
+ *   Renderable or scalar column label.
+ *
+ * @return bool
+ *   TRUE when the column should be hidden.
+ */
+function ttd_topics_is_admin_content_seo_column($key, $label): bool {
+  $key = strtolower(str_replace(['_', ' '], '-', (string) $key));
+  $label = strtolower(str_replace(['_', ' '], '-', (string) $label));
+
+  $patterns = [
+    'aioseo',
+    'all-in-one-seo',
+    'field-meta-tags',
+    'field-metatag',
+    'field-yoast-seo',
+    'focuskw',
+    'focus-keyword',
+    'metadesc',
+    'meta-description',
+    'meta-tags',
+    'meta-title',
+    'metatag',
+    'rank-math',
+    'readability',
+    'seo-description',
+    'seo-details',
+    'seo-score',
+    'seo-title',
+    'seopress',
+    'simple-sitemap',
+    'sitemap',
+    'wpseo',
+    'xml-sitemap',
+    'yoast',
+  ];
+
+  foreach ($patterns as $pattern) {
+    if (strpos($key, $pattern) !== FALSE || strpos($label, $pattern) !== FALSE) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Builds the Topics column value for Drupal's admin content table.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   Content row node.
+ *
+ * @return \Drupal\Core\Render\Markup|string
+ *   Renderable topic links or an empty marker.
+ */
+function ttd_topics_build_admin_content_topics_cell(NodeInterface $node) {
+  if (!$node->hasField('field_ttd_topics') || $node->get('field_ttd_topics')->isEmpty()) {
+    return Markup::create('<span class="ttd-admin-content-topics-empty">-</span>');
+  }
+
+  $links = [];
+  foreach ($node->get('field_ttd_topics')->referencedEntities() as $term) {
+    if (!$term instanceof Term) {
+      continue;
+    }
+
+    $url = Url::fromRoute('entity.taxonomy_term.canonical', ['taxonomy_term' => $term->id()])->toString();
+    $links[] = '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($term->label(), ENT_QUOTES, 'UTF-8') . '</a>';
+    if (count($links) >= 5) {
+      break;
+    }
+  }
+
+  $total = $node->get('field_ttd_topics')->count();
+  if ($total > count($links)) {
+    $links[] = t('+@count more', ['@count' => $total - count($links)]);
+  }
+
+  return Markup::create(implode(', ', $links));
+}
+
+/**
  * Implements hook_url_inbound_alter().
  * Provides custom routing for the improved overview page.
  */
@@ -1816,6 +2727,281 @@ function ttd_topics_page_top(array &$page_top) {
     $response->send();
     exit;
   }
+
+  if (!\Drupal::service('router.admin_context')->isAdminRoute()) {
+    return;
+  }
+
+  $route_name = \Drupal::routeMatch()->getRouteName();
+  $notices = ttd_topics_get_admin_notices($route_name);
+  if (empty($notices)) {
+    return;
+  }
+
+  $page_top['ttd_topics_admin_notices'] = [
+    '#type' => 'container',
+    '#attributes' => ['class' => ['ttd-admin-notices']],
+    '#attached' => [
+      'library' => ['ttd_topics/admin_notices'],
+    ],
+  ];
+
+  foreach ($notices as $index => $notice) {
+    $classes = [
+      'ttd-admin-notice',
+      'messages',
+      'messages--' . $notice['severity'],
+    ];
+    if (!empty($notice['dismissible'])) {
+      $classes[] = 'ttd-admin-notice--dismissible';
+    }
+
+    $markup = '<div class="ttd-admin-notice__content">' . $notice['body'] . '</div>';
+    if (!empty($notice['dismissible'])) {
+      $markup .= '<button type="button" class="ttd-admin-notice__dismiss" data-ttd-notice-dismiss aria-label="' . t('Dismiss notice') . '">&times;</button>';
+    }
+
+    $page_top['ttd_topics_admin_notices']['notice_' . $index] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => $classes,
+        'role' => $notice['severity'] === 'error' ? 'alert' : 'status',
+        'data-ttd-notice-id' => $notice['id'],
+      ],
+      'content' => [
+        '#markup' => Markup::create($markup),
+      ],
+    ];
+  }
+}
+
+/**
+ * Builds TopicalBoost admin notices matching the WordPress plugin behavior.
+ *
+ * @param string|null $route_name
+ *   Current route name.
+ *
+ * @return array
+ *   Notice definitions.
+ */
+function ttd_topics_get_admin_notices($route_name = NULL) {
+  $notices = [];
+  $settings_url = Url::fromRoute('topicalboost.settings_form')->toString();
+
+  $db_error = \Drupal::state()->get('ttd_db_upgrade_failed') ?: \Drupal::state()->get('ttd_activation_error');
+  if ($db_error) {
+    $notices[] = [
+      'id' => 'ttd-db-setup-failed',
+      'severity' => 'error',
+      'dismissible' => FALSE,
+      'body' => '<p><strong>TopicalBoost:</strong> ' . t('Database setup failed: @error. Will retry in 5 minutes.', [
+        '@error' => $db_error,
+      ]) . '</p>',
+    ];
+  }
+
+  $config = \Drupal::config('ttd_topics.settings');
+  $api_key = trim((string) $config->get('topicalboost_api_key'));
+  if ($api_key === '' || $route_name === 'topicalboost.settings_form') {
+    return $notices;
+  }
+
+  if (!ttd_topics_is_current_api_key_validated($config)) {
+    $notices[] = [
+      'id' => 'ttd-api-key-unvalidated',
+      'severity' => 'error',
+      'dismissible' => TRUE,
+      'body' => '<p><strong>TopicalBoost:</strong> ' . t('Your API key is invalid or could not be validated.') . ' <a href="' . htmlspecialchars($settings_url, ENT_QUOTES, 'UTF-8') . '">' . t('Check your settings') . '</a>.</p>',
+    ];
+    return $notices;
+  }
+
+  ttd_topics_maybe_refresh_api_status();
+  $config = \Drupal::config('ttd_topics.settings');
+  if (!ttd_topics_is_current_api_key_validated($config)) {
+    $notices[] = [
+      'id' => 'ttd-api-key-unvalidated',
+      'severity' => 'error',
+      'dismissible' => TRUE,
+      'body' => '<p><strong>TopicalBoost:</strong> ' . t('Your API key is invalid or could not be validated.') . ' <a href="' . htmlspecialchars($settings_url, ENT_QUOTES, 'UTF-8') . '">' . t('Check your settings') . '</a>.</p>',
+    ];
+    return $notices;
+  }
+
+  $lines = [];
+  $severity = 'warning';
+  $status = strtoupper((string) ($config->get('subscription_status') ?: 'ACTIVE'));
+  $allowed_statuses = ['ACTIVE', 'TRIALING', 'RETAINER'];
+  if (!in_array($status, $allowed_statuses, TRUE)) {
+    $subscription_messages = [
+      'PAST_DUE' => t('Your payment is past due. Update your payment method to avoid service interruption.'),
+      'INACTIVE' => t('Your subscription is paused. Resume your subscription to continue using the plugin.'),
+      'CANCELED' => t('Your subscription has been canceled. Reactivate to continue.'),
+      'UNPAID' => t('Your payment has failed. Update your payment method to restore access.'),
+    ];
+    $lines[] = isset($subscription_messages[$status])
+      ? (string) $subscription_messages[$status]
+      : t('Subscription status: @status.', ['@status' => $status]);
+    if (in_array($status, ['CANCELED', 'UNPAID'], TRUE)) {
+      $severity = 'error';
+    }
+  }
+
+  $mismatch = $config->get('domain_mismatch');
+  if (is_array($mismatch) && !empty($mismatch)) {
+    $domain = trim((string) ($mismatch['registered_domain'] ?? ''));
+    $environment = trim((string) ($mismatch['registered_environment'] ?? ''));
+    if ($domain !== '' || $environment !== '') {
+      $label = $environment !== '' ? $domain . ' (' . $environment . ')' : $domain;
+      $lines[] = 'Key registered for <strong>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</strong>. Check you\'re using the right key.';
+    }
+  }
+
+  if (empty($lines)) {
+    return $notices;
+  }
+
+  $body = '<strong>TopicalBoost:</strong> ' . ttd_topics_notice_lines_markup($lines);
+  $body .= ' <a href="' . htmlspecialchars($settings_url, ENT_QUOTES, 'UTF-8') . '">' . t('Settings') . '</a>';
+  $notices[] = [
+    'id' => 'ttd-subscription-domain-' . substr(hash('sha256', implode('|', $lines)), 0, 12),
+    'severity' => $severity,
+    'dismissible' => TRUE,
+    'body' => $body,
+  ];
+
+  return $notices;
+}
+
+/**
+ * Checks whether the saved API key has been validated.
+ *
+ * @param \Drupal\Core\Config\ImmutableConfig $config
+ *   TopicalBoost settings.
+ *
+ * @return bool
+ *   TRUE if the current saved key has a successful validation record.
+ */
+function ttd_topics_is_current_api_key_validated($config) {
+  $api_key = trim((string) $config->get('topicalboost_api_key'));
+  $validated = (bool) $config->get('api_key_validated');
+  $stored_hash = (string) $config->get('api_key_validation_hash');
+
+  return $api_key !== ''
+    && $validated
+    && $stored_hash !== ''
+    && hash_equals($stored_hash, hash('sha256', $api_key));
+}
+
+/**
+ * Refreshes API validation, subscription status, and domain mismatch state.
+ *
+ * @param bool $force
+ *   TRUE to bypass the five-minute throttle.
+ */
+function ttd_topics_maybe_refresh_api_status($force = FALSE) {
+  $config = \Drupal::config('ttd_topics.settings');
+  if (!ttd_topics_is_current_api_key_validated($config)) {
+    return;
+  }
+
+  $state = \Drupal::state();
+  $now = \Drupal::time()->getRequestTime();
+  if (!$force && ($now - (int) $state->get('ttd_subscription_checked_at', 0)) < 5 * 60) {
+    return;
+  }
+  $state->set('ttd_subscription_checked_at', $now);
+
+  $api_key = trim((string) $config->get('topicalboost_api_key'));
+  $api_endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
+  $endpoint = rtrim($api_endpoint, '/') . '/validate-api-key';
+
+  try {
+    $response = \Drupal::httpClient()->post($endpoint, [
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'x-api-key' => $api_key,
+      ],
+      'json' => [
+        'api_key' => $api_key,
+        'site_url' => \Drupal::request()->getSchemeAndHttpHost(),
+      ],
+      'timeout' => 3,
+    ]);
+
+    if ($response->getStatusCode() === 200) {
+      $data = json_decode($response->getBody()->getContents(), TRUE) ?: [];
+      ttd_topics_save_api_status($api_key, $data);
+    }
+  }
+  catch (\Exception $e) {
+    \Drupal::logger('ttd_topics')->warning('API status refresh failed: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+  }
+}
+
+/**
+ * Persists API validation response state.
+ *
+ * @param string $api_key
+ *   API key that was validated.
+ * @param array $data
+ *   Decoded API response.
+ */
+function ttd_topics_save_api_status($api_key, array $data) {
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  $valid = !empty($data['valid']);
+
+  $config
+    ->set('api_key_validated', $valid)
+    ->set('api_key_validation_hash', hash('sha256', $api_key));
+
+  if (!$valid) {
+    $config
+      ->set('subscription_status', '')
+      ->set('domain_mismatch', [])
+      ->save();
+    return;
+  }
+
+  if (!empty($data['subscription_status'])) {
+    $config->set('subscription_status', strtoupper(trim((string) $data['subscription_status'])));
+  }
+
+  if (!empty($data['domain_mismatch'])) {
+    $config->set('domain_mismatch', [
+      'registered_domain' => trim((string) ($data['registered_domain'] ?? '')),
+      'registered_environment' => trim((string) ($data['registered_environment'] ?? '')),
+    ]);
+  }
+  else {
+    $config->set('domain_mismatch', []);
+  }
+
+  $config->save();
+}
+
+/**
+ * Converts one or more sanitized notice lines into markup.
+ *
+ * @param array $lines
+ *   Notice lines.
+ *
+ * @return string
+ *   Markup for rendering the lines.
+ */
+function ttd_topics_notice_lines_markup(array $lines) {
+  if (count($lines) === 1) {
+    return (string) reset($lines);
+  }
+
+  $items = '';
+  foreach ($lines as $line) {
+    $items .= '<li>' . $line . '</li>';
+  }
+
+  return '<ul>' . $items . '</ul>';
 }
 
 /**
@@ -1910,24 +3096,165 @@ function ttd_get_demand_cache_key($term_or_keyword) {
  *   The salience category ('about' or 'mentions') or NULL if not found.
  */
 function ttd_get_term_salience_category($term_id, $node_id) {
-  $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
-  if (!$term || !$term->hasField('field_ttd_id')) {
-    return NULL;
-  }
-  $ttd_id = $term->get('field_ttd_id')->value;
-  if (!$ttd_id) {
-    return NULL;
+  return ttd_get_topic_tier($term_id, $node_id);
+}
+
+/**
+ * Compute WordPress-compatible salience tiers.
+ *
+ * Matches TTd\Topics\Entity_DB::compute_tiers():
+ * - LLM tiers are authoritative when any entity has one.
+ * - Salience-only fallback uses 10% for mainEntity and 5% for about.
+ * - Only one mainEntity and at most four about topics are allowed.
+ * - User overrides win before natural tier assignment.
+ *
+ * @param array $entities
+ *   Rows with entity_id, salience_score, and optional llm_tier.
+ * @param array $overrides
+ *   Map of entity ID to forced tier.
+ *
+ * @return array
+ *   Map of entity ID to mainEntity/about/mentions.
+ */
+function ttd_topics_compute_tiers(array $entities, array $overrides = []): array {
+  $main_entity_min = 0.10;
+  $about_min = 0.05;
+  $max_about = 4;
+
+  $main_entity_assigned = FALSE;
+  $about_count = 0;
+  $tiers = [];
+  $has_llm_tiers = FALSE;
+
+  foreach ($entities as $entity) {
+    if (!empty($entity['llm_tier'])) {
+      $has_llm_tiers = TRUE;
+      break;
+    }
   }
 
-  $database = \Drupal::database();
-  $salience_category = $database->select('ttd_entity_post_ids', 'ep')
-    ->fields('ep', ['salience_category'])
-    ->condition('entity_id', $ttd_id)
-    ->condition('post_id', $node_id)
-    ->execute()
-    ->fetchField();
+  foreach ($entities as $entity) {
+    $entity_id = (int) ($entity['entity_id'] ?? 0);
+    if (!$entity_id || !isset($overrides[$entity_id])) {
+      continue;
+    }
 
-  return $salience_category ?: NULL;
+    $tier = $overrides[$entity_id];
+    $tiers[$entity_id] = $tier;
+    if ($tier === 'mainEntity') {
+      $main_entity_assigned = TRUE;
+    }
+    elseif ($tier === 'about') {
+      $about_count++;
+    }
+  }
+
+  if ($has_llm_tiers) {
+    foreach ($entities as $entity) {
+      $entity_id = (int) ($entity['entity_id'] ?? 0);
+      if (!$entity_id || isset($tiers[$entity_id])) {
+        continue;
+      }
+
+      $llm_tier = $entity['llm_tier'] ?? NULL;
+      if ($llm_tier === 'mainEntity') {
+        if (!$main_entity_assigned) {
+          $tiers[$entity_id] = 'mainEntity';
+          $main_entity_assigned = TRUE;
+        }
+        elseif ($about_count < $max_about) {
+          $tiers[$entity_id] = 'about';
+          $about_count++;
+        }
+        else {
+          $tiers[$entity_id] = 'mentions';
+        }
+      }
+      elseif ($llm_tier === 'about') {
+        if ($about_count < $max_about) {
+          $tiers[$entity_id] = 'about';
+          $about_count++;
+        }
+        else {
+          $tiers[$entity_id] = 'mentions';
+        }
+      }
+      elseif ($llm_tier) {
+        $tiers[$entity_id] = $llm_tier;
+      }
+      else {
+        $tiers[$entity_id] = 'mentions';
+      }
+    }
+
+    return $tiers;
+  }
+
+  usort($entities, static function ($a, $b) {
+    $score_a = $a['salience_score'] ?? -1;
+    $score_b = $b['salience_score'] ?? -1;
+    return $score_b <=> $score_a;
+  });
+
+  foreach ($entities as $entity) {
+    $entity_id = (int) ($entity['entity_id'] ?? 0);
+    if (!$entity_id || isset($tiers[$entity_id])) {
+      continue;
+    }
+
+    $score = $entity['salience_score'] ?? 0;
+    if (!$main_entity_assigned && $score >= $main_entity_min) {
+      $tiers[$entity_id] = 'mainEntity';
+      $main_entity_assigned = TRUE;
+    }
+    elseif ($about_count < $max_about && $score >= $about_min) {
+      $tiers[$entity_id] = 'about';
+      $about_count++;
+    }
+    else {
+      $tiers[$entity_id] = 'mentions';
+    }
+  }
+
+  return $tiers;
+}
+
+/**
+ * Remove stale tier overrides when fresh LLM tier data is available.
+ *
+ * This matches the WordPress re-analysis behavior: explicit user overrides
+ * should not keep winning over fresh hybrid-extraction tiers for the same
+ * entity, but NLP/salience-only analyses should preserve existing overrides.
+ *
+ * @param array $overrides
+ *   Map of entity ID to overridden tier.
+ * @param array $salience_map
+ *   Map of entity ID to salience data, optionally including llm_tier.
+ *
+ * @return array
+ *   Override map with stale LLM-backed overrides removed.
+ */
+function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience_map): array {
+  $has_llm_tiers = FALSE;
+  foreach ($salience_map as $data) {
+    if (!empty($data['llm_tier'])) {
+      $has_llm_tiers = TRUE;
+      break;
+    }
+  }
+
+  if (!$has_llm_tiers || empty($overrides)) {
+    return $overrides;
+  }
+
+  foreach ($overrides as $entity_id => $tier) {
+    $numeric_entity_id = (int) $entity_id;
+    if (isset($salience_map[$numeric_entity_id]) && !empty($salience_map[$numeric_entity_id]['llm_tier'])) {
+      unset($overrides[$entity_id]);
+    }
+  }
+
+  return $overrides;
 }
 
 /**
@@ -1950,12 +3277,59 @@ function ttd_get_node_salience_data($node_id) {
     ->execute()
     ->fetchAll();
 
+  $overrides = [];
+  $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  if ($node && $node->hasField('field_tier_overrides')) {
+    $override_values = $node->get('field_tier_overrides')->value ?? [];
+    if (is_array($override_values)) {
+      foreach ($override_values as $key => $tier) {
+        if (is_numeric($key)) {
+          $overrides[(int) $key] = $tier;
+        }
+      }
+    }
+  }
+
+  $entities = [];
+  $entity_ids_in_results = [];
+  foreach ($results as $row) {
+    $entity_id = (int) $row->entity_id;
+    $entities[] = [
+      'entity_id' => $entity_id,
+      'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
+      'llm_tier' => $row->salience_category ?: NULL,
+    ];
+    $entity_ids_in_results[$entity_id] = TRUE;
+  }
+
+  foreach ($overrides as $entity_id => $tier) {
+    if (!isset($entity_ids_in_results[$entity_id])) {
+      $entities[] = [
+        'entity_id' => $entity_id,
+        'salience_score' => NULL,
+        'llm_tier' => NULL,
+      ];
+    }
+  }
+
+  $computed_tiers = ttd_topics_compute_tiers($entities, $overrides);
+
   $salience_map = [];
   foreach ($results as $row) {
+    $entity_id = (int) $row->entity_id;
     $salience_map[(int) $row->entity_id] = [
       'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
-      'salience_category' => $row->salience_category,
+      'salience_category' => $computed_tiers[$entity_id] ?? ($row->salience_category ?: 'mentions'),
     ];
+  }
+
+  foreach ($overrides as $entity_id => $tier) {
+    if (!isset($salience_map[$entity_id])) {
+      $salience_map[$entity_id] = [
+        'salience_score' => NULL,
+        'salience_category' => $computed_tiers[$entity_id] ?? $tier,
+      ];
+    }
   }
 
   return $salience_map;
@@ -2153,7 +3527,9 @@ function ttd_get_topic_tier($term_id, $node_id) {
   $ttd_id = $term->get('field_ttd_id')->value;
 
   // Check tier_overrides first (highest priority)
-  $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+  $tier_overrides = $node->hasField('field_tier_overrides')
+    ? ($node->get('field_tier_overrides')->value ?? [])
+    : [];
   if (is_array($tier_overrides)) {
     // Check by ttd_id
     if ($ttd_id && isset($tier_overrides[(string) $ttd_id])) {
@@ -2166,18 +3542,11 @@ function ttd_get_topic_tier($term_id, $node_id) {
     }
   }
 
-  // Fall back to salience_category from database
+  // Fall back to computed salience data from database.
   if ($ttd_id) {
-    $database = \Drupal::database();
-    $salience_category = $database->select('ttd_entity_post_ids', 'ep')
-      ->fields('ep', ['salience_category'])
-      ->condition('entity_id', $ttd_id)
-      ->condition('post_id', $node_id)
-      ->execute()
-      ->fetchField();
-
-    if ($salience_category) {
-      return $salience_category;
+    $salience_data = ttd_get_node_salience_data($node_id);
+    if (!empty($salience_data[(int) $ttd_id]['salience_category'])) {
+      return $salience_data[(int) $ttd_id]['salience_category'];
     }
   }
 

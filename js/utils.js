@@ -23,6 +23,15 @@
     return num.toString();
   };
 
+  window.ttdTopicsUtils.escapeHtml = function(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   /**
    * Get KD CSS class based on difficulty.
    */
@@ -116,7 +125,7 @@
   /**
    * Render search results.
    */
-  window.ttdTopicsUtils.renderSearchResults = function($container, results) {
+  window.ttdTopicsUtils.renderSearchResults = function($container, results, query) {
     $container.empty();
 
     if (!results || results.length === 0) {
@@ -124,7 +133,7 @@
       return;
     }
 
-    results.forEach(function(result) {
+    const renderResult = function(result) {
       const $item = jQuery('<div class="ttd-search-result-item"></div>');
 
       const name = result.name || '';
@@ -132,11 +141,26 @@
       const source = result.source || 'local';
       const exists = result.exists || false;
       const inPost = result.in_post || false;
+      const description = result.description || '';
+
+      const isApiResult = source === 'api' || result.is_api === true;
+      const countHtml = count > 0
+        ? '<span class="result-count" data-count="' + count + '">' + window.ttdTopicsUtils.formatCount(count) + '</span>'
+        : (isApiResult ? '<span class="result-count result-new">New</span>' : '<span class="result-count" data-count="0"></span>');
+      const inPostHtml = inPost ? '<span class="ttd-in-post-badge">In post</span>' : '';
+      const descriptionHtml = description
+        ? '<div class="result-description">' + window.ttdTopicsUtils.escapeHtml(description) + '</div>'
+        : '';
 
       $item.html(
-        '<span class="result-name">' + name + '</span>' +
-        '<span class="result-count">' + window.ttdTopicsUtils.formatCount(count) + '</span>' +
-        '<span class="result-source">' + source + '</span>'
+        '<div class="result-content">' +
+          '<div class="result-header">' +
+            '<span class="result-name">' + window.ttdTopicsUtils.escapeHtml(name) + '</span>' +
+            countHtml +
+            inPostHtml +
+          '</div>' +
+          descriptionHtml +
+        '</div>'
       );
 
       $item.data('result', result);
@@ -148,12 +172,34 @@
       }
 
       $item.on('click', function() {
+        if (jQuery(this).hasClass('in-post')) {
+          return;
+        }
         const data = jQuery(this).data('result');
         window.ttdTopicsUtils.addTopicFromSearch(data, $container, $item);
       });
 
       $container.append($item);
+    };
+
+    const inPostResults = results.filter(function(result) {
+      return !!result.in_post;
     });
+    const addableResults = results.filter(function(result) {
+      return !result.in_post;
+    });
+
+    if (inPostResults.length) {
+      $container.append('<div class="ttd-search-group-label ttd-search-group-in-post">Already in post</div>');
+      inPostResults.forEach(renderResult);
+    }
+
+    if (addableResults.length) {
+      if (inPostResults.length) {
+        $container.append('<div class="ttd-search-group-label">Add to post</div>');
+      }
+      addableResults.forEach(renderResult);
+    }
 
     $container.show();
   };
@@ -300,7 +346,7 @@
         }
       });
 
-      window.ttdTopicsUtils.renderSearchResults($searchResults, mergedResults);
+      window.ttdTopicsUtils.renderSearchResults($searchResults, mergedResults, query);
     }).catch(function(error) {
       // Discard stale error if user has typed a new query
       if (query !== window.ttdTopicsUtils._currentSearchQuery) return;

@@ -85,7 +85,8 @@
 }
 
 /* API Error Message */
-.ttd-api-error-message {
+.ttd-api-error-message,
+.ttd-error-message {
   background-color: #fee;
   border-left: 4px solid #d63638;
   color: #842029;
@@ -96,12 +97,22 @@
   display: none;
 }
 
-.ttd-api-error-message:not([style*="display: none"]) {
+.ttd-api-error-message:not([style*="display: none"]),
+.ttd-error-message:not([style*="display: none"]) {
   display: block;
 }
 
-.ttd-api-error-message.hidden {
+.ttd-api-error-message.hidden,
+.ttd-error-message.hidden {
   display: none !important;
+}
+
+.gin--dark-mode .ttd-api-error-message,
+.gin--dark-mode .ttd-error-message {
+  background-color: rgba(220, 53, 69, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  border-left-color: #f87171 !important;
+  color: #fecaca !important;
 }
 
 /* Cache Info Section */
@@ -116,10 +127,20 @@
   border: 1px solid #e1e5e9;
 }
 
+.gin--dark-mode .ttd-cache-info-section {
+  background-color: rgba(255, 255, 255, 0.035) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
 .ttd-cache-info {
   font-size: 13px;
   color: #646970;
   flex: 1;
+}
+
+.gin--dark-mode .ttd-cache-info {
+  color: #9ca3af !important;
 }
 
 .ttd-refresh-button {
@@ -137,9 +158,24 @@
   font-weight: 500;
 }
 
+.gin--dark-mode .button.ttd-refresh-button,
+.gin--dark-mode .ttd-refresh-button {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
 .ttd-refresh-button:hover {
   background: #135e96;
   border-color: #135e96;
+}
+
+.gin--dark-mode .button.ttd-refresh-button:hover,
+.gin--dark-mode .ttd-refresh-button:hover {
+  background: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
 }
 
 .ttd-refresh-icon {
@@ -563,7 +599,8 @@
 }
 
 .ttd-type-total,
-.ttd-type-with-topics {
+.ttd-type-with-topics,
+.ttd-type-without-topics {
   text-align: center;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
   color: #666;
@@ -571,8 +608,53 @@
 }
 
 .gin--dark-mode .ttd-type-total,
-.gin--dark-mode .ttd-type-with-topics {
+.gin--dark-mode .ttd-type-with-topics,
+.gin--dark-mode .ttd-type-without-topics {
   color: #9ca3af !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes.
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-api-error-message,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-error-message {
+    background-color: rgba(220, 53, 69, 0.12);
+    border-color: rgba(248, 113, 113, 0.55);
+    border-left-color: #f87171;
+    color: #fecaca;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-cache-info-section {
+    background-color: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-cache-info {
+    color: #9ca3af;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .button.ttd-refresh-button,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-refresh-button {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .button.ttd-refresh-button:hover,
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-refresh-button:hover {
+    background: #1d4ed8;
+    border-color: #60a5fa;
+    color: #ffffff;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-type-without-topics {
+    color: #9ca3af;
+  }
 }
 
 .ttd-type-coverage {
@@ -655,6 +737,201 @@
   text-align: right;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 14px;
+}
+
+/* WordPress parity layout for the full Coverage page. */
+.ttd-topic-coverage-page {
+  max-width: none;
+}
+
+.ttd-topic-coverage-page > h2 {
+  margin: 0 0 14px;
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.ttd-topic-coverage-page .postbox {
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  margin: 12px 0 16px;
+  box-shadow: none;
+}
+
+.ttd-topic-coverage-page .postbox-header {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border-bottom: 1px solid #c3c4c7;
+  padding: 0 12px;
+}
+
+.ttd-topic-coverage-page .postbox-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ttd-topic-coverage-page .postbox-header .ttd-refresh-button {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: #fff;
+  color: #2271b1;
+  border-color: #2271b1;
+}
+
+.ttd-topic-coverage-page .inside {
+  padding: 0;
+}
+
+.ttd-topic-coverage-page .widefat {
+  width: 100%;
+  border: none;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.ttd-topic-coverage-page .widefat th,
+.ttd-topic-coverage-page .widefat td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #dcdcde;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ttd-topic-coverage-page .widefat tr:last-child td {
+  border-bottom: none;
+}
+
+.ttd-topic-coverage-page .widefat th {
+  color: #1d2327;
+  font-weight: 400;
+}
+
+.ttd-topic-coverage-page .widefat.striped tbody tr:nth-child(odd) {
+  background: #f6f7f7;
+}
+
+.ttd-topic-coverage-page .ttd-count-link,
+.ttd-topic-coverage-page .ttd-local-val {
+  color: #0073aa;
+  font-weight: 600;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-bar-container {
+  height: 20px;
+  border-radius: 2px;
+  background: #eee;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-bar {
+  border-radius: 0 !important;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-value {
+  color: #50575e;
+  text-shadow: none;
+  text-align: right;
+  padding-right: 8px;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-value-outside {
+  color: #50575e;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-low {
+  background-color: #dc3232 !important;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-medium {
+  background-color: #dba617 !important;
+}
+
+.ttd-topic-coverage-page .ttd-coverage-high {
+  background-color: #00a32a !important;
+}
+
+.ttd-coverage-guidance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 20px;
+  padding: 12px 14px;
+  background: #fff;
+  border-left: 4px solid #dba617;
+  color: #1d2327;
+  line-height: 1.5;
+}
+
+.ttd-coverage-guidance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #dba617;
+  border-radius: 50%;
+  color: #dba617;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ttd-coverage-guidance-text {
+  display: inline-block;
+}
+
+.ttd-coverage-guidance a {
+  position: static !important;
+  display: inline !important;
+  margin: 0 2px !important;
+  padding: 0 !important;
+  transform: none !important;
+  vertical-align: baseline !important;
+}
+
+.ttd-topic-coverage-page .ttd-cache-info {
+  padding: 10px 12px;
+  border-bottom: 1px solid #dcdcde;
+}
+
+.gin--dark-mode .ttd-topic-coverage-page .postbox,
+.gin--dark-mode .ttd-topic-coverage-page .widefat {
+  background: var(--gin-bg-layer) !important;
+  border-color: var(--gin-border-color) !important;
+  color: var(--gin-color-text) !important;
+}
+
+.gin--dark-mode .ttd-topic-coverage-page .postbox-header,
+.gin--dark-mode .ttd-topic-coverage-page .widefat th,
+.gin--dark-mode .ttd-topic-coverage-page .widefat td,
+.gin--dark-mode .ttd-topic-coverage-page .ttd-cache-info {
+  border-color: var(--gin-border-color) !important;
+}
+
+.gin--dark-mode .ttd-topic-coverage-page .widefat.striped tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.gin--dark-mode .ttd-topic-coverage-page .widefat th,
+.gin--dark-mode .ttd-topic-coverage-page .postbox-header h3,
+.gin--dark-mode .ttd-coverage-guidance {
+  color: var(--gin-color-text) !important;
+}
+
+.gin--dark-mode .ttd-coverage-guidance {
+  background: var(--gin-bg-layer) !important;
+}
+
+.gin--dark-mode .ttd-coverage-guidance-icon {
+  border-color: #f6c453 !important;
+  color: #f6c453 !important;
 }
 
 .gin--dark-mode .ttd-coverage-text {

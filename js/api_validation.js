@@ -77,8 +77,10 @@
           Drupal.ttd_topics.debug.log('Parsed response:', response);
           if (response.valid) {
             const siteName = response.site_name || 'API';
+            const status = response.subscription_status ? ` - ${response.subscription_status}` : '';
+            const domainMismatch = response.domain_mismatch ? ' - domain mismatch' : '';
             Drupal.ttd_topics.debug.log('API key validated successfully, applying success glow');
-            showIndicator('success', `Valid - ${siteName}`);
+            showIndicator('success', `Valid - ${siteName}${status}${domainMismatch}`);
             addFieldGlow('success');
           } else {
             const error = response.error || 'Invalid API key';
@@ -132,6 +134,8 @@
         }
 
         indicator.className = className;
+        indicator.setAttribute('title', message);
+        indicator.setAttribute('aria-label', message);
         indicator.innerHTML = `<span class="api-key-icon">${icon}</span>`;
 
         // Show the indicator

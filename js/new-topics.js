@@ -10,15 +10,50 @@
         var $loading = $wrapper.find('.ttd-new-topics-loading');
         var $empty = $wrapper.find('.ttd-new-topics-empty');
         var $buttons = $wrapper.find('.ttd-new-topics-filter-btn');
+        var $pagination = $wrapper.find('.ttd-new-topics-pagination');
+        var currentDays = 30;
+        var currentPage = 1;
+        var perPage = 25;
 
-        function loadTopics(days) {
+        function escapeHtml(value) {
+          return Drupal.checkPlain(value === null || value === undefined ? '' : String(value));
+        }
+
+        function renderPagination(pagination) {
+          $pagination.empty();
+
+          if (!pagination || pagination.total_pages <= 1) {
+            $pagination.hide();
+            return;
+          }
+
+          var html = '<span class="ttd-pagination-info">Page ' +
+            pagination.current_page + ' of ' + pagination.total_pages +
+            ' (' + pagination.total + ' topics)</span> ';
+
+          if (pagination.current_page > 1) {
+            html += '<button type="button" class="button ttd-new-topics-page" data-page="' + (pagination.current_page - 1) + '">Previous</button> ';
+          }
+          if (pagination.current_page < pagination.total_pages) {
+            html += '<button type="button" class="button ttd-new-topics-page" data-page="' + (pagination.current_page + 1) + '">Next</button>';
+          }
+
+          $pagination.html(html).show();
+        }
+
+        function loadTopics() {
           $loading.show();
           $table.hide();
           $empty.hide();
+          $pagination.hide();
 
           $.ajax({
             url: Drupal.url('api/topicalboost/new-topics'),
-            data: { days: days },
+            data: {
+              days: currentDays,
+              page: currentPage,
+              per_page: perPage
+            },
             dataType: 'json',
             success: function (data) {
               $loading.hide();
@@ -31,20 +66,27 @@
 
               $table.show();
               data.topics.forEach(function (topic) {
-                var schemaTypes = topic.schema_types || '';
-                var hideChecked = topic.is_hidden ? ' checked' : '';
-                var forceShowChecked = topic.force_show ? ' checked' : '';
+                var schemaTypes = Array.isArray(topic.schema_types) && topic.schema_types.length
+                  ? topic.schema_types.join(', ')
+                  : '-';
+                var hideClass = topic.is_hidden ? ' active' : '';
+                var forceShowClass = topic.force_show ? ' active' : '';
+                var disabled = topic.tid ? '' : ' disabled';
+                var editLink = topic.tid
+                  ? '<a href="' + Drupal.url('taxonomy/term/' + topic.tid + '/edit') + '">' + escapeHtml(topic.name) + '</a>'
+                  : escapeHtml(topic.name);
 
                 var row = '<tr>' +
-                  '<td><a href="' + Drupal.url('taxonomy/term/' + topic.tid + '/edit') + '">' + Drupal.checkPlain(topic.name) + '</a></td>' +
-                  '<td>' + Drupal.checkPlain(topic.created) + '</td>' +
+                  '<td>' + editLink + '</td>' +
+                  '<td>' + escapeHtml(topic.created) + '</td>' +
                   '<td>' + topic.post_count + '</td>' +
-                  '<td>' + Drupal.checkPlain(schemaTypes) + '</td>' +
-                  '<td><input type="checkbox" class="ttd-toggle-hide" data-tid="' + topic.tid + '"' + hideChecked + '></td>' +
-                  '<td><input type="checkbox" class="ttd-toggle-force-show" data-tid="' + topic.tid + '"' + forceShowChecked + '></td>' +
+                  '<td>' + escapeHtml(schemaTypes) + '</td>' +
+                  '<td><button type="button" class="button ttd-toggle-hide' + hideClass + '" data-tid="' + topic.tid + '" data-current="' + (topic.is_hidden ? '1' : '0') + '"' + disabled + '>' + (topic.is_hidden ? 'Hidden' : 'Visible') + '</button></td>' +
+                  '<td><button type="button" class="button ttd-toggle-force-show' + forceShowClass + '" data-tid="' + topic.tid + '" data-current="' + (topic.force_show ? '1' : '0') + '"' + disabled + '>' + (topic.force_show ? 'Forced' : 'Normal') + '</button></td>' +
                   '</tr>';
                 $tbody.append(row);
               });
+              renderPagination(data.pagination);
             },
             error: function () {
               $loading.hide();
@@ -57,7 +99,14 @@
         $buttons.on('click', function () {
           $buttons.removeClass('is-active');
           $(this).addClass('is-active');
-          loadTopics($(this).data('days'));
+          currentDays = $(this).data('days');
+          currentPage = 1;
+          loadTopics();
+        });
+
+        $pagination.on('click', '.ttd-new-topics-page', function () {
+          currentPage = $(this).data('page');
+          loadTopics();
         });
 
         // Get CSRF token for POST requests.
@@ -70,22 +119,39 @@
         });
 
         // Toggle visibility.
-        $tbody.on('change', '.ttd-toggle-hide', function () {
-          var tid = $(this).data('tid');
+        $tbody.on('click', '.ttd-toggle-hide', function () {
+          var $button = $(this);
+          var tid = $button.data('tid');
+          var isHidden = $button.data('current') === 1 || $button.data('current') === '1';
+          $button.prop('disabled', true);
           $.ajax({
             url: Drupal.url('api/topicalboost/topic/' + tid + '/toggle-visibility'),
             method: 'POST',
             headers: {
               'X-Requested-With': 'XMLHttpRequest',
               'X-CSRF-Token': csrfToken
+            },
+            success: function (data) {
+              if (data.success) {
+                var hidden = !isHidden;
+                $button.data('current', hidden ? '1' : '0');
+                $button.text(hidden ? 'Hidden' : 'Visible');
+                $button.toggleClass('active', hidden);
+              }
+            },
+            complete: function () {
+              $button.prop('disabled', false);
             }
           });
         });
 
         // Toggle force show.
-        $tbody.on('change', '.ttd-toggle-force-show', function () {
-          var tid = $(this).data('tid');
-          var forceShow = $(this).is(':checked') ? 1 : 0;
+        $tbody.on('click', '.ttd-toggle-force-show', function () {
+          var $button = $(this);
+          var tid = $button.data('tid');
+          var currentVal = $button.data('current') === 1 || $button.data('current') === '1';
+          var forceShow = currentVal ? 0 : 1;
+          $button.prop('disabled', true);
           $.ajax({
             url: Drupal.url('api/topicalboost/topic/' + tid + '/toggle-force-show'),
             method: 'POST',
@@ -94,12 +160,23 @@
             headers: {
               'X-Requested-With': 'XMLHttpRequest',
               'X-CSRF-Token': csrfToken
+            },
+            success: function (data) {
+              if (data.success) {
+                var forced = !!data.force_show;
+                $button.data('current', forced ? '1' : '0');
+                $button.text(forced ? 'Forced' : 'Normal');
+                $button.toggleClass('active', forced);
+              }
+            },
+            complete: function () {
+              $button.prop('disabled', false);
             }
           });
         });
 
         // Load default (30 days).
-        loadTopics(30);
+        loadTopics();
       });
     }
   };

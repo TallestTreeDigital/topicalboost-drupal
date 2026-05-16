@@ -90,6 +90,8 @@ class TtdBulkBatchSend extends JobTypeBase {
       $query->isNull('tla.field_ttd_last_analyzed_value');
     }
 
+    $this->applyCustomFieldFilter($query, $filters);
+
     $query->range($offset, $batch_size);
     $query->orderBy('n.nid');
 
@@ -110,6 +112,59 @@ class TtdBulkBatchSend extends JobTypeBase {
     }
 
     return $nodes_data;
+  }
+
+  /**
+   * Applies the optional custom-field populated filter.
+   */
+  private function applyCustomFieldFilter($query, array $filters): void {
+    if (empty($filters['custom_field_filter']) || empty($filters['custom_field'])) {
+      return;
+    }
+
+    $field_name = preg_replace('/[^a-z0-9_]/', '', (string) $filters['custom_field']);
+    if ($field_name === '') {
+      return;
+    }
+
+    $config = \Drupal::config('ttd_topics.settings');
+    $allowed_fields = array_filter($config->get('analysis_custom_fields') ?: []);
+    if (!in_array($field_name, $allowed_fields, TRUE)) {
+      return;
+    }
+
+    $database = \Drupal::database();
+    $table = 'node__' . $field_name;
+    if (!$database->schema()->tableExists($table)) {
+      return;
+    }
+
+    $alias = 'cf_' . substr(hash('sha1', $field_name), 0, 8);
+    $query->innerJoin($table, $alias, "n.nid = {$alias}.entity_id AND {$alias}.deleted = 0");
+    $query->distinct();
+
+    $candidate_columns = [
+      $field_name . '_value',
+      $field_name . '_target_id',
+      $field_name . '_uri',
+      $field_name . '_summary',
+      $field_name . '_alt',
+      $field_name . '_title',
+    ];
+
+    $or = $query->orConditionGroup();
+    $has_value_column = FALSE;
+    foreach ($candidate_columns as $column) {
+      if (!$database->schema()->fieldExists($table, $column)) {
+        continue;
+      }
+      $has_value_column = TRUE;
+      $or->isNotNull("{$alias}.{$column}");
+      $or->condition("{$alias}.{$column}", '', '<>');
+    }
+    if ($has_value_column) {
+      $query->condition($or);
+    }
   }
 
   /**

@@ -330,38 +330,55 @@ fieldset .form-radios > div > div {
   font-size: 14px;
 }
 
-/* Inline mentions display - defensive against grid constraints */
-.topicalboost-section {
-  /* Break out of any narrow parent containers */
+/* Inline mentions display: match the WordPress frontend output. */
+.topicalboost-section.ttd-topics-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   width: 100%;
   max-width: 100%;
-  min-width: 0; /* Allow flexbox to shrink */
+  min-width: 0;
   box-sizing: border-box;
+  padding: 12px 0;
+  margin: 0 0 48px;
 }
 
-.topicalboost-inline-mentions {
-  display: block;
-  margin: 16px 0;
+.topicalboost-inline-mentions.ttd-topics-content {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.topicalboost-inline-mentions.ttd-topics-content > h1,
+.topicalboost-inline-mentions.ttd-topics-content > h2,
+.topicalboost-inline-mentions.ttd-topics-content > h3,
+.topicalboost-inline-mentions.ttd-topics-content > h4,
+.topicalboost-inline-mentions.ttd-topics-content > h5,
+.topicalboost-inline-mentions.ttd-topics-content > h6,
+.topicalboost-inline-mentions.ttd-topics-content > .ttd-topics-links {
+  flex: 0 0 100%;
   width: 100%;
   max-width: 100%;
 }
 
 .mentions-label {
   display: block;
+  width: 100%;
   font-weight: 600;
-  color: #374151;
-  font-size: 14px;
-  margin-bottom: 8px;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
 }
 
-.gin--dark-mode .mentions-label {
-  color: var(--gin-color-text);
-}
-
-.mentions-list {
+.mentions-list.ttd-topics-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0;
   align-items: center;
   width: 100%;
   max-width: 100%;
@@ -369,38 +386,38 @@ fieldset .form-radios > div > div {
 
 .mention-tag {
   display: inline-block;
-  background: #f3f4f6;
-  color: #374151;
+  margin: 0 10px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1.4;
   text-decoration: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  line-height: 1.2;
-  transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transition: color 0.15s ease;
 }
 
-.gin--dark-mode .mention-tag {
-  background: var(--gin-bg-app);
-  color: var(--gin-color-text);
-  border-color: var(--gin-border-color);
+body:not(.ttd-skeleton-style) .mention-tag {
+  color: rgb(122, 122, 122);
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  text-transform: uppercase;
 }
 
 .mention-tag:hover {
-  background: #2563eb;
-  color: white;
-  text-decoration: none;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: #2563eb;
+  text-decoration: underline;
+  transform: none;
 }
 
-.gin--dark-mode .mention-tag:hover {
-  background: rgb(var(--gin-color-primary-rgb));
-  border-color: rgb(var(--gin-color-primary-rgb));
-}
-
-.mention-tag.hidden {
+.mention-tag.hidden,
+.mention-tag.ttd-topics-display-hidden {
   display: none;
 }
 
@@ -414,45 +431,34 @@ fieldset .form-radios > div > div {
   display: inline !important;
 }
 
-.toggle-mentions-btn {
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  color: #6b7280;
-  padding: 4px 8px;
-  border-radius: 4px;
+.toggle-mentions-btn.ttd-topics-show-extra-button {
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
   font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
-  line-height: 1.2;
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  transition: color 0.15s ease;
 }
 
-.gin--dark-mode .toggle-mentions-btn {
-  background: var(--gin-bg-app);
-  border-color: var(--gin-border-color);
-  color: var(--gin-color-text-light);
-}
-
-.toggle-mentions-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-  color: #374151;
-}
-
-.gin--dark-mode .toggle-mentions-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgb(var(--gin-color-primary-rgb));
-  color: var(--gin-color-text);
+.toggle-mentions-btn.ttd-topics-show-extra-button:hover {
+  background: transparent;
+  border-color: transparent;
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 .toggle-mentions-btn:focus {
-  outline: none;
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  border-color: #3b82f6;
-}
-
-.gin--dark-mode .toggle-mentions-btn:focus {
-  box-shadow: 0 0 0 2px rgba(var(--gin-color-primary-rgb), 0.3);
-  border-color: rgb(var(--gin-color-primary-rgb));
 }
 
 /* No responsive adjustments needed - layout is vertical by default */
@@ -749,4 +755,3 @@ fieldset .form-radios > div > div {
   background: rgb(var(--gin-color-primary-hover-rgb));
   border-color: rgb(var(--gin-color-primary-hover-rgb));
 }
-

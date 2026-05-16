@@ -52,17 +52,27 @@
         const $mentionsContainer = $button.parent('.mentions-list');
         const maxVisible = parseInt($mentionsContainer.attr('data-max-visible')) || 10;
         const $mentions = $mentionsContainer.find('.mention-tag');
-        const hiddenCount = $mentions.filter('.hidden').length;
+        let hiddenCount = $mentions.filter('.hidden, .ttd-topics-display-hidden').length;
+        const serverControlledVisibility = hiddenCount > 0;
 
-        // Initialize state - ensure proper hiding on page load
+        // Keep server-selected high-salience topics visible and only fall back to
+        // numeric hiding for older markup that did not pre-mark hidden links.
         $mentions.each(function (index) {
-          if (index >= maxVisible) {
-            $(this).addClass('hidden');
+          const $mention = $(this);
+          const shouldHide = serverControlledVisibility
+            ? $mention.hasClass('hidden') || $mention.hasClass('ttd-topics-display-hidden')
+            : index >= maxVisible;
+
+          $mention.data('ttdInitiallyHidden', shouldHide);
+
+          if (shouldHide) {
+            $mention.addClass('hidden ttd-topics-display-hidden');
           }
         });
 
-        // Hide button if not needed
-        if ($mentions.length <= maxVisible) {
+        hiddenCount = $mentions.filter('.hidden, .ttd-topics-display-hidden').length;
+
+        if (hiddenCount === 0) {
           $button.hide();
           return;
         }
@@ -80,26 +90,33 @@
           }
           $button.data('processing', true);
 
-          const buttonText = $button.text();
+          const buttonText = $button.text().toLowerCase();
 
           if (buttonText.includes('more')) {
             // Show all mentions
-            $mentionsContainer.find('.mention-tag.hidden').removeClass('hidden');
-            $button.text('Show less');
+            $mentionsContainer.find('.mention-tag.hidden, .mention-tag.ttd-topics-display-hidden').removeClass('hidden ttd-topics-display-hidden');
+            $button.text('Less');
           } else {
-            // Hide extra mentions
+            // Restore the initial hidden set.
             $mentions.each(function (index) {
-              if (index >= maxVisible) {
-                $(this).addClass('hidden');
+              const $mention = $(this);
+              if ($mention.data('ttdInitiallyHidden')) {
+                $mention.addClass('hidden ttd-topics-display-hidden');
               }
             });
-            const newHiddenCount = $mentions.filter('.hidden').length;
-            $button.text('+' + newHiddenCount + ' more');
+            $button.text('More');
           }
 
           // Reset processing flag
           $button.data('processing', false);
           return false; // Extra safety to prevent default
+        });
+
+        $button.on('keydown.topicsDisplay', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $button.trigger('click.topicsDisplay');
+          }
         });
       });
     }

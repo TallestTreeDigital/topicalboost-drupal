@@ -2,8 +2,11 @@
 
 namespace Drupal\ttd_topics\Controller;
 
+use Drupal\advancedqueue\Job;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -169,7 +172,7 @@ class TtdTopicsController extends ControllerBase {
         $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
       }
 
-      $rows[] = [
+      $rows[(int) $row->tid] = [
         'name' => [
           'data' => ['#markup' => $name_markup],
         ],
@@ -282,28 +285,52 @@ class TtdTopicsController extends ControllerBase {
     $count_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'count', 'order' => $count_order]]);
 
     $header = [
-      [
+      'name' => [
         'data' => [
           '#markup' => '<a href="' . $name_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'name' ? ' is-active' : '') . '">Topic Name' . $name_arrow . '</a>',
         ],
       ],
-      [
+      'count' => [
         'data' => [
           '#markup' => '<a href="' . $count_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'count' ? ' is-active' : '') . '">Posts' . $count_arrow . '</a>',
         ],
       ],
-      $this->t('Operations'),
+      'operations' => $this->t('Operations'),
     ];
 
-    // Simple table.
+    $build['bulk_actions'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-topics-bulk-actions', 'container-inline']],
+      '#weight' => -10,
+      'action' => [
+        '#type' => 'select',
+        '#title' => $this->t('Bulk action'),
+        '#title_display' => 'invisible',
+        '#options' => [
+          '' => $this->t('- Action -'),
+          'ttd_hide' => $this->t('Hide'),
+          'ttd_unhide' => $this->t('Unhide'),
+        ],
+        '#parents' => ['ttd_topics_bulk_action'],
+      ],
+      'apply' => [
+        '#type' => 'submit',
+        '#value' => $this->t('Apply'),
+        '#validate' => ['ttd_topics_bulk_terms_validate'],
+        '#submit' => ['ttd_topics_bulk_terms_submit'],
+      ],
+    ];
+
     $build['table'] = [
-      '#type' => 'table',
+      '#type' => 'tableselect',
       '#header' => $header,
-      '#rows' => $rows,
+      '#options' => $rows,
       '#empty' => $this->t('No topics found.'),
       '#attributes' => [
         'class' => ['ttd-topics-overview'],
       ],
+      '#js_select' => TRUE,
+      '#parents' => ['ttd_topics_bulk_terms'],
       '#weight' => 0,
     ];
 
@@ -911,7 +938,7 @@ class TtdTopicsController extends ControllerBase {
 
     // Build query to search taxonomy terms - search for full phrase like WordPress does
     $term_query = $database->select('taxonomy_term_field_data', 'ttfd');
-    $term_query->fields('ttfd', ['tid', 'name']);
+    $term_query->fields('ttfd', ['tid', 'name', 'description__value']);
     $term_query->condition('ttfd.vid', 'ttd_topics');
     $term_query->condition('ttfd.status', 1);
 
@@ -935,14 +962,11 @@ class TtdTopicsController extends ControllerBase {
 
     $results = $term_query->execute()->fetchAll();
 
-    // Filter out topics already on the node
+    $existing_tids = [];
     if ($node_id) {
       $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
       if ($node && $node->hasField('field_ttd_topics')) {
         $existing_tids = array_column($node->get('field_ttd_topics')->getValue(), 'target_id');
-        $results = array_filter($results, function($result) use ($existing_tids) {
-          return !in_array($result->tid, $existing_tids);
-        });
       }
     }
 
@@ -957,9 +981,11 @@ class TtdTopicsController extends ControllerBase {
         'term_id' => (int) $result->tid,
         'ttd_id' => $result->ttd_id,
         'name' => $result->name,
+        'description' => $result->description__value ?? '',
         'count' => (int) $result->post_count,
         'relevance' => $relevance,
         'source' => 'local',
+        'in_post' => in_array($result->tid, $existing_tids),
       ];
     }
 
@@ -1112,8 +1138,28 @@ class TtdTopicsController extends ControllerBase {
       // Set new tier
       $tier_overrides[$override_key] = $new_tier;
 
+      // Match WordPress: promoting a rejected topic to Main/About accepts it.
+      if (in_array($new_tier, ['mainEntity', 'about'], TRUE) && $node->hasField('field_ttd_rejected_topics')) {
+        $promoted_term_id = $term_id;
+        if (!$promoted_term_id && $ttd_id) {
+          $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+            'vid' => 'ttd_topics',
+            'field_ttd_id' => (string) $ttd_id,
+          ]);
+          if (!empty($terms)) {
+            $promoted_term_id = reset($terms)->id();
+          }
+        }
+
+        if ($promoted_term_id) {
+          $rejected_tids = array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'));
+          $rejected_tids = array_values(array_diff($rejected_tids, [(int) $promoted_term_id]));
+          $node->set('field_ttd_rejected_topics', array_map(static fn($tid) => ['target_id' => $tid], $rejected_tids));
+        }
+      }
+
       // Save to node
-      $node->set('field_tier_overrides', $tier_overrides);
+      $node->set('field_tier_overrides', ['value' => $tier_overrides]);
       $node->save();
 
       // Fetch demand metrics if tier is mainEntity or about
@@ -1171,7 +1217,7 @@ class TtdTopicsController extends ControllerBase {
       }
 
       // Save to node
-      $node->set('field_tier_overrides', $tier_overrides);
+      $node->set('field_tier_overrides', ['value' => $tier_overrides]);
       $node->save();
 
       return new JsonResponse(['success' => TRUE]);
@@ -1273,6 +1319,54 @@ class TtdTopicsController extends ControllerBase {
   }
 
   /**
+   * Queue analysis for a single node from the editor.
+   */
+  public function runAnalysis(NodeInterface $node, Request $request) {
+    try {
+      $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+      $queue = $queue_storage->load('ttd_topics_analysis');
+
+      if (!$queue) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'message' => 'TopicalBoost analysis queue not found.',
+        ], 500);
+      }
+
+      $job = Job::create('ttd_topics_analysis', [
+        'node_id' => $node->id(),
+        'force_analysis' => TRUE,
+      ]);
+      $queue->enqueueJob($job);
+
+      if ($node->hasField('field_ttd_analysis_in_progress')) {
+        $node->set('field_ttd_analysis_in_progress', TRUE);
+        $node->save();
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'message' => 'Analysis has been queued and will run in the background.',
+          'node_id' => (int) $node->id(),
+          'changed' => $node->getChangedTime(),
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('topicalboost')->error('Error queueing analysis for node @nid: @message', [
+        '@nid' => $node->id(),
+        '@message' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'success' => FALSE,
+        'message' => 'Error queueing TopicalBoost analysis: ' . $e->getMessage(),
+      ], 500);
+    }
+  }
+
+  /**
    * Helper to fetch demand metrics data.
    */
   private function getDemandMetricsData($term_id = NULL, $keyword = NULL, $force_refresh = 0) {
@@ -1345,7 +1439,7 @@ class TtdTopicsController extends ControllerBase {
    */
   public function newTopicsPage() {
     $html = '<div class="ttd-new-topics-wrap">';
-    $html .= '<p class="ttd-new-topics-description">Recently discovered topics from content analysis. Use filters to view topics by creation date.</p>';
+    $html .= '<p class="ttd-new-topics-description">Recently discovered topics from content analysis. Set visibility overrides before they appear on the frontend.</p>';
 
     $html .= '<div class="ttd-new-topics-filters">';
     $html .= '<button class="ttd-new-topics-filter-btn" data-days="7">7 days</button>';
@@ -1354,19 +1448,20 @@ class TtdTopicsController extends ControllerBase {
     $html .= '<button class="ttd-new-topics-filter-btn" data-days="90">90 days</button>';
     $html .= '</div>';
 
-    $html .= '<div class="ttd-new-topics-loading">Loading topics...</div>';
-    $html .= '<div class="ttd-new-topics-empty">No topics found for this period.</div>';
+    $html .= '<div class="ttd-new-topics-loading" style="display:none;">Loading topics...</div>';
+    $html .= '<div class="ttd-new-topics-empty" style="display:none;">No new topics found in this time period.</div>';
 
     $html .= '<table class="ttd-new-topics-table" style="display:none;">';
     $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Hide</th><th>Force Show</th></tr></thead>';
     $html .= '<tbody id="ttd-new-topics-body"></tbody>';
     $html .= '</table>';
+    $html .= '<div class="ttd-new-topics-pagination" style="display:none;"></div>';
 
     $html .= '</div>';
 
     return [
       '#type' => 'markup',
-      '#markup' => $html,
+      '#markup' => Markup::create($html),
       '#attached' => [
         'library' => ['ttd_topics/new_topics'],
       ],
@@ -1381,84 +1476,140 @@ class TtdTopicsController extends ControllerBase {
     if ($days < 1) {
       $days = 30;
     }
+    $page = max(1, (int) $request->query->get('page', 1));
+    $per_page = min(100, max(1, (int) $request->query->get('per_page', 25)));
+    $offset = ($page - 1) * $per_page;
 
     $database = \Drupal::database();
     $cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
 
-    // Get recently created topics.
-    $query = $database->select('taxonomy_term_field_data', 'td');
-    $query->fields('td', ['tid', 'name', 'created']);
-    $query->condition('td.vid', 'ttd_topics');
-    $query->condition('td.created', strtotime($cutoff), '>=');
-    $query->orderBy('td.created', 'DESC');
+    try {
+      $total_query = $database->select('ttd_entities', 'e');
+      $total_query->condition('e.createdAt', $cutoff, '>=');
+      $total = (int) $total_query->countQuery()->execute()->fetchField();
 
-    // Join post count.
-    $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
-    $query->addExpression('COUNT(DISTINCT ti.nid)', 'post_count');
-    $query->groupBy('td.tid');
-    $query->groupBy('td.name');
-    $query->groupBy('td.created');
+      $query = $database->select('ttd_entities', 'e');
+      $query->fields('e', ['ttd_id', 'name', 'createdAt']);
+      $query->condition('e.createdAt', $cutoff, '>=');
+      $query->leftJoin('ttd_entity_post_ids', 'ep', 'e.ttd_id = ep.entity_id');
+      $query->addExpression('COUNT(DISTINCT ep.post_id)', 'post_count');
+      $query->groupBy('e.ttd_id');
+      $query->groupBy('e.name');
+      $query->groupBy('e.createdAt');
+      $query->orderBy('e.createdAt', 'DESC');
+      $query->range($offset, $per_page);
 
-    // Join hide field.
-    $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
-    $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
-    $query->groupBy('tfh.field_hide_value');
+      $results = $query->execute()->fetchAll();
 
-    // Join force_show field.
-    $query->leftJoin('taxonomy_term__field_force_show', 'tfs', 'td.tid = tfs.entity_id');
-    $query->addExpression('COALESCE(tfs.field_force_show_value, 0)', 'force_show');
-    $query->groupBy('tfs.field_force_show_value');
+      if (empty($results)) {
+        return new JsonResponse([
+          'topics' => [],
+          'pagination' => [
+            'total' => $total,
+            'total_pages' => 0,
+            'current_page' => $page,
+          ],
+        ]);
+      }
 
-    $results = $query->execute()->fetchAll();
+      $ttd_ids = array_map(static function ($row) {
+        return (int) $row->ttd_id;
+      }, $results);
 
-    if (empty($results)) {
-      return new JsonResponse(['topics' => []]);
+      $term_map = [];
+      if (!empty($ttd_ids)) {
+        $term_rows = $database->select('taxonomy_term__field_ttd_id', 'fi')
+          ->fields('fi', ['entity_id', 'field_ttd_id_value'])
+          ->condition('fi.field_ttd_id_value', $ttd_ids, 'IN')
+          ->execute()
+          ->fetchAll();
+
+        foreach ($term_rows as $term_row) {
+          $term_map[(int) $term_row->field_ttd_id_value] = [
+            'tid' => (int) $term_row->entity_id,
+            'is_hidden' => FALSE,
+            'force_show' => FALSE,
+          ];
+        }
+      }
+
+      $tids = array_filter(array_column($term_map, 'tid'));
+      if (!empty($tids)) {
+        $hide_rows = $database->select('taxonomy_term__field_hide', 'tfh')
+          ->fields('tfh', ['entity_id', 'field_hide_value'])
+          ->condition('tfh.entity_id', $tids, 'IN')
+          ->execute()
+          ->fetchAllKeyed();
+
+        $force_rows = $database->select('taxonomy_term__field_force_show', 'tfs')
+          ->fields('tfs', ['entity_id', 'field_force_show_value'])
+          ->condition('tfs.entity_id', $tids, 'IN')
+          ->execute()
+          ->fetchAllKeyed();
+
+        foreach ($term_map as $ttd_id => $term_data) {
+          $tid = $term_data['tid'];
+          $term_map[$ttd_id]['is_hidden'] = !empty($hide_rows[$tid]);
+          $term_map[$ttd_id]['force_show'] = !empty($force_rows[$tid]);
+        }
+      }
+
+      $schema_type_map = [];
+      if (!empty($ttd_ids)) {
+        $schema_rows = $database->query(
+          "SELECT est.entity_id, st.name
+           FROM {ttd_entity_schema_types} est
+           INNER JOIN {ttd_schema_types} st ON est.schema_type_id = st.ttd_id
+           WHERE est.entity_id IN (:ids[])",
+          [':ids[]' => $ttd_ids]
+        )->fetchAll();
+
+        foreach ($schema_rows as $schema_row) {
+          $schema_type_map[(int) $schema_row->entity_id][] = $schema_row->name;
+        }
+      }
+
+      $topics = [];
+      foreach ($results as $row) {
+        $ttd_id = (int) $row->ttd_id;
+        $term_data = $term_map[$ttd_id] ?? NULL;
+
+        $topics[] = [
+          'tid' => $term_data['tid'] ?? NULL,
+          'ttd_id' => $ttd_id,
+          'name' => $row->name,
+          'created' => date('M j, Y', strtotime($row->createdAt)),
+          'post_count' => (int) $row->post_count,
+          'schema_types' => $schema_type_map[$ttd_id] ?? [],
+          'is_hidden' => (bool) ($term_data['is_hidden'] ?? FALSE),
+          'force_show' => (bool) ($term_data['force_show'] ?? FALSE),
+        ];
+      }
+
+      return new JsonResponse([
+        'topics' => $topics,
+        'pagination' => [
+          'total' => $total,
+          'total_pages' => (int) ceil($total / $per_page),
+          'current_page' => $page,
+        ],
+      ]);
     }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('New topics endpoint error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
 
-    // Batch lookup: get ttd_ids for all tids at once.
-    $tids = array_map(function ($r) { return $r->tid; }, $results);
-    $ttd_id_map = [];
-    if (!empty($tids)) {
-      $ttd_id_rows = $database->select('taxonomy_term__field_ttd_id', 'fi')
-        ->fields('fi', ['entity_id', 'field_ttd_id_value'])
-        ->condition('fi.entity_id', $tids, 'IN')
-        ->execute()
-        ->fetchAllKeyed();
-      $ttd_id_map = $ttd_id_rows;
+      return new JsonResponse([
+        'topics' => [],
+        'pagination' => [
+          'total' => 0,
+          'total_pages' => 0,
+          'current_page' => $page,
+        ],
+        'error' => 'Unable to load new topics.',
+      ], 500);
     }
-
-    // Batch lookup: get schema types for all ttd_ids at once.
-    $schema_type_map = [];
-    $entity_ids = array_filter(array_values($ttd_id_map));
-    if (!empty($entity_ids)) {
-      $type_rows = $database->query(
-        "SELECT est.entity_id, GROUP_CONCAT(st.name SEPARATOR ', ') AS types
-         FROM {ttd_entity_schema_types} est
-         INNER JOIN {ttd_schema_types} st ON est.schema_type_id = st.ttd_id
-         WHERE est.entity_id IN (:ids[])
-         GROUP BY est.entity_id",
-        [':ids[]' => $entity_ids]
-      )->fetchAllKeyed();
-      $schema_type_map = $type_rows;
-    }
-
-    $topics = [];
-    foreach ($results as $row) {
-      $ttd_id = $ttd_id_map[$row->tid] ?? NULL;
-      $schema_types = $ttd_id ? ($schema_type_map[$ttd_id] ?? '') : '';
-
-      $topics[] = [
-        'tid' => (int) $row->tid,
-        'name' => $row->name,
-        'created' => date('M j, Y', $row->created),
-        'post_count' => (int) $row->post_count,
-        'schema_types' => $schema_types,
-        'is_hidden' => (bool) $row->is_hidden,
-        'force_show' => (bool) $row->force_show,
-      ];
-    }
-
-    return new JsonResponse(['topics' => $topics]);
   }
 
   /**

@@ -86,6 +86,11 @@ function ttd_topics_schema() {
         'not null' => FALSE,
         'description' => 'Knowledge Graph name',
       ],
+      'kg_description' => [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Knowledge Graph description',
+      ],
       'kg_image' => [
         'type' => 'varchar',
         'length' => 1024,
@@ -535,6 +540,94 @@ function ttd_topics_schema() {
 }
 
 /**
+ * Returns the current default module configuration.
+ *
+ * @return array
+ *   Default values keyed by ttd_topics.settings config name.
+ */
+function ttd_topics_default_settings() {
+  return [
+    'enabled_content_types' => [],
+    'enable_frontend' => FALSE,
+    'enable_automatic_mentions' => TRUE,
+    'enable_meta_generator' => FALSE,
+    'maximum_visible_post_topics' => 5,
+    'post_topic_minimum_display_count' => 10,
+    'analysis_custom_fields' => [],
+    'topics_list_label' => 'Topics on this page',
+    'topic_url_path_prefix' => 'topics',
+    'debug_mode' => FALSE,
+    'topicalboost_api_key' => '',
+    'api_key_validated' => FALSE,
+    'api_key_validation_hash' => '',
+    'subscription_status' => '',
+    'domain_mismatch' => [],
+    'topicalboost_api_endpoint' => '',
+    'organization_facebook_url' => '',
+    'organization_twitter_url' => '',
+    'organization_linkedin_url' => '',
+    'organization_youtube_url' => '',
+    'organization_wikipedia_url' => '',
+    'organization_logo_method' => 'auto',
+    'organization_logo_fid' => NULL,
+    'organization_logo_url' => '',
+    'frontend_filter_mode' => 'mentions_behind_toggle',
+    'frontend_sort_order' => 'salience',
+    'auto_link_topics' => FALSE,
+    'skeleton_style' => FALSE,
+    'taxonomy_label_singular' => 'Topic',
+    'taxonomy_label_plural' => 'Topics',
+    'include_excerpt' => FALSE,
+    'batch_size' => 35,
+    'beta_channel' => FALSE,
+    'use_beta_api' => FALSE,
+    'error_telemetry_enabled' => TRUE,
+    'disable_event_temporal_properties' => FALSE,
+    'hide_seo_module_ui' => FALSE,
+    'block_until_analyzed' => FALSE,
+    'required_permission' => 'administer topicalboost',
+    'new_topic_reanalysis_enabled' => FALSE,
+    'new_topic_reanalysis_lookback_days' => 30,
+    'search_clippings_enabled' => FALSE,
+    'citations_widget_enabled' => FALSE,
+    'citations_widget_limit' => 20,
+    'meta_seo_prompt' => '',
+    'meta_social_prompt' => '',
+    'meta_title_case_format' => 'title',
+    'auto_sync_enabled' => FALSE,
+    'search_countries' => ['US'],
+    'author_manager_enabled' => FALSE,
+    'author_hide_content_types' => [],
+    'author_force_show_content_types' => [],
+    'custom_author_schema_enabled' => FALSE,
+    'author_field_name' => 'uid',
+    'author_name_field' => 'display_name',
+    'author_image_field' => '',
+    'author_description_field' => '',
+  ];
+}
+
+/**
+ * Ensures current config defaults exist without overwriting saved values.
+ */
+function ttd_topics_ensure_default_settings() {
+  $config_factory = \Drupal::configFactory();
+  $config = $config_factory->getEditable('ttd_topics.settings');
+  $legacy_config = $config_factory->get('topicalboost.settings');
+
+  foreach (ttd_topics_default_settings() as $key => $default_value) {
+    if ($config->get($key) !== NULL) {
+      continue;
+    }
+
+    $legacy_value = !$legacy_config->isNew() ? $legacy_config->get($key) : NULL;
+    $config->set($key, $legacy_value !== NULL ? $legacy_value : $default_value);
+  }
+
+  $config->save();
+}
+
+/**
  * Implements hook_install().
  */
 function ttd_topics_install() {
@@ -597,6 +690,57 @@ function ttd_topics_install() {
       'type' => 'string_long',
       'cardinality' => 1,
     ],
+    [
+      'field_name' => 'field_ttd_generated_og_title',
+      'entity_type' => 'node',
+      'type' => 'string',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_ttd_generated_og_desc',
+      'entity_type' => 'node',
+      'type' => 'string_long',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_tier_overrides',
+      'entity_type' => 'node',
+      'type' => 'map',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_manual_topics',
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => [
+        'target_type' => 'taxonomy_term',
+      ],
+      'cardinality' => -1,
+    ],
+    [
+      'field_name' => 'field_ttd_schema_16x9',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_ttd_schema_4x3',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_ttd_schema_1x1',
+      'entity_type' => 'node',
+      'type' => 'image',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_ttd_schema_focal_point',
+      'entity_type' => 'node',
+      'type' => 'string',
+      'cardinality' => 1,
+    ],
   ];
 
   // Create field storages.
@@ -619,6 +763,21 @@ function ttd_topics_install() {
     ],
     [
       'field_name' => 'field_hide',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'boolean',
+      'cardinality' => 1,
+    ],
+    [
+      'field_name' => 'field_pinned_posts',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'entity_reference',
+      'settings' => [
+        'target_type' => 'node',
+      ],
+      'cardinality' => 3,
+    ],
+    [
+      'field_name' => 'field_force_show',
       'entity_type' => 'taxonomy_term',
       'type' => 'boolean',
       'cardinality' => 1,
@@ -694,6 +853,8 @@ function ttd_topics_install() {
     'hidden' => [
       'field_hide' => TRUE,
       'field_ttd_id' => TRUE,
+      'field_pinned_posts' => TRUE,
+      'field_force_show' => TRUE,
     ],
     'dependencies' => [
       'config' => [
@@ -711,22 +872,7 @@ function ttd_topics_install() {
   \Drupal::service('file_system')->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
 
   // Set default configuration.
-  \Drupal::configFactory()->getEditable('topicalboost.settings')
-    ->set('enabled_content_types', [])
-    ->set('enable_frontend', 0)
-    ->set('maximum_visible_post_topics', 10)
-    ->set('post_topic_minimum_display_count', 10)
-    ->set('topics_list_label', 'Mentions')
-    ->set('topicalboost_api_key', '')
-    ->set('organization_facebook_url', '')
-    ->set('organization_twitter_url', '')
-    ->set('organization_linkedin_url', '')
-    ->set('organization_youtube_url', '')
-    ->set('organization_wikipedia_url', '')
-    ->set('organization_logo_method', 'auto')
-    ->set('organization_logo_fid', NULL)
-    ->set('organization_logo_url', '')
-    ->save();
+  ttd_topics_ensure_default_settings();
 
   // Grant permissions to administrator role by default so users can actually use the module.
   $admin_role = \Drupal\user\Entity\Role::load('administrator');
@@ -785,8 +931,21 @@ function ttd_topics_uninstall() {
     'field.storage.node.field_ttd_topics',
     'field.storage.node.field_ttd_rejected_topics',
     'field.storage.node.field_ttd_analysis_in_progress',
+    'field.storage.node.field_ttd_generated_meta_title',
+    'field.storage.node.field_ttd_generated_meta_desc',
+    'field.storage.node.field_ttd_generated_og_title',
+    'field.storage.node.field_ttd_generated_og_desc',
+    'field.storage.node.field_tier_overrides',
+    'field.storage.node.field_manual_topics',
+    'field.storage.node.field_ttd_schema_16x9',
+    'field.storage.node.field_ttd_schema_4x3',
+    'field.storage.node.field_ttd_schema_1x1',
+    'field.storage.node.field_ttd_schema_focal_point',
     'field.storage.taxonomy_term.field_ttd_id',
     'field.storage.taxonomy_term.field_hide',
+    'field.storage.taxonomy_term.field_pinned_posts',
+    'field.storage.taxonomy_term.field_force_show',
+    'ttd_topics.settings',
     'topicalboost.settings',
   ];
 
@@ -1127,4 +1286,84 @@ function ttd_topics_update_9004() {
   \Drupal::service('file_system')->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
 
   return t('Added schema image fields for 16:9, 4:3, and 1:1 aspect ratios.');
+}
+
+/**
+ * Repair current config defaults and re-ensure feature field coverage.
+ */
+function ttd_topics_update_9005() {
+  ttd_topics_ensure_default_settings();
+
+  // Re-run idempotent field coverage for sites that had older updates marked
+  // complete before the current feature set was fully represented.
+  ttd_topics_update_9001();
+  ttd_topics_update_9002();
+  ttd_topics_update_9003();
+  ttd_topics_update_9004();
+
+  $og_fields = [
+    'field_ttd_generated_og_title' => [
+      'type' => 'string',
+      'label' => 'TopicalBoost Generated OG Title',
+    ],
+    'field_ttd_generated_og_desc' => [
+      'type' => 'string_long',
+      'label' => 'TopicalBoost Generated OG Description',
+    ],
+  ];
+  foreach ($og_fields as $field_name => $field_info) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $field_info['type'],
+        'cardinality' => 1,
+      ])->save();
+    }
+  }
+
+  $enabled_content_types = array_filter(\Drupal::config('ttd_topics.settings')->get('enabled_content_types') ?: []);
+  foreach ($enabled_content_types as $content_type) {
+    if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($content_type)) {
+      continue;
+    }
+    foreach ($og_fields as $field_name => $field_info) {
+      if (!FieldConfig::loadByName('node', $content_type, $field_name)) {
+        FieldConfig::create([
+          'field_name' => $field_name,
+          'entity_type' => 'node',
+          'bundle' => $content_type,
+          'label' => $field_info['label'],
+        ])->save();
+      }
+    }
+  }
+
+  if (!Queue::load('ttd_topics_analysis')) {
+    Queue::create([
+      'id' => 'ttd_topics_analysis',
+      'label' => 'TopicalBoost Analysis',
+      'backend' => 'database',
+      'processor' => 'cron',
+    ])->save();
+  }
+
+  return t('Repaired TopicalBoost config defaults, queue config, and feature field coverage.');
+}
+
+/**
+ * Add Knowledge Graph description storage for entity metadata.
+ */
+function ttd_topics_update_9006() {
+  $schema = \Drupal::database()->schema();
+
+  if ($schema->tableExists('ttd_entities') && !$schema->fieldExists('ttd_entities', 'kg_description')) {
+    $schema->addField('ttd_entities', 'kg_description', [
+      'type' => 'text',
+      'not null' => FALSE,
+      'description' => 'Knowledge Graph description',
+    ]);
+  }
+
+  return t('Added Knowledge Graph description storage for TopicalBoost entities.');
 }

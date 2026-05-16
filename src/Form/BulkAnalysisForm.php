@@ -98,10 +98,24 @@ class BulkAnalysisForm extends FormBase {
 
     $form['#attributes']['id'] = 'ttd-bulk-analysis-form';
 
+    $form['tabs'] = [
+      '#type' => 'markup',
+      '#weight' => -100,
+      '#markup' => Markup::create('<div class="ttd-ba-tabs">
+        <button type="button" class="ttd-ba-tab active" data-tab="analysis">Analysis</button>
+        <button type="button" class="ttd-ba-tab" data-tab="sync">
+          Sync
+          <span id="ttd-sync-tab-dot" class="ttd-sync-tab-dot" style="display: none;"></span>
+        </button>
+      </div>
+      <div class="ttd-ba-tab-content active" id="ttd-tab-analysis">'),
+    ];
+
     // Unified Date Range Section.
     $form['date_range'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-bulk-analysis-section']],
+      '#weight' => -90,
     ];
 
     $form['date_range']['header'] = [
@@ -206,6 +220,25 @@ class BulkAnalysisForm extends FormBase {
       '#attributes' => ['id' => 'ttd-bulk-analysis-only-topicless'],
     ];
 
+    // Custom field filter.
+    $custom_field_options = $this->getAnalysisCustomFieldOptions($config);
+    $form['custom_field_filter'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-bulk-analysis-section', 'ttd-custom-field-filter-section']],
+    ];
+
+    $form['custom_field_filter']['header'] = [
+      '#type' => 'markup',
+      '#markup' => '<div class="ttd-section-header">
+        <h3 class="ttd-section-title">' . $this->t('Filter by Custom Field') . '</h3>
+      </div>',
+    ];
+
+    $form['custom_field_filter']['content'] = [
+      '#type' => 'markup',
+      '#markup' => Markup::create($this->buildCustomFieldFilterMarkup($custom_field_options)),
+    ];
+
     // Content Type Selection.
     $form['content_types'] = [
       '#type' => 'container',
@@ -220,7 +253,7 @@ class BulkAnalysisForm extends FormBase {
             <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
             <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 2a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
           </svg>
-          ' . $this->t('Content Types') . '
+          ' . $this->t('Post Types') . '
         </h3>
       </div>',
     ];
@@ -244,6 +277,25 @@ class BulkAnalysisForm extends FormBase {
     $form['content_types']['content']['types_grid'] = [
       '#type' => 'markup',
       '#markup' => $this->buildContentTypesGrid($content_type_options, $enabled_content_types),
+    ];
+
+    // Category filter placeholder. Drupal does not have a configured category
+    // filter yet, but the row is present to match the WordPress workflow.
+    $form['categories'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-bulk-analysis-section', 'ttd-categories-section']],
+    ];
+
+    $form['categories']['header'] = [
+      '#type' => 'markup',
+      '#markup' => '<div class="ttd-section-header">
+        <h3 class="ttd-section-title">' . $this->t('Categories') . '</h3>
+      </div>',
+    ];
+
+    $form['categories']['content'] = [
+      '#type' => 'markup',
+      '#markup' => Markup::create($this->buildCategoriesMarkup()),
     ];
 
     // Selection Status.
@@ -305,11 +357,12 @@ class BulkAnalysisForm extends FormBase {
     $form['actions'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-bulk-analysis-actions']],
+      '#weight' => 90,
     ];
 
     $form['actions']['analyze'] = [
       '#type' => 'button',
-      '#value' => $this->t('Analyze Content'),
+      '#value' => $this->t('Analyze Posts'),
       '#attributes' => [
         'id' => 'ttd-bulk-analysis-analyze-button',
         'class' => ['button', 'button--primary'],
@@ -319,7 +372,7 @@ class BulkAnalysisForm extends FormBase {
 
     $form['actions']['reset'] = [
       '#type' => 'button',
-      '#value' => $this->t('Cancel Analysis'),
+      '#value' => $this->t('Cancel'),
       '#attributes' => [
         'id' => 'ttd-bulk-analysis-reset-button',
         'class' => ['button', 'button--danger'],
@@ -328,8 +381,21 @@ class BulkAnalysisForm extends FormBase {
       '#button_type' => 'button',
     ];
 
+    $form['analysis_close'] = [
+      '#type' => 'markup',
+      '#weight' => 95,
+      '#markup' => Markup::create('</div>'),
+    ];
+
+    $form['sync_tab'] = [
+      '#type' => 'markup',
+      '#weight' => 100,
+      '#markup' => Markup::create($this->buildSyncTabMarkup()),
+    ];
+
     // Attach bulk analysis library and settings.
     $form['#attached']['library'][] = 'ttd_topics/bulk_analysis';
+    $form['#attached']['library'][] = 'ttd_topics/sync';
 
     // Add drupalSettings for the bulk analysis (similar to WordPress wp_localize_script)
     $form['#attached']['drupalSettings']['ttd_topics'] = [
@@ -347,6 +413,76 @@ class BulkAnalysisForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  /**
+   * Builds the WP-style data sync tab for the Bulk Analysis page.
+   */
+  private function buildSyncTabMarkup(): string {
+    return '<div class="ttd-ba-tab-content" id="ttd-tab-sync" style="display: none;">
+      <div id="ttd-sync-container">
+        <div id="ttd-sync-status-label" style="display:none;">
+          <span class="ttd-sync-dot"></span>
+          <span class="ttd-sync-label">Checking...</span>
+        </div>
+
+        <div class="ttd-sync-cards">
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Topics') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-topics"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-topics" style="display:none;"></div>
+          </div>
+
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Relationships') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-rels"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-rels" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div id="ttd-sync-progress" style="display:none;">
+          <div class="ttd-sync-progress-bar">
+            <div class="ttd-sync-progress-fill" id="sync-progress-fill" style="width:0%;"></div>
+          </div>
+          <div class="ttd-sync-progress-info">
+            <span id="sync-progress-text">0%</span>
+            <span id="sync-progress-stage"></span>
+          </div>
+        </div>
+
+        <div id="ttd-sync-result" style="display:none;"></div>
+        <div id="ttd-sync-summary" style="display:none;"></div>
+
+        <div class="ttd-sync-actions">
+          <button type="button" class="button button--primary" id="ttd-sync-btn" style="display:none;">' . $this->t('Sync Now') . '</button>
+          <button type="button" class="button" id="ttd-sync-cancel" style="display:none;">' . $this->t('Cancel') . '</button>
+        </div>
+      </div>
+    </div>';
   }
 
   /**
@@ -412,6 +548,94 @@ class BulkAnalysisForm extends FormBase {
 
     $markup .= '</div>';
     return $markup;
+  }
+
+  /**
+   * Builds custom field filter options from the configured analysis fields.
+   */
+  private function getAnalysisCustomFieldOptions($config): array {
+    $configured_fields = array_filter($config->get('analysis_custom_fields') ?: []);
+    if (empty($configured_fields)) {
+      return [];
+    }
+
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+    $field_manager = \Drupal::service('entity_field.manager');
+    $options = [];
+
+    foreach ($enabled_content_types as $bundle) {
+      $definitions = $field_manager->getFieldDefinitions('node', $bundle);
+      foreach ($configured_fields as $field_name) {
+        if (isset($definitions[$field_name])) {
+          $label = (string) $definitions[$field_name]->getLabel();
+          $options[$field_name] = sprintf('%s - %s (%s)', $label, $field_name, $bundle);
+        }
+      }
+    }
+
+    foreach ($configured_fields as $field_name) {
+      $options[$field_name] ??= $field_name;
+    }
+
+    asort($options);
+    return $options;
+  }
+
+  /**
+   * Builds the custom field filter row markup.
+   */
+  private function buildCustomFieldFilterMarkup(array $field_options): string {
+    $disabled = empty($field_options) ? ' disabled' : '';
+    $checked_disabled_class = empty($field_options) ? ' is-disabled' : '';
+
+    $markup = '<div class="components-toggle-control' . $checked_disabled_class . '">
+      <span class="components-form-toggle">
+        <input class="components-form-toggle__input" id="ttd-bulk-analysis-custom-field-filter-toggle" type="checkbox" name="custom_field_filter"' . $disabled . '>
+        <span class="components-form-toggle__track"></span>
+        <span class="components-form-toggle__thumb"></span>
+      </span>
+      <label for="ttd-bulk-analysis-custom-field-filter-toggle" class="components-toggle-control__label">
+        ' . $this->t('Only analyze content with selected custom field populated') . '
+      </label>
+    </div>';
+
+    if (empty($field_options)) {
+      return $markup . '<div id="ttd-custom-field-filter-container" class="ttd-custom-field-filter-container" style="display:none;">
+        <div class="ttd-empty-message">
+          <div class="ttd-empty-title">' . $this->t('No custom fields are available for filtering') . '</div>
+          <div class="ttd-empty-action"><a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#tab-content">' . $this->t('Enable custom fields in settings') . '</a></div>
+        </div>
+      </div>';
+    }
+
+    $markup .= '<div id="ttd-custom-field-filter-container" class="ttd-custom-field-filter-container" style="display:none;">
+      <select id="ttd-bulk-analysis-custom-field-select" class="ttd-custom-field-select">';
+    foreach ($field_options as $field_name => $label) {
+      $markup .= '<option value="' . htmlspecialchars($field_name, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</option>';
+    }
+    $markup .= '</select>
+      <p class="description">' . $this->t('Only content with a non-empty value for this field will be analyzed.') . '</p>
+    </div>';
+
+    return $markup;
+  }
+
+  /**
+   * Builds the categories row markup.
+   */
+  private function buildCategoriesMarkup(): string {
+    return '<div class="ttd-filter-group">
+      <div class="ttd-filter-header">
+        <span class="ttd-section-label">' . $this->t('Default from Settings • Click × to Remove for This Analysis') . '</span>
+        <a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#tab-content" class="ttd-edit-link ttd-edit-link--pencil" title="' . $this->t('Edit Default in Settings') . '"></a>
+      </div>
+      <div class="ttd-categories-selection">
+        <div class="ttd-empty-message">
+          <div class="ttd-empty-title">' . $this->t('No categories enabled') . '</div>
+          <div class="ttd-empty-action">' . $this->t('Enable categories in settings or leave empty to use all categories') . '</div>
+        </div>
+      </div>
+    </div>';
   }
 
   /**

@@ -171,6 +171,7 @@ const siteMetrics = {
         'api-posts-val': 'posts',
         'api-topics-val': 'topics',
         'api-relationships-val': 'relationships',
+        'api-coverage-val': 'coverage_percentage',
         'api-avg-val': 'avg_relationships_per_post',
       };
 
@@ -196,7 +197,7 @@ const siteMetrics = {
      * Update table status indicators by comparing local vs API.
      */
     updateTableStatus: function() {
-      const metrics = ['posts', 'topics', 'relationships', 'avg_relationships'];
+      const metrics = ['posts', 'topics', 'relationships', 'coverage', 'avg_relationships'];
 
       metrics.forEach(metric => {
         const row = document.querySelector(`[data-metric="${metric}"]`);
@@ -233,6 +234,9 @@ const siteMetrics = {
       if (metric === 'avg_relationships') {
         localValue = this.localData.avg_topics_per_post || 0;
         apiValue = this.apiData.avg_relationships_per_post || 0;
+      }
+      else if (metric === 'coverage') {
+        apiValue = this.apiData.coverage_percentage || 0;
       }
 
       // Compare values.
@@ -312,9 +316,8 @@ const siteMetrics = {
 if (typeof Drupal !== 'undefined') {
   Drupal.behaviors.ttdCoverage = {
     attach: function(context) {
-      // Check if coverage container exists in the full document
-      const container = document.querySelector('.ttd-coverage-section');
-      if (container) {
+      const containers = once('ttd-coverage', '.ttd-coverage-container, .ttd-coverage-section', context);
+      if (containers.length) {
         siteMetrics.init();
       }
     },
