@@ -264,30 +264,18 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Hide the original field_ttd_topics field.
     $form['field_ttd_topics']['#access'] = FALSE;
 
-    $metabox_position = $config->get('metabox_position') ?: 'side';
-    if ($metabox_position === 'normal') {
-      $form['ttd_topics'] = [
-        '#type' => 'container',
-        '#attributes' => [
-          'class' => ['ttd-editor-metabox', 'ttd-editor-metabox-normal'],
-        ],
-        '#weight' => 50,
-      ];
-      $form['ttd_topics']['metabox_title'] = [
-        '#markup' => '<h2 class="ttd-editor-metabox-title">' . t('TopicalBoost') . '</h2>',
-        '#weight' => -100,
-      ];
-    }
-    else {
-      $form['ttd_topics'] = [
-        '#type' => 'details',
-        '#title' => t('TopicalBoost'),
-        '#group' => 'advanced',
-        '#weight' => 100,
-        '#optional' => FALSE,
-        '#open' => TRUE,
-      ];
-    }
+    // Create the TopicalBoost editor in the main content column.
+    $form['ttd_topics'] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['ttd-editor-metabox', 'ttd-editor-metabox-normal'],
+      ],
+      '#weight' => 50,
+    ];
+    $form['ttd_topics']['metabox_title'] = [
+      '#markup' => '<h2 class="ttd-editor-metabox-title">' . t('TopicalBoost') . '</h2>',
+      '#weight' => -100,
+    ];
 
     // Check if the node has been saved at least once.
     $is_saved = !$node->isNew();
@@ -295,7 +283,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Check if analysis is in progress.
     $analysis_in_progress = $node->get('field_ttd_analysis_in_progress')->value;
     $meta_gen_enabled = $config->get('enable_meta_generator') ?? FALSE;
-    $use_combined_editor = ($metabox_position === 'normal' && $meta_gen_enabled && $is_saved && !$analysis_in_progress);
+    $use_combined_editor = ($meta_gen_enabled && $is_saved && !$analysis_in_progress);
     $topics_field_value = $is_saved ? $node->get('field_ttd_topics')->getValue() : [];
     $has_topics = !empty($topics_field_value);
     $existing_title = $node->hasField('field_ttd_generated_meta_title')

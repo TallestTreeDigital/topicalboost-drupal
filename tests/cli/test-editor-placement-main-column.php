@@ -30,7 +30,9 @@ ttd_editor_placement_assert(strpos($module_file, '$use_combined_editor = ($meta_
 ttd_editor_placement_assert(strpos($settings_form, "['metabox_position']") === false, 'Settings form no longer renders the metabox position control');
 ttd_editor_placement_assert(strpos($settings_form, "->set('metabox_position'") === false, 'Settings submit no longer saves metabox position');
 ttd_editor_placement_assert(strpos($schema_file, 'metabox_position') === false, 'Config schema no longer defines metabox position');
-ttd_editor_placement_assert(strpos($install_file, "'metabox_position'") === false, 'Install defaults no longer define metabox position');
+ttd_editor_placement_assert(strpos($install_file, "'metabox_position' =>") === false, 'Install defaults no longer define metabox position');
+ttd_editor_placement_assert(strpos($install_file, 'function ttd_topics_update_9007()') !== false, 'Drupal update hook exists for the retired placement setting');
+ttd_editor_placement_assert(strpos($install_file, "clear('metabox_position')") !== false, 'Drupal update hook clears the retired placement setting');
 ttd_editor_placement_assert(strpos($default_config, 'metabox_position') === false, 'Default config no longer defines metabox position');
 ttd_editor_placement_assert(strpos($settings_css, '#edit-metabox-position') === false, 'Settings CSS no longer targets the removed metabox position control');
 

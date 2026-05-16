@@ -1367,3 +1367,19 @@ function ttd_topics_update_9006() {
 
   return t('Added Knowledge Graph description storage for TopicalBoost entities.');
 }
+
+/**
+ * Remove the retired editor placement setting.
+ */
+function ttd_topics_update_9007() {
+  $config_factory = \Drupal::configFactory();
+
+  foreach (['ttd_topics.settings', 'topicalboost.settings'] as $config_name) {
+    $config = $config_factory->getEditable($config_name);
+    if (!$config->isNew()) {
+      $config->clear('metabox_position')->save();
+    }
+  }
+
+  return t('Removed retired TopicalBoost editor placement setting.');
+}
