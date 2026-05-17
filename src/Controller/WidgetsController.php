@@ -42,6 +42,7 @@ class WidgetsController extends ControllerBase {
             <script src="{{ clippings_src }}"
               data-topicalboost-api-key="{{ api_key }}"
               data-limit="5"
+              data-source="drupal_widgets_page"
               data-use-cloudflare-images="true"
               data-thumbnail-size="120x80"
               data-debug="{{ debug }}"></script>
@@ -52,6 +53,7 @@ class WidgetsController extends ControllerBase {
             <script src="{{ citations_src }}"
               data-topicalboost-api-key="{{ api_key }}"
               data-limit="{{ citations_limit }}"
+              data-source="drupal_widgets_page"
               data-debug="{{ debug }}"></script>
             <div id="topicalboost-citations"></div>
           </div>
