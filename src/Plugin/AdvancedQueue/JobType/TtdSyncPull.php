@@ -27,9 +27,10 @@ class TtdSyncPull extends JobTypeBase {
     $page = (int) ($payload['page'] ?? 1);
     $page_size = (int) ($payload['page_size'] ?? 50);
     $since = $payload['since'] ?? NULL;
+    $after_id = $payload['after_id'] ?? NULL;
 
     try {
-      $result = \Drupal::service('ttd_topics.sync_service')->pullSyncPage($type, $page, $page_size, $since);
+      $result = \Drupal::service('ttd_topics.sync_service')->pullSyncPage($type, $page, $page_size, $since, $after_id);
 
       if (!empty($result['split_jobs'])) {
         return JobResult::success('Split topics page ' . $page . ' into ' . $result['split_jobs'] . ' smaller pull jobs');

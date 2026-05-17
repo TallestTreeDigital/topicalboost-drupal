@@ -211,7 +211,7 @@ class TtdSyncService {
 
     $sync_state = [
       'started_at' => \Drupal::time()->getRequestTime(),
-      'total_jobs' => $topic_pages + $rel_pages,
+      'total_jobs' => ($sync_topics > 0 ? 1 : 0) + ($sync_posts > 0 ? 1 : 0),
       'completed_jobs' => 0,
       'failed_jobs' => 0,
       'topic_pages' => $topic_pages,
@@ -232,21 +232,23 @@ class TtdSyncService {
     }
 
     if ($queue) {
-      for ($page = 1; $page <= $topic_pages; $page++) {
+      if ($sync_topics > 0) {
         $queue->enqueueJob(Job::create(static::SYNC_JOB_TYPE, [
           'type' => 'topics',
-          'page' => $page,
+          'page' => 1,
           'page_size' => $topic_page_size,
           'since' => $last_sync ?: NULL,
+          'after_id' => 0,
         ]));
         $jobs_scheduled++;
       }
-      for ($page = 1; $page <= $rel_pages; $page++) {
+      if ($sync_posts > 0) {
         $queue->enqueueJob(Job::create(static::SYNC_JOB_TYPE, [
           'type' => 'relationships',
-          'page' => $page,
+          'page' => 1,
           'page_size' => $batch_size,
           'since' => $last_sync ?: NULL,
+          'after_id' => 0,
         ]));
         $jobs_scheduled++;
       }
@@ -257,7 +259,7 @@ class TtdSyncService {
       return array_merge($sync_state, ['active' => FALSE, 'status' => 'complete']);
     }
 
-    \Drupal::logger('ttd_topics')->info('Started @mode sync: @topics topic pages, @rels relationship pages.', [
+    \Drupal::logger('ttd_topics')->info('Started @mode sync: estimated @topics topic pages, @rels relationship pages.', [
       '@mode' => $is_incremental ? 'incremental' : 'full',
       '@topics' => $topic_pages,
       '@rels' => $rel_pages,
@@ -313,8 +315,8 @@ class TtdSyncService {
   /**
    * Pull one sync page from the API and apply it locally.
    */
-  public function pullSyncPage(string $type, int $page, int $page_size, ?string $since = NULL) {
-    if ($type === 'topics' && $page_size > static::TOPIC_PAGE_SIZE) {
+  public function pullSyncPage(string $type, int $page, int $page_size, ?string $since = NULL, $after_id = NULL) {
+    if ($type === 'topics' && $page_size > static::TOPIC_PAGE_SIZE && $after_id === NULL) {
       return $this->splitOversizedTopicPull($page, $page_size, $since);
     }
 
@@ -324,6 +326,9 @@ class TtdSyncService {
     ];
     if (!empty($since)) {
       $query['since'] = $since;
+    }
+    if ($after_id !== NULL) {
+      $query['after_id'] = (int) $after_id;
     }
 
     if ($type === 'topics') {
@@ -336,6 +341,7 @@ class TtdSyncService {
         $this->mergeEntity($entity);
       }
 
+      $this->scheduleNextSyncPullIfNeeded($type, $page, $page_size, $since, $response);
       $this->recordPullResult([]);
       return [
         'topics' => count($response['entities']),
@@ -379,6 +385,7 @@ class TtdSyncService {
       $applied++;
     }
 
+    $this->scheduleNextSyncPullIfNeeded($type, $page, $page_size, $since, $response);
     $this->recordPullResult([
       'posts_applied' => $applied,
       'posts_skipped' => $skipped,
@@ -414,7 +421,7 @@ class TtdSyncService {
       ]));
     }
 
-    $this->expandActiveSyncTotalJobs($child_count);
+    $this->expandActiveSyncTotalJobs($child_count, 'topics');
     $this->recordPullResult([]);
 
     return [
@@ -721,8 +728,10 @@ class TtdSyncService {
       ]);
     }
 
-    $this->handleRelatedData($ttd_id, 'schema_types', $entity_data['SchemaTypes'] ?? []);
-    $this->handleRelatedData($ttd_id, 'wb_categories', $entity_data['WBCategories'] ?? []);
+    $schema_types = isset($entity_data['SchemaTypes']) && is_array($entity_data['SchemaTypes']) ? $entity_data['SchemaTypes'] : [];
+    $wb_categories = isset($entity_data['WBCategories']) && is_array($entity_data['WBCategories']) ? $entity_data['WBCategories'] : [];
+    $this->handleRelatedData($ttd_id, 'schema_types', $schema_types);
+    $this->handleRelatedData($ttd_id, 'wb_categories', $wb_categories);
   }
 
   /**
@@ -783,7 +792,7 @@ class TtdSyncService {
     $database = \Drupal::database();
     if ($type === 'schema_types') {
       foreach ($data as $item) {
-        if (empty($item['id'])) {
+        if (!is_array($item) || empty($item['id'])) {
           continue;
         }
         try {
@@ -827,7 +836,7 @@ class TtdSyncService {
     }
     elseif ($type === 'wb_categories') {
       foreach ($data as $item) {
-        if (empty($item['id'])) {
+        if (!is_array($item) || empty($item['id'])) {
           continue;
         }
         try {
@@ -895,9 +904,33 @@ class TtdSyncService {
   }
 
   /**
-   * Keep progress accounting correct when one oversized job becomes N child jobs.
+   * Schedule the next cursor pull job when the API has another page.
    */
-  private function expandActiveSyncTotalJobs(int $additional_jobs) {
+  private function scheduleNextSyncPullIfNeeded(string $type, int $page, int $page_size, ?string $since, array $response) {
+    if (empty($response['has_next']) || !isset($response['next_after_id'])) {
+      return;
+    }
+
+    $queue = $this->getQueue();
+    if (!$queue) {
+      throw new \RuntimeException('TopicalBoost analysis queue is not available');
+    }
+
+    $queue->enqueueJob(Job::create(static::SYNC_JOB_TYPE, [
+      'type' => $type,
+      'page' => $page + 1,
+      'page_size' => $page_size,
+      'since' => $since,
+      'after_id' => (int) $response['next_after_id'],
+    ]));
+
+    $this->expandActiveSyncTotalJobs(1);
+  }
+
+  /**
+   * Keep progress accounting correct when additional pull jobs are queued.
+   */
+  private function expandActiveSyncTotalJobs(int $additional_jobs, ?string $type = NULL) {
     if ($additional_jobs <= 0) {
       return;
     }
@@ -909,7 +942,12 @@ class TtdSyncService {
     }
 
     $active['total_jobs'] = (int) ($active['total_jobs'] ?? 0) + $additional_jobs;
-    $active['topic_pages'] = (int) ($active['topic_pages'] ?? 0) + $additional_jobs;
+    if ($type === 'relationships') {
+      $active['rel_pages'] = (int) ($active['rel_pages'] ?? 0) + $additional_jobs;
+    }
+    elseif ($type === 'topics') {
+      $active['topic_pages'] = (int) ($active['topic_pages'] ?? 0) + $additional_jobs;
+    }
     $state->set(static::SYNC_STATE_KEY, $active);
   }
 
@@ -1001,7 +1039,11 @@ class TtdSyncService {
    * Find an entity's content payload for a node.
    */
   private function findEntityContentForNode(array $entity_data, $node_id) {
-    foreach (($entity_data['Contents'] ?? []) as $content) {
+    $contents = isset($entity_data['Contents']) && is_array($entity_data['Contents']) ? $entity_data['Contents'] : [];
+    foreach ($contents as $content) {
+      if (!is_array($content)) {
+        continue;
+      }
       if (isset($content['customer_id']) && (string) $content['customer_id'] === (string) $node_id) {
         return $content;
       }

@@ -200,8 +200,11 @@ class TtdTopicsAnalysisService {
 
           // Store salience data if present (nested in Contents array)
           // API returns 'salience' (from Google NLP), we store as 'salience_score'
-          if ($post_id && !empty($entity['Contents'])) {
+          if ($post_id && !empty($entity['Contents']) && is_array($entity['Contents'])) {
             foreach ($entity['Contents'] as $content) {
+              if (!is_array($content)) {
+                continue;
+              }
               if (isset($content['customer_id']) && intval($content['customer_id']) === intval($post_id)) {
                 $salience_score = $content['salience'] ?? $content['salience_score'] ?? NULL;
                 $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
@@ -430,6 +433,10 @@ class TtdTopicsAnalysisService {
    * Handle related data for schema types and WB categories.
    */
   private function handleRelatedData($ttd_id, $type, $data) {
+    if (empty($data) || !is_array($data)) {
+      return;
+    }
+
     $database = \Drupal::database();
     $table = "ttd_entity_{$type}";
     $id_field = "{$type}_id";

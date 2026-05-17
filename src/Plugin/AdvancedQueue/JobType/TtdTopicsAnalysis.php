@@ -226,7 +226,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
     }
     else {
       // Exclude fields that are not columns in ttd_entities table
-      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume'];
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume', 'traffic_potential'];
       foreach ($exclude_fields as $field) {
         unset($entity_data[$field]);
       }
@@ -324,6 +324,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
    * Handle related data for schema types and WB categories.
    */
   private function handleRelatedData($ttd_id, $type, $data) {
+    if (empty($data) || !is_array($data)) {
+      return;
+    }
+
     $database = \Drupal::database();
     $table = "ttd_entity_{$type}";
     $id_field = "{$type}_id";

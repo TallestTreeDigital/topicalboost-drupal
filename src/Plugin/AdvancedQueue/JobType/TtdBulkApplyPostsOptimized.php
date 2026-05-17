@@ -384,7 +384,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
     if ($type === 'schema_types') {
       foreach ($data as $item) {
-        if (isset($item['id'])) {
+        if (is_array($item) && isset($item['id'])) {
           $existing = $database->select('ttd_schema_types', 'tst')
             ->fields('tst')
             ->condition('ttd_id', $item['id'])
@@ -431,7 +431,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       }
     } elseif ($type === 'wb_categories') {
       foreach ($data as $item) {
-        if (isset($item['id'])) {
+        if (is_array($item) && isset($item['id'])) {
           $existing = $database->select('ttd_wb_categories', 'twc')
             ->fields('twc')
             ->condition('ttd_id', $item['id'])
