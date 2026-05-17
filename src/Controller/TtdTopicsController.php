@@ -30,6 +30,89 @@ class TtdTopicsController extends ControllerBase {
   }
 
   /**
+   * Resolve a Drupal topic term to a TopicalBoost entity payload.
+   */
+  private function getEditorialSignalTopic($term_id = NULL, $ttd_id = NULL) {
+    $term = NULL;
+
+    if ($term_id) {
+      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+    }
+
+    if (!$term && $ttd_id) {
+      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+        'vid' => 'ttd_topics',
+        'field_ttd_id' => (string) $ttd_id,
+      ]);
+      if (!empty($terms)) {
+        $term = reset($terms);
+      }
+    }
+
+    $entity_id = $ttd_id ? (int) $ttd_id : 0;
+    if ($term && $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+      $entity_id = (int) $term->get('field_ttd_id')->value;
+    }
+
+    if (!$entity_id) {
+      return NULL;
+    }
+
+    return [
+      'entityId' => $entity_id,
+      'entityName' => $term ? $term->label() : NULL,
+      'termId' => $term ? (int) $term->id() : NULL,
+    ];
+  }
+
+  /**
+   * Fire-and-forget-ish editorial telemetry. Never block editor actions.
+   */
+  private function recordEditorialSignal($action, array $topic, array $context = []) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    if (empty($api_key) || empty($topic['entityId'])) {
+      return;
+    }
+
+    $metadata = array_filter(array_merge([
+      'termId' => $topic['termId'] ?? NULL,
+    ], $context['metadata'] ?? []), static function ($value) {
+      return $value !== NULL;
+    });
+
+    $payload = array_filter([
+      'action' => $action,
+      'postId' => isset($context['postId']) ? (string) $context['postId'] : NULL,
+      'entityId' => (int) $topic['entityId'],
+      'entityName' => $topic['entityName'] ?? NULL,
+      'fromTier' => $context['fromTier'] ?? NULL,
+      'toTier' => $context['toTier'] ?? NULL,
+      'actorId' => (string) \Drupal::currentUser()->id(),
+      'metadata' => !empty($metadata) ? $metadata : NULL,
+    ], static function ($value) {
+      return $value !== NULL;
+    });
+
+    try {
+      $api_endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
+      \Drupal::httpClient()->request('POST', $api_endpoint . '/telemetry/editorial-signals', [
+        'headers' => [
+          'content-type' => 'application/json',
+          'x-api-key' => $api_key,
+          'x-tb-platform' => 'drupal',
+        ],
+        'json' => $payload,
+        'timeout' => 1,
+        'connect_timeout' => 0.5,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->debug('Editorial signal telemetry failed: @message', ['@message' => $e->getMessage()]);
+    }
+  }
+
+  /**
    * Simple WordPress-like overview of topics with post counts.
    */
   public function overviewPage() {
@@ -363,6 +446,11 @@ class TtdTopicsController extends ControllerBase {
     $current = (bool) $term->get('field_hide')->value;
     $term->set('field_hide', !$current);
     $term->save();
+
+    $topic = $this->getEditorialSignalTopic($term->id());
+    if ($topic) {
+      $this->recordEditorialSignal(!$current ? 'force_hide' : 'force_unhide', $topic);
+    }
 
     return new JsonResponse([
       'success' => TRUE,
@@ -1125,6 +1213,9 @@ class TtdTopicsController extends ControllerBase {
 
       // Build override key (prefer ttd_id, fall back to term_id)
       $override_key = $ttd_id ? (string) $ttd_id : 'term_' . $term_id;
+      $previous_tier = $tier_overrides[$override_key] ?? NULL;
+      $topic = $this->getEditorialSignalTopic($term_id, $ttd_id);
+      $auto_rechecked = FALSE;
 
       // If setting mainEntity, remove any existing mainEntity override
       if ($new_tier === 'mainEntity') {
@@ -1153,6 +1244,7 @@ class TtdTopicsController extends ControllerBase {
 
         if ($promoted_term_id) {
           $rejected_tids = array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'));
+          $auto_rechecked = in_array((int) $promoted_term_id, $rejected_tids, TRUE);
           $rejected_tids = array_values(array_diff($rejected_tids, [(int) $promoted_term_id]));
           $node->set('field_ttd_rejected_topics', array_map(static fn($tid) => ['target_id' => $tid], $rejected_tids));
         }
@@ -1161,6 +1253,20 @@ class TtdTopicsController extends ControllerBase {
       // Save to node
       $node->set('field_tier_overrides', ['value' => $tier_overrides]);
       $node->save();
+
+      if ($topic && $previous_tier !== $new_tier) {
+        $this->recordEditorialSignal('tier_change', $topic, [
+          'postId' => $node_id,
+          'fromTier' => $previous_tier,
+          'toTier' => $new_tier,
+        ]);
+      }
+      if ($topic && $auto_rechecked) {
+        $this->recordEditorialSignal('recheck', $topic, [
+          'postId' => $node_id,
+          'metadata' => ['reason' => 'promoted_to_focus_tier'],
+        ]);
+      }
 
       // Fetch demand metrics if tier is mainEntity or about
       $demand_metrics = NULL;
@@ -1210,6 +1316,8 @@ class TtdTopicsController extends ControllerBase {
 
       // Build override key
       $override_key = $ttd_id ? (string) $ttd_id : 'term_' . $term_id;
+      $previous_tier = $tier_overrides[$override_key] ?? NULL;
+      $topic = $this->getEditorialSignalTopic($term_id, $ttd_id);
 
       // Remove override
       if (isset($tier_overrides[$override_key])) {
@@ -1219,6 +1327,15 @@ class TtdTopicsController extends ControllerBase {
       // Save to node
       $node->set('field_tier_overrides', ['value' => $tier_overrides]);
       $node->save();
+
+      if ($topic && $previous_tier) {
+        $this->recordEditorialSignal('tier_change', $topic, [
+          'postId' => $node_id,
+          'fromTier' => $previous_tier,
+          'toTier' => 'system',
+          'metadata' => ['reason' => 'removed_tier_override'],
+        ]);
+      }
 
       return new JsonResponse(['success' => TRUE]);
 
@@ -1272,22 +1389,34 @@ class TtdTopicsController extends ControllerBase {
       // Handle accept/reject
       if ($is_accepted !== NULL) {
         $rejected_topics = $node->get('field_ttd_rejected_topics')->getValue();
-        $rejected_tids = array_column($rejected_topics, 'target_id');
+        $rejected_tids = array_map('intval', array_column($rejected_topics, 'target_id'));
+        $topic_id_int = (int) $topic_id;
+        $was_rejected = in_array($topic_id_int, $rejected_tids, TRUE);
+        $signal_action = NULL;
 
-        if (!$is_accepted && !in_array($topic_id, $rejected_tids)) {
+        if (!$is_accepted && !in_array($topic_id_int, $rejected_tids, TRUE)) {
           // Reject topic
-          $rejected_tids[] = $topic_id;
+          $rejected_tids[] = $topic_id_int;
           $node->set('field_ttd_rejected_topics', $rejected_tids);
-        } elseif ($is_accepted && in_array($topic_id, $rejected_tids)) {
+          $signal_action = 'uncheck';
+        } elseif ($is_accepted && $was_rejected) {
           // Un-reject topic
-          $rejected_tids = array_filter($rejected_tids, function($tid) use ($topic_id) {
-            return $tid != $topic_id;
+          $rejected_tids = array_filter($rejected_tids, function($tid) use ($topic_id_int) {
+            return (int) $tid !== $topic_id_int;
           });
           $node->set('field_ttd_rejected_topics', array_values($rejected_tids));
+          $signal_action = 'recheck';
         }
       }
 
       $node->save();
+
+      if (!empty($signal_action)) {
+        $topic = $this->getEditorialSignalTopic($topic_id);
+        if ($topic) {
+          $this->recordEditorialSignal($signal_action, $topic, ['postId' => $node_id]);
+        }
+      }
 
       return new JsonResponse(['success' => TRUE]);
 
@@ -1373,24 +1502,31 @@ class TtdTopicsController extends ControllerBase {
     $state = \Drupal::state();
     $cache_key = 'ttd_demand_' . ($term_id ?? md5($keyword));
     $cache_duration = 7 * 24 * 60 * 60; // 7 days
+    $cached = $state->get($cache_key);
 
     // Check cache unless force refresh
     if (!$force_refresh) {
-      $cached = $state->get($cache_key);
       if ($cached && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
         return $cached['data'];
       }
     }
 
-    // Get keyword from term if not provided
-    if (!$keyword && $term_id) {
+    $ttd_id = NULL;
+
+    // Get keyword and TopicalBoost entity ID from term if available.
+    if ($term_id) {
       $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
       if ($term) {
-        $keyword = $term->getName();
+        if (!$keyword) {
+          $keyword = $term->getName();
+        }
+        if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+          $ttd_id = (int) $term->get('field_ttd_id')->value;
+        }
       }
     }
 
-    if (!$keyword) {
+    if (!$ttd_id && !$keyword) {
       return NULL;
     }
 
@@ -1404,19 +1540,22 @@ class TtdTopicsController extends ControllerBase {
 
     try {
       $client = \Drupal::httpClient();
-      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/demand', [
-        'query' => [
-          'keyword' => $keyword,
-        ],
+      $path = $ttd_id
+        ? '/demand/entity/' . rawurlencode((string) $ttd_id)
+        : '/demand/keyword/' . rawurlencode($keyword);
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . $path, [
         'headers' => [
           'X-API-Key' => $api_key,
           'Content-Type' => 'application/json',
         ],
+        'timeout' => 8,
+        'connect_timeout' => 3,
       ]);
 
       $data = json_decode($response->getBody(), TRUE);
       $metrics = [
         'keyword_difficulty' => $data['keyword_difficulty'] ?? 0,
+        'search_volume' => $data['search_volume'] ?? 0,
         'traffic_potential' => $data['traffic_potential'] ?? 0,
       ];
 
@@ -1430,6 +1569,9 @@ class TtdTopicsController extends ControllerBase {
 
     } catch (\Exception $e) {
       \Drupal::logger('ttd_topics')->error('API demand metrics error: @message', ['@message' => $e->getMessage()]);
+      if (!empty($cached['data'])) {
+        return $cached['data'];
+      }
       return NULL;
     }
   }
@@ -1630,6 +1772,11 @@ class TtdTopicsController extends ControllerBase {
     $force_show = !empty($content['force_show']);
     $term->set('field_force_show', $force_show);
     $term->save();
+
+    $topic = $this->getEditorialSignalTopic($term->id());
+    if ($topic) {
+      $this->recordEditorialSignal($force_show ? 'force_show' : 'force_unshow', $topic);
+    }
 
     return new JsonResponse([
       'success' => TRUE,
