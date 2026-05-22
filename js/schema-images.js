@@ -43,11 +43,14 @@
         function renderStatus(data) {
           var images = data.images || {};
           var imageCount = Object.keys(images).length;
+          var source = data.source || null;
+          var canPreviewSource = source && source.url && source.suitable;
 
           // Update status indicator.
           var statusClass = imageCount === 3 ? 'ready' : (imageCount > 0 ? 'partial' : 'missing');
           var statusText = imageCount === 3 ? 'All formats ready' :
-            (imageCount > 0 ? imageCount + '/3 formats ready' : 'No schema images');
+            (imageCount > 0 ? imageCount + '/3 formats ready' :
+              (canPreviewSource ? 'Source image available' : 'No schema images'));
           $status.html('<span class="ttd-schema-status-icon ttd-schema-status-' + statusClass + '"></span> ' + statusText);
 
           // Update format previews.
@@ -63,15 +66,21 @@
           ratios.forEach(function (ratio) {
             var img = images[ratio];
             var hasImage = !!img;
+            var previewClass = 'ttd-schema-preview ttd-schema-preview--ratio-' + ratio;
             var $format = $('<div class="ttd-schema-format"></div>');
 
             if (hasImage) {
-              $format.append('<div class="ttd-schema-preview">' +
+              $format.append('<div class="' + previewClass + '">' +
                 '<img src="' + img.url + '" alt="Schema ' + ratio + '">' +
                 '<span class="ttd-schema-checkmark">&#10003;</span>' +
                 '</div>');
+            } else if (canPreviewSource) {
+              $format.append('<div class="' + previewClass + ' ttd-schema-preview--source">' +
+                '<img src="' + source.url + '" alt="Source image preview for schema ' + ratio + '">' +
+                '<span class="ttd-schema-source-badge">Source</span>' +
+                '</div>');
             } else {
-              $format.append('<div class="ttd-schema-preview ttd-schema-preview--empty">' +
+              $format.append('<div class="' + previewClass + ' ttd-schema-preview--empty">' +
                 '<span class="ttd-schema-placeholder">No image</span>' +
                 '</div>');
             }
@@ -95,6 +104,10 @@
           if (data.source) {
             var cls = data.source.suitable ? 'suitable' : 'unsuitable';
             $source.html('<span class="ttd-schema-source-' + cls + '">' + Drupal.checkPlain(data.source.message) + '</span>');
+          } else if (imageCount === 0) {
+            $source.html('<span class="ttd-schema-source-unsuitable">No source image found. Upload a custom image or add a featured/header image.</span>');
+          } else {
+            $source.empty();
           }
         }
 
@@ -164,16 +177,19 @@
           var files = this.files;
           if (!files.length) return;
 
-          // Upload via Drupal's file system first, then generate from the uploaded file.
+          // Send the source image to the schema generator, which saves and crops it.
           var formData = new FormData();
-          formData.append('files[schema_image]', files[0]);
 
           var $btn = $wrapper.find('.ttd-schema-upload-btn');
           $btn.prop('disabled', true).text('Uploading...');
 
-          // Upload the file, then call generate with the resulting fid.
+          formData.append('nid', nid);
+          formData.append('focal_x', focalX);
+          formData.append('focal_y', focalY);
+          formData.append('schema_image', files[0]);
+
           $.ajax({
-            url: Drupal.url('file/upload/node/' + nid + '/field_ttd_schema_16x9'),
+            url: Drupal.url('api/topicalboost/schema-images/generate'),
             method: 'POST',
             data: formData,
             processData: false,
@@ -181,31 +197,12 @@
             headers: { 'X-CSRF-Token': csrfToken },
             dataType: 'json',
             success: function (data) {
-              var fid = data && data.fid ? data.fid[0].value : null;
-              if (fid) {
-                // Now generate schema images from this uploaded file.
-                $.ajax({
-                  url: Drupal.url('api/topicalboost/schema-images/generate'),
-                  method: 'POST',
-                  data: { nid: nid, fid: fid, focal_x: focalX, focal_y: focalY },
-                  headers: { 'X-CSRF-Token': csrfToken },
-                  dataType: 'json',
-                  success: function (genData) {
-                    $btn.prop('disabled', false).text('Upload Custom Image');
-                    if (genData.success) {
-                      loadStatus();
-                    } else {
-                      showMessage(genData.message || 'Generation failed', true);
-                    }
-                  },
-                  error: function () {
-                    $btn.prop('disabled', false).text('Upload Custom Image');
-                    showMessage('Generation failed after upload', true);
-                  }
-                });
+              $btn.prop('disabled', false).text('Upload Custom Image');
+              $wrapper.find('.ttd-schema-file-input').val('');
+              if (data.success) {
+                loadStatus();
               } else {
-                $btn.prop('disabled', false).text('Upload Custom Image');
-                showMessage('Upload failed', true);
+                showMessage(data.message || 'Generation failed', true);
               }
             },
             error: function () {

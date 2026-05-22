@@ -20,6 +20,17 @@
         const $topicsStatus = $container.find('#ttd-topics-status');
         const hasBeenAnalyzed = !!(settings.ttdTopics && settings.ttdTopics.hasBeenAnalyzed);
 
+        $container.on('click', '.ttd-wide-rejected-toggle', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const $toggle = $(this);
+          const $list = $toggle.closest('.ttd-topics-section').find('.ttd-topics-list');
+          const hiddenCount = parseInt($toggle.data('count'), 10) || 0;
+          $list.toggleClass('show-rejected');
+          $toggle.text($list.hasClass('show-rejected') ? Drupal.t('hide') : hiddenCount + ' ' + Drupal.t('hidden'));
+        });
+
         if (typeof window.ttdHasBeenAnalyzed === 'undefined') {
           window.ttdHasBeenAnalyzed = hasBeenAnalyzed;
         } else if (hasBeenAnalyzed) {
@@ -370,8 +381,12 @@
                     $badge = $item.find('.ttd-kd-badge');
                   }
 
-                  // Fetch metrics
-                  fetchDemandMetrics(draggedTermId, $badge);
+                  if (response.data && response.data.demand_metrics) {
+                    renderDemandMetrics($badge, response.data.demand_metrics);
+                  }
+                  else {
+                    fetchDemandMetrics(draggedTermId, $badge);
+                  }
                 }
               } else {
                 console.error('Failed to update tier:', response);
@@ -445,24 +460,48 @@
             data: { term_id: termId },
             success: function(response) {
               if (response.success && response.data) {
-                const tp = response.data.traffic_potential || 0;
-                const kd = response.data.keyword_difficulty || 0;
-
-                const tpFormatted = window.ttdTopicsUtils.formatCount(tp);
-                const kdClass = window.ttdTopicsUtils.getKdClass(kd);
-                const label = window.ttdTopicsUtils.getKdLabel(kd);
-
-                $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
-                      .addClass(kdClass)
-                      .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
-                      .text(tpFormatted);
+                renderDemandMetrics($badge, response.data);
+              }
+              else {
+                renderNoDemandData($badge, 'No demand data available');
               }
             },
             error: function() {
-              $badge.removeClass('ttd-kd-loading').addClass('ttd-kd-no-data')
-                    .attr('title', 'Failed to load').text('--');
+              renderNoDemandData($badge, 'Failed to load');
             }
           });
+        }
+
+        /**
+         * Render demand metrics in a topic badge.
+         */
+        function renderDemandMetrics($badge, metrics) {
+          const tp = metrics && metrics.traffic_potential ? parseInt(metrics.traffic_potential, 10) : 0;
+          const kd = metrics && metrics.keyword_difficulty ? parseInt(metrics.keyword_difficulty, 10) : 0;
+
+          if (!tp) {
+            renderNoDemandData($badge, 'No demand data available');
+            return;
+          }
+
+          const tpFormatted = window.ttdTopicsUtils.formatCount(tp);
+          const kdClass = window.ttdTopicsUtils.getKdClass(kd);
+          const label = window.ttdTopicsUtils.getKdLabel(kd);
+
+          $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+                .addClass(kdClass)
+                .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
+                .text(tpFormatted);
+        }
+
+        /**
+         * Render the badge when demand metrics are unavailable.
+         */
+        function renderNoDemandData($badge, title) {
+          $badge.removeClass('ttd-kd-loading ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+                .addClass('ttd-kd-no-data')
+                .attr('title', title)
+                .text('--');
         }
 
         /**

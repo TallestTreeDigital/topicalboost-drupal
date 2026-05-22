@@ -23,6 +23,18 @@ class SchemaImagesController extends ControllerBase {
   ];
 
   /**
+   * Image fields that can act as the source for generated schema crops.
+   */
+  const SOURCE_IMAGE_FIELDS = [
+    'field_image',
+    'field_featured_image',
+    'field_article_image',
+    'field_article_banner',
+    'field_hero_image',
+    'field_media_image',
+  ];
+
+  /**
    * Generate schema images from an uploaded or existing image.
    */
   public function generate(Request $request) {
@@ -42,32 +54,20 @@ class SchemaImagesController extends ControllerBase {
 
     // Get source image.
     $source_file = NULL;
+    if ($request->files->has('schema_image')) {
+      $source_file = $this->createSourceFileFromUpload($request, $nid);
+      if (!$source_file) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Uploaded image could not be saved'], 400);
+      }
+    }
+
     if ($fid) {
       $source_file = File::load($fid);
     }
 
     // Fall back to node's featured image.
     if (!$source_file) {
-      $image_fields = ['field_image', 'field_featured_image', 'field_hero_image', 'field_media_image'];
-      foreach ($image_fields as $field_name) {
-        if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
-          $referenced = $node->get($field_name)->entity;
-          if ($referenced) {
-            // Handle media entities.
-            if ($referenced->getEntityTypeId() === 'media') {
-              $media_source = $referenced->getSource();
-              $source_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
-              if ($referenced->hasField($source_field) && !$referenced->get($source_field)->isEmpty()) {
-                $source_file = $referenced->get($source_field)->entity;
-              }
-            }
-            else {
-              $source_file = $referenced;
-            }
-            break;
-          }
-        }
-      }
+      $source_file = $this->getSourceFileFromNode($node);
     }
 
     if (!$source_file) {
@@ -323,48 +323,94 @@ class SchemaImagesController extends ControllerBase {
    * Get source image info from node's featured image.
    */
   protected function getSourceImageInfo($node): ?array {
-    $image_fields = ['field_image', 'field_featured_image', 'field_hero_image', 'field_media_image'];
-    foreach ($image_fields as $field_name) {
-      if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
-        $referenced = $node->get($field_name)->entity;
-        if (!$referenced) {
-          continue;
-        }
-
-        $file = NULL;
-        if ($referenced->getEntityTypeId() === 'media') {
-          $media_source = $referenced->getSource();
-          $source_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
-          if ($referenced->hasField($source_field) && !$referenced->get($source_field)->isEmpty()) {
-            $file = $referenced->get($source_field)->entity;
-          }
-        }
-        else {
-          $file = $referenced;
-        }
-
-        if ($file) {
-          $path = \Drupal::service('file_system')->realpath($file->getFileUri());
-          if ($path && file_exists($path)) {
-            $size = getimagesize($path);
-            if ($size) {
-              $suitable = $size[0] >= 675 && $size[1] >= 675;
-              return [
-                'fid' => $file->id(),
-                'url' => \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri()),
-                'width' => $size[0],
-                'height' => $size[1],
-                'suitable' => $suitable,
-                'message' => $suitable
-                  ? 'Featured image is suitable (' . $size[0] . 'x' . $size[1] . ')'
-                  : 'Featured image is too small (' . $size[0] . 'x' . $size[1] . '). Minimum 675x675 required.',
-              ];
-            }
-          }
+    $file = $this->getSourceFileFromNode($node);
+    if ($file) {
+      $path = \Drupal::service('file_system')->realpath($file->getFileUri());
+      if ($path && file_exists($path)) {
+        $size = getimagesize($path);
+        if ($size) {
+          $suitable = $size[0] >= 675 && $size[1] >= 675;
+          return [
+            'fid' => $file->id(),
+            'url' => \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri()),
+            'width' => $size[0],
+            'height' => $size[1],
+            'suitable' => $suitable,
+            'message' => $suitable
+              ? 'Source image is suitable (' . $size[0] . 'x' . $size[1] . ')'
+              : 'Source image is too small (' . $size[0] . 'x' . $size[1] . '). Minimum 675x675 required.',
+          ];
         }
       }
     }
     return NULL;
+  }
+
+  /**
+   * Resolve the best available source file from a node image/media field.
+   */
+  protected function getSourceFileFromNode($node): ?File {
+    foreach (self::SOURCE_IMAGE_FIELDS as $field_name) {
+      if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+        continue;
+      }
+
+      $referenced = $node->get($field_name)->entity;
+      if (!$referenced) {
+        continue;
+      }
+
+      if ($referenced->getEntityTypeId() === 'file') {
+        return $referenced;
+      }
+
+      if ($referenced->getEntityTypeId() === 'media') {
+        $media_source = $referenced->getSource();
+        $source_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
+        if ($referenced->hasField($source_field) && !$referenced->get($source_field)->isEmpty()) {
+          $file = $referenced->get($source_field)->entity;
+          if ($file instanceof File) {
+            return $file;
+          }
+        }
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Persist an uploaded source image so the generator can crop it.
+   */
+  protected function createSourceFileFromUpload(Request $request, int $nid): ?File {
+    $uploaded = $request->files->get('schema_image');
+    if (!$uploaded || !$uploaded->getRealPath() || !file_exists($uploaded->getRealPath())) {
+      return NULL;
+    }
+
+    $extension = strtolower(pathinfo($uploaded->getClientOriginalName(), PATHINFO_EXTENSION));
+    if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], TRUE)) {
+      return NULL;
+    }
+
+    $directory = 'public://schema-images/' . $nid;
+    \Drupal::service('file_system')->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+
+    $filename = 'schema-source-' . time() . '.' . $extension;
+    $dest_uri = $directory . '/' . $filename;
+    $copied_uri = \Drupal::service('file_system')->copy($uploaded->getRealPath(), $dest_uri, FileSystemInterface::EXISTS_RENAME);
+    if (!$copied_uri) {
+      return NULL;
+    }
+
+    $file = File::create([
+      'uri' => $copied_uri,
+      'filename' => basename($copied_uri),
+      'status' => 1,
+    ]);
+    $file->save();
+
+    return $file;
   }
 
 }

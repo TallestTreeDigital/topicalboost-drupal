@@ -165,6 +165,8 @@
   border-radius: 3px;
   padding: 0 28px 0 31px;
   font-size: 13px;
+  background: #fff;
+  color: #1d2327;
 }
 
 .ttd-settings-search-bar input:focus {
@@ -384,6 +386,8 @@
   height: 32px;
   padding: 0 8px;
   font-size: 13px;
+  background: #fff;
+  color: #1d2327;
 }
 
 .ttd-settings-panel textarea {
@@ -394,6 +398,8 @@
   border-radius: 3px;
   padding: 6px 8px;
   font-size: 13px;
+  background: #fff;
+  color: #1d2327;
 }
 
 .ttd-settings-panel input[type="text"]:focus,
@@ -487,6 +493,55 @@
   font-size: 12px;
   color: #8c8f94;
   line-height: 1.5;
+}
+
+/* Light-mode hardening: keep Gin/system dark colors from leaking into this UI. */
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-content,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel {
+  color: #1d2327;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="text"],
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="number"],
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="url"],
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="email"],
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:not([multiple]),
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input {
+  background: #fff;
+  color: #1d2327;
+  -webkit-text-fill-color: #1d2327;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input::placeholder,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea::placeholder,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input::placeholder {
+  color: #646970;
+  opacity: 1;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input:disabled,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea:disabled,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:disabled {
+  background: #f6f7f7;
+  color: #50575e;
+  -webkit-text-fill-color: #50575e;
+  opacity: 1;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item > label,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .js-form-item > label {
+  color: #1d2327;
+  opacity: 1;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item__description,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
+  color: #646970;
+  opacity: 1;
 }
 
 /* Hide original checkbox in toggle fields -- Drupal wraps it differently */
@@ -1222,16 +1277,16 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
     background: #23272b !important;
     border-color: #454b51 !important;
   }
 
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
     color: #a7aaad !important;
   }
 
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
     background: #2e3338 !important;
     color: #d4d4d4 !important;
   }

@@ -14,6 +14,7 @@
     line-height: 1.5;
     max-width: 900px;
     color: #1d2327;
+    color-scheme: light;
 }
 
 /* Messages */
@@ -157,6 +158,12 @@
     color: inherit;
     opacity: 0.8;
     cursor: help;
+}
+
+.ttd-meta-keyword-chip .ttd-chip-volume::before {
+    content: "TP ";
+    font-weight: 600;
+    opacity: 0.75;
 }
 
 .ttd-chip-kd {
@@ -635,160 +642,12 @@ textarea.ttd-desc-input {
    Dark Mode Support
    ========================================== */
 
-/* Drupal Claro dark mode and system preference */
-@media (prefers-color-scheme: dark) {
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-generator {
-        color: #e0e0e0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keywords-row {
-        background: #2d3748;
-        border-color: #4a5568;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keywords-label {
-        color: #a0aec0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keyword-chip {
-        background: #1a202c;
-        border-color: #4a5568;
-        color: #e0e0e0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keyword-chip:hover {
-        background: #2d3748;
-        border-color: #63b3ed;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keyword-chip.is-checked {
-        background: #2c5282;
-        border-color: #63b3ed;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-two-columns {
-        background: #1a202c;
-        border-color: #4a5568;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-column {
-        background: #1a202c;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-two-columns .ttd-meta-column:first-child {
-        border-right-color: #4a5568;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-column-header {
-        color: #a0aec0;
-        border-bottom-color: #4a5568;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-editable {
-        border-bottom-color: #4a5568;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-editable:hover {
-        background: #2d3748;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-input {
-        color: #e0e0e0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-input:hover {
-        background: #2d3748;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-input:focus {
-        background: #2c5282;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-editable input[type="radio"] {
-        background: #1a202c;
-        border-color: #718096;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-option-char-count {
-        color: #a0aec0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-column-empty,
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-column-loading {
-        color: #a0aec0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-loading-inline,
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-no-keywords {
-        color: #a0aec0;
-    }
-
-    /* SERP preview in dark mode - keep it light as Google preview */
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-inline-preview {
-        background: #2d3748;
-        border-color: #4a5568;
-    }
-
-    /* Status indicators */
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-status-indicator.ttd-status-saved {
-        background: #22543d;
-        color: #9ae6b4;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-status-indicator.ttd-status-warning {
-        background: #744210;
-        color: #faf089;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-status-indicator.ttd-status-error {
-        background: #742a2a;
-        color: #feb2b2;
-    }
-
-    /* Messages */
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-error {
-        background: #742a2a;
-        color: #feb2b2;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-success {
-        background: #22543d;
-        color: #9ae6b4;
-    }
-
-    /* Spinner */
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-spinner {
-        border-color: #4a5568;
-        border-top-color: #63b3ed;
-    }
-
-    /* Button styling for dark mode */
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-generator .button,
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keywords-row .button {
-        background: #2c5282;
-        border-color: #63b3ed;
-        color: #e0e0e0;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-generator .button:hover,
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .ttd-meta-keywords-row .button:hover {
-        background: #2b6cb0;
-        border-color: #90cdf4;
-        color: #fff;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .button-link {
-        color: #63b3ed;
-    }
-
-    html:not([data-color-scheme="light"]):not(.gin--dark-mode) body:not([class*="gin--"]) .button-link:hover {
-        color: #90cdf4;
-    }
-}
+/* Browser/OS dark preference must not darken a light Drupal admin. */
 
 /* Explicit dark mode via Drupal's data attribute */
 html[data-color-scheme="dark"] .ttd-meta-generator {
     color: #e0e0e0;
+    color-scheme: dark;
 }
 
 html[data-color-scheme="dark"] .ttd-meta-keywords-row {
@@ -1020,6 +879,7 @@ html[data-color-scheme="dark"] .ttd-meta-info-icon:hover {
 .gin--dark-mode #ttd-meta-generator-container,
 .gin--dark-mode .ttd-meta-generator {
     color: #e0e0e0;
+    color-scheme: dark;
 }
 
 .gin--dark-mode .ttd-meta-keywords-row {
@@ -1290,54 +1150,73 @@ html[data-color-scheme="dark"] .ttd-meta-info-icon:hover {
     border-color: #63b3ed !important;
 }
 
-/* WordPress combined-metabox parity: header band with Generate pinned right. */
+/* WordPress combined-metabox parity: compact action row and readable columns. */
 .ttd-combined-metabox .ttd-meta-generator {
-    position: relative;
+    box-shadow: none;
 }
 
 .ttd-combined-metabox .ttd-meta-keywords-row {
-    min-height: 86px;
-    align-items: flex-start;
+    flex-direction: column !important;
+    align-items: flex-start !important;
     align-content: flex-start;
-    padding: 14px 128px 14px 12px;
-    border-radius: 0;
-    background: #f7f7f7;
+    gap: 8px !important;
+    min-height: auto;
+    padding: 10px 12px !important;
+    border: 1px solid #e0e0e0 !important;
+    border-bottom: none !important;
+    border-radius: 4px 4px 0 0;
+    background: #f9f9f9 !important;
 }
 
 .ttd-combined-metabox .ttd-meta-keywords-row.ttd-keywords-hidden {
-    display: flex !important;
-    visibility: hidden;
+    display: none !important;
 }
 
 .ttd-combined-metabox .ttd-meta-keywords-label {
-    display: block;
-    width: 100%;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #495057;
+    letter-spacing: 0.3px;
 }
 
 .ttd-combined-metabox .ttd-meta-keywords-actions {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    min-height: 86px;
+    gap: 8px;
+    min-height: auto;
     margin: 0;
-    padding: 12px;
-    border: none;
-    background: transparent;
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-top: none;
+    background: #fafafa;
+}
+
+.ttd-combined-metabox .ttd-meta-keywords-row.ttd-keywords-hidden + .ttd-meta-keywords-actions {
+    border-top: 1px solid #e0e0e0;
+    border-radius: 4px 4px 0 0;
 }
 
 .ttd-combined-metabox .ttd-meta-generate-btn {
     min-width: 86px;
-    min-height: 40px;
+    min-height: 32px;
     box-shadow: none !important;
     border-radius: 3px;
     padding: 4px 14px;
+}
+
+.ttd-combined-metabox .ttd-meta-generate-btn.button:not(.button--primary),
+.ttd-combined-metabox .ttd-meta-generate-btn.button-link {
+    border: 1px solid #2271b1 !important;
+    background: #fff !important;
+    color: #2271b1;
+    text-decoration: none;
+}
+
+.ttd-combined-metabox .ttd-meta-generate-btn.button:not(.button--primary):hover,
+.ttd-combined-metabox .ttd-meta-generate-btn.button-link:hover {
+    background: #f0f6fc !important;
+    color: #135e96;
 }
 
 .ttd-combined-metabox .ttd-meta-keyword-chip {
@@ -1348,13 +1227,57 @@ html[data-color-scheme="dark"] .ttd-meta-info-icon:hover {
     display: none !important;
 }
 
-.gin--dark-mode .ttd-combined-metabox .ttd-meta-keywords-row,
+.ttd-combined-metabox .ttd-meta-keyword-chip:has(.ttd-kd-easy) {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+}
+
+.ttd-combined-metabox .ttd-meta-keyword-chip:has(.ttd-kd-medium) {
+    background: #fef9c3 !important;
+    border-color: #fde047 !important;
+}
+
+.ttd-combined-metabox .ttd-meta-keyword-chip:has(.ttd-kd-hard) {
+    background: #ffedd5 !important;
+    border-color: #fdba74 !important;
+}
+
+.ttd-combined-metabox .ttd-meta-keyword-chip:has(.ttd-kd-very-hard) {
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+}
+
+.ttd-combined-metabox .ttd-meta-two-columns {
+    border: 1px solid #e0e0e0 !important;
+    border-top: none !important;
+    table-layout: fixed;
+}
+
+.ttd-combined-metabox .ttd-meta-two-columns .ttd-meta-column:first-child {
+    border-right: 1px solid #e0e0e0 !important;
+}
+
+.ttd-combined-metabox .ttd-meta-option-editable,
+.ttd-combined-metabox .ttd-meta-option-input-wrapper {
+    min-width: 0;
+}
+
+.ttd-combined-metabox .ttd-meta-option-input {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .gin--dark-mode .ttd-combined-metabox .ttd-meta-keywords-row {
     background: #2d3748 !important;
     border-color: #4a5568 !important;
 }
 
 .gin--dark-mode .ttd-combined-metabox .ttd-meta-keywords-actions {
-    background: transparent !important;
-    border: none !important;
+    background: #2d3748 !important;
+    border-color: #4a5568 !important;
+    border-top: none !important;
+}
+
+.gin--dark-mode .ttd-combined-metabox .ttd-meta-keywords-row.ttd-keywords-hidden + .ttd-meta-keywords-actions {
+    border-top: 1px solid #4a5568 !important;
 }

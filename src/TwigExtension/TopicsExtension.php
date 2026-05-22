@@ -100,7 +100,7 @@ class TopicsExtension extends AbstractExtension {
     }
 
     // Get filtered topics.
-    $filtered_topics = $this->getFilteredTopics($node);
+    $filtered_topics = $this->getFilteredTopicRows($node);
 
     if (empty($filtered_topics)) {
       return '';
@@ -113,7 +113,9 @@ class TopicsExtension extends AbstractExtension {
       '#filtered_topics' => $filtered_topics,
       '#topics_list_label' => $config->get('topics_list_label') ?: 'Mentions',
       '#maximum_visible_post_topics' => $config->get('maximum_visible_post_topics') ?: 5,
-      '#options' => $options,
+      '#options' => $options + [
+        'frontend_filter_mode' => $config->get('frontend_filter_mode') ?: 'mentions_behind_toggle',
+      ],
       '#attached' => [
         'library' => ['ttd_topics/topics_display'],
       ],
@@ -161,29 +163,158 @@ class TopicsExtension extends AbstractExtension {
     }
 
     // Get filtered topics.
-    $filtered_topics = $this->getFilteredTopics($node);
+    $filtered_topics = $this->getFilteredTopicRows($node);
 
     if (empty($filtered_topics)) {
       return [];
     }
 
-    // Build topic data array.
-    $topics_data = [];
-    foreach ($filtered_topics as $topic) {
-      $topics_data[] = [
-        'id' => $topic->id(),
-        'name' => $topic->getName(),
-        'label' => $topic->label(),
-        'url' => $topic->toUrl()->toString(),
-        'entity' => $topic,
-      ];
-    }
+    $display_topics = $this->splitTopicsForFrontendDisplay($filtered_topics, $config, $options);
+    $topics_data = array_merge($display_topics['visible'], $display_topics['hidden']);
 
     return [
       'topics' => $topics_data,
+      'visible_topics' => $display_topics['visible'],
+      'hidden_topics' => $display_topics['hidden'],
       'label' => $config->get('topics_list_label') ?: 'Mentions',
-              'max_visible' => $config->get('maximum_visible_post_topics') ?: 5,
+      'max_visible' => count($display_topics['visible']),
+      'configured_max_visible' => $config->get('maximum_visible_post_topics') ?: 5,
       'total_count' => count($topics_data),
+      'hidden_count' => count($display_topics['hidden']),
+    ];
+  }
+
+  /**
+   * Gets filtered topic rows from the shared module helper.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node entity.
+   *
+   * @return array
+   *   Array of filtered topic rows.
+   */
+  protected function getFilteredTopicRows(NodeInterface $node) {
+    if (function_exists('ttd_topics_get_filtered_topics_for_node')) {
+      return ttd_topics_get_filtered_topics_for_node($node);
+    }
+
+    return $this->getFilteredTopics($node);
+  }
+
+  /**
+   * Splits filtered topics into visible and hidden groups using WP behavior.
+   *
+   * @param array $filtered_topics
+   *   Filtered topic rows from ttd_topics_get_filtered_topics_for_node().
+   * @param \Drupal\Core\Config\ImmutableConfig $config
+   *   TopicalBoost settings.
+   * @param array $options
+   *   Optional display overrides.
+   *
+   * @return array
+   *   Visible and hidden topic data arrays.
+   */
+  protected function splitTopicsForFrontendDisplay(array $filtered_topics, $config, array $options = []) {
+    $display_limit = (int) ($config->get('maximum_visible_post_topics') ?: 5);
+    $filter_mode = $options['frontend_filter_mode'] ?? ($config->get('frontend_filter_mode') ?: 'mentions_behind_toggle');
+
+    $topics = [];
+    foreach ($filtered_topics as $topic) {
+      $topic_data = $this->buildTopicData($topic);
+      if ($topic_data) {
+        $topics[] = $topic_data;
+      }
+    }
+
+    if ($filter_mode === 'high_salience_only') {
+      $topics = array_values(array_filter($topics, function ($topic) {
+        return !empty($topic['is_manual']) || ($topic['salience_tier'] ?? 'mentions') !== 'mentions';
+      }));
+
+      return [
+        'visible' => array_slice($topics, 0, $display_limit),
+        'hidden' => array_slice($topics, $display_limit),
+      ];
+    }
+
+    if ($filter_mode === 'mentions_behind_toggle') {
+      $high_salience = [];
+      $mentions = [];
+
+      foreach ($topics as $topic) {
+        if (empty($topic['is_manual']) && ($topic['salience_tier'] ?? 'mentions') === 'mentions') {
+          $mentions[] = $topic + ['hidden' => TRUE];
+        }
+        else {
+          $high_salience[] = $topic;
+        }
+      }
+
+      $visible = array_slice($high_salience, 0, $display_limit);
+      $hidden = array_merge(array_slice($high_salience, $display_limit), $mentions);
+
+      if (empty($visible) && !empty($mentions)) {
+        $visible = array_slice($mentions, 0, $display_limit);
+        $visible = array_map(function ($topic) {
+          $topic['hidden'] = FALSE;
+          return $topic;
+        }, $visible);
+        $hidden = array_slice($mentions, $display_limit);
+      }
+
+      $hidden = array_map(function ($topic) {
+        $topic['hidden'] = TRUE;
+        return $topic;
+      }, $hidden);
+
+      return [
+        'visible' => $visible,
+        'hidden' => $hidden,
+      ];
+    }
+
+    $visible = array_slice($topics, 0, $display_limit);
+    $hidden = array_slice($topics, $display_limit);
+    $hidden = array_map(function ($topic) {
+      $topic['hidden'] = TRUE;
+      return $topic;
+    }, $hidden);
+
+    return [
+      'visible' => $visible,
+      'hidden' => $hidden,
+    ];
+  }
+
+  /**
+   * Builds template-safe topic data from a filtered topic row.
+   *
+   * @param array $topic
+   *   Filtered topic row.
+   *
+   * @return array|null
+   *   Topic data array, or NULL for invalid rows.
+   */
+  protected function buildTopicData(array $topic) {
+    $term = $topic['term'] ?? NULL;
+    if (!$term) {
+      return NULL;
+    }
+
+    $tier = $topic['salience_tier'] ?? ($topic['salience_category'] ?? 'mentions');
+
+    return [
+      'id' => $term->id(),
+      'name' => $term->getName(),
+      'label' => $term->label(),
+      'url' => $term->toUrl()->toString(),
+      'entity' => $term,
+      'count' => (int) ($topic['count'] ?? 0),
+      'salience_score' => $topic['salience_score'] ?? NULL,
+      'salience_category' => $tier,
+      'salience_tier' => $tier,
+      'is_manual' => !empty($topic['is_manual']),
+      'hidden' => FALSE,
     ];
   }
 
@@ -194,7 +325,7 @@ class TopicsExtension extends AbstractExtension {
    *   The node entity.
    *
    * @return array
-   *   Array of filtered topic entities.
+   *   Array of filtered topic rows.
    */
   protected function getFilteredTopics(NodeInterface $node) {
     if (!$node->hasField('field_ttd_topics') || $node->get('field_ttd_topics')->isEmpty()) {
@@ -242,6 +373,10 @@ class TopicsExtension extends AbstractExtension {
           $filtered_topics[] = [
             'term' => $term,
             'count' => $count,
+            'salience_score' => NULL,
+            'salience_category' => 'mentions',
+            'salience_tier' => 'mentions',
+            'is_manual' => FALSE,
           ];
         }
       }
@@ -251,9 +386,7 @@ class TopicsExtension extends AbstractExtension {
     usort($filtered_topics, function ($a, $b) {
       return $b['count'] - $a['count'];
     });
-
-    // Extract just the term objects for the template.
-    return array_column($filtered_topics, 'term');
+    return $filtered_topics;
   }
 
   /**

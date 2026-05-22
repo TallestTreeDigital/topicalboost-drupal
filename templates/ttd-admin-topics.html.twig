@@ -121,7 +121,7 @@
         <span class="ttd-section-title">Mentions</span>
         <span class="ttd-section-count">({{ mentions_topics|length }})</span>
         {% if below_threshold_topics %}
-          <a href="#" class="ttd-rejected-toggle ttd-wide-rejected-toggle">{{ below_threshold_topics|length }} hidden</a>
+          <button type="button" class="ttd-rejected-toggle ttd-wide-rejected-toggle" data-count="{{ below_threshold_topics|length }}">{{ below_threshold_topics|length }} hidden</button>
         {% endif %}
       </div>
       <div class="ttd-topics-list">

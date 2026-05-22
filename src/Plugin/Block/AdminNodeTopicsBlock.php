@@ -75,8 +75,10 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     $threshold_count = $config->get('post_topic_minimum_display_count') ?: 10;
     $has_been_analyzed = $node->hasField('field_ttd_last_analyzed') && !$node->get('field_ttd_last_analyzed')->isEmpty();
 
-    // Get all topics for this node
-    $topics = $node->get('field_ttd_topics')->referencedEntities();
+    // Match WordPress: globally hidden topics are omitted from the editor list.
+    $topics = array_values(array_filter($node->get('field_ttd_topics')->referencedEntities(), function ($topic) {
+      return !($topic->hasField('field_hide') && !$topic->get('field_hide')->isEmpty() && (bool) $topic->get('field_hide')->value);
+    }));
     $manual_topic_ids = array_column($node->get('field_manual_topics')->getValue(), 'target_id');
     $rejected_topic_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
     $tier_overrides = $node->get('field_tier_overrides')->value ?? [];

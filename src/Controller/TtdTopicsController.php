@@ -1559,11 +1559,21 @@ class TtdTopicsController extends ControllerBase {
         'traffic_potential' => $data['traffic_potential'] ?? 0,
       ];
 
-      // Cache the result
+      // Cache the result for this request path.
       $state->set($cache_key, [
         'timestamp' => time(),
         'data' => $metrics,
       ]);
+
+      // Also persist to the canonical demand cache used during page rendering.
+      // Without this, a badge fetched by clicking in the editor disappears on
+      // refresh because ttd_render_kd_badge() reads ttd_get_demand_metrics().
+      if ($term_id && function_exists('ttd_store_demand_metrics')) {
+        ttd_store_demand_metrics((int) $term_id, $metrics);
+      }
+      elseif ($keyword && function_exists('ttd_store_demand_metrics')) {
+        ttd_store_demand_metrics($keyword, $metrics);
+      }
 
       return $metrics;
 

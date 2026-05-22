@@ -4,6 +4,11 @@
 
 .ttd-schema-images-wrap {
   max-width: 100%;
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 6px;
+  padding: 14px;
+  color: #1d2327;
 }
 
 /* -- Status indicator --------------------------------------------------- */
@@ -11,10 +16,11 @@
 .ttd-schema-status {
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 6px;
+  color: #1d2327;
 }
 
 .ttd-schema-status-icon {
@@ -39,44 +45,82 @@
 /* -- Format previews ---------------------------------------------------- */
 
 .ttd-schema-formats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .ttd-schema-format {
-  flex: 1;
-  min-width: 150px;
-  max-width: 220px;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .ttd-schema-preview {
   position: relative;
   background: #f6f7f7;
-  border: 1px solid #c3c4c7;
+  border-bottom: 1px solid #e5e7eb;
   overflow: hidden;
   cursor: pointer;
-  aspect-ratio: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.ttd-schema-preview--ratio-4x3 {
+  aspect-ratio: 4 / 3;
+}
+
+.ttd-schema-preview--ratio-1x1 {
+  aspect-ratio: 1 / 1;
 }
 
 .ttd-schema-preview img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
 }
 
 .ttd-schema-preview--empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100px;
-  border-style: dashed;
+  min-height: 86px;
+  background: #f8fafc;
+  border: 1px dashed #c3c4c7;
+  border-radius: 4px;
+  margin: 8px;
 }
 
 .ttd-schema-placeholder {
-  color: #8c8f94;
+  color: #646970;
   font-size: 12px;
+  font-weight: 600;
+}
+
+.ttd-schema-preview--source::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.ttd-schema-source-badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  z-index: 1;
+  background: rgba(34, 113, 177, 0.92);
+  color: #fff;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 6px;
+  text-transform: uppercase;
 }
 
 .ttd-schema-checkmark {
@@ -96,19 +140,21 @@
 }
 
 .ttd-schema-format-info {
-  padding: 6px 0;
+  padding: 9px 10px 10px;
 }
 
 .ttd-schema-format-info strong {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: #1d2327;
+  line-height: 1.3;
 }
 
 .ttd-schema-format-info small {
   display: block;
-  font-size: 11px;
-  color: #8c8f94;
+  font-size: 12px;
+  color: #50575e;
+  line-height: 1.35;
   margin-top: 2px;
 }
 
@@ -116,15 +162,16 @@
 
 .ttd-schema-source-info {
   font-size: 12px;
-  margin-bottom: 12px;
+  line-height: 1.4;
+  margin: -4px 0 14px;
 }
 
 .ttd-schema-source-suitable {
-  color: #00a32a;
+  color: #008a20;
 }
 
 .ttd-schema-source-unsuitable {
-  color: #d63638;
+  color: #b32d2e;
 }
 
 /* -- Focal point picker ------------------------------------------------- */
@@ -166,16 +213,23 @@
 
 .ttd-schema-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin: 14px 0 0;
 }
 
 .ttd-schema-generate-btn,
-.ttd-schema-upload-btn {
-  padding: 6px 14px;
+.ttd-schema-upload-btn,
+.ttd-schema-clear-btn {
+  border-radius: 4px;
+  min-height: 32px;
+  padding: 6px 12px;
   font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .ttd-schema-generate-btn {
@@ -186,6 +240,8 @@
 
 .ttd-schema-generate-btn:hover {
   background: #135e96;
+  border-color: #135e96;
+  color: #fff;
 }
 
 .ttd-schema-upload-btn {
@@ -196,19 +252,18 @@
 
 .ttd-schema-upload-btn:hover {
   border-color: #2271b1;
+  color: #135e96;
 }
 
 .ttd-schema-clear-btn {
-  background: none;
-  border: none;
+  background: #fff;
+  border: 1px solid #d63638;
   color: #d63638;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 6px 0;
 }
 
 .ttd-schema-clear-btn:hover {
-  text-decoration: underline;
+  background: #fcf0f1;
+  color: #b32d2e;
 }
 
 .ttd-schema-file-input {
@@ -256,8 +311,19 @@
   border-color: #3a3a3a;
 }
 
+.gin--dark-mode .ttd-schema-images-wrap,
+.gin--dark-mode .ttd-schema-format {
+  background: #1f1f1f;
+  border-color: #3a3a3a;
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-schema-status {
+  color: #e8e8e8;
+}
+
 .gin--dark-mode .ttd-schema-placeholder {
-  color: #6b6b6b;
+  color: #c6c6c6;
 }
 
 .gin--dark-mode .ttd-schema-format-info strong {
@@ -265,7 +331,7 @@
 }
 
 .gin--dark-mode .ttd-schema-format-info small {
-  color: #6b6b6b;
+  color: #b8b8b8;
 }
 
 .gin--dark-mode .ttd-focal-picker {
@@ -273,7 +339,7 @@
 }
 
 .gin--dark-mode .ttd-focal-coords {
-  color: #6b6b6b;
+  color: #b8b8b8;
 }
 
 .gin--dark-mode .ttd-schema-upload-btn {
@@ -286,44 +352,8 @@
   border-color: #6db3f2;
 }
 
-/* ==========================================================================
-   UNIVERSAL DARK MODE SUPPORT
-   Supports system-level dark mode preference for non-Gin themes
-   ========================================================================== */
-
-@media (prefers-color-scheme: dark) {
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-preview {
-    background: #2a2a2a;
-    border-color: #3a3a3a;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-placeholder {
-    color: #6b6b6b;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-format-info strong {
-    color: #e8e8e8;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-format-info small {
-    color: #6b6b6b;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-focal-picker {
-    border-color: #3a3a3a;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-focal-coords {
-    color: #6b6b6b;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-upload-btn {
-    background: transparent;
-    border-color: #3a3a3a;
-    color: #6db3f2;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-schema-upload-btn:hover {
-    border-color: #6db3f2;
+@media (max-width: 900px) {
+  .ttd-schema-formats {
+    grid-template-columns: 1fr;
   }
 }

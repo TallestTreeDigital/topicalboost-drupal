@@ -110,6 +110,63 @@ function ttd_topics_get_node_absolute_url(NodeInterface $node) {
 }
 
 /**
+ * Returns the best social preview image URL for a node.
+ */
+function ttd_topics_get_social_meta_image_url(NodeInterface $node) {
+  return ttd_topics_get_node_image_url($node, [
+    'field_ttd_schema_16x9',
+    'field_article_image',
+    'field_image',
+    'field_featured_image',
+    'field_article_banner',
+    'field_hero_image',
+    'field_media_image',
+  ]);
+}
+
+/**
+ * Returns an absolute URL from the first populated image or media field.
+ */
+function ttd_topics_get_node_image_url(NodeInterface $node, array $field_names) {
+  foreach ($field_names as $field_name) {
+    $file = ttd_topics_get_node_image_file($node, $field_name);
+    if ($file && method_exists($file, 'getFileUri')) {
+      return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Resolves a node image/media field to its underlying file entity.
+ */
+function ttd_topics_get_node_image_file(NodeInterface $node, $field_name) {
+  if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+    return NULL;
+  }
+
+  $referenced = $node->get($field_name)->entity;
+  if (!$referenced) {
+    return NULL;
+  }
+
+  if ($referenced->getEntityTypeId() === 'file') {
+    return $referenced;
+  }
+
+  if ($referenced->getEntityTypeId() === 'media' && method_exists($referenced, 'getSource')) {
+    $media_source = $referenced->getSource();
+    $src_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
+    if ($referenced->hasField($src_field) && !$referenced->get($src_field)->isEmpty()) {
+      return $referenced->get($src_field)->entity;
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * Normalizes a configured site base URL.
  */
 function ttd_topics_normalize_site_base_url($url) {
@@ -260,8 +317,9 @@ function ttd_topics_preprocess_node(&$variables) {
     // Still process topics for schema, but control display.
     $variables['show_ttd_topics'] = $frontend_enabled || $user_has_permission;
 
-    // Only add topics for automatic display if automatic mentions is enabled
-    if ($automatic_mentions_enabled) {
+    // Only add topics for automatic display if automatic mentions is enabled,
+    // while still allowing privileged users to preview the frontend output.
+    if ($automatic_mentions_enabled || $user_has_permission) {
       // Always process these for schema.
       $variables['topics_list_label'] = $config->get('topics_list_label');
       $maximum_visible_post_topics = $config->get('maximum_visible_post_topics');
@@ -542,6 +600,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         'nodeId' => $node->id(),
         'postUrl' => ttd_topics_get_node_absolute_url($node),
         'postTitle' => $node->getTitle(),
+        'ogImageUrl' => ttd_topics_get_social_meta_image_url($node),
         'apiBase' => '/api/topicalboost/meta',
         'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
         'existingSocialMeta' => ($existing_og_title && $existing_og_description) ? [
@@ -656,37 +715,21 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         }
 
         // Get source image for focal point picker.
-        $source_url = '';
-        $image_fields = ['field_image', 'field_featured_image', 'field_hero_image', 'field_media_image'];
-        foreach ($image_fields as $img_field) {
-          if ($node->hasField($img_field) && !$node->get($img_field)->isEmpty()) {
-            $referenced = $node->get($img_field)->entity;
-            if ($referenced) {
-              $file = NULL;
-              if ($referenced->getEntityTypeId() === 'media') {
-                $media_source = $referenced->getSource();
-                $src_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
-                if ($referenced->hasField($src_field) && !$referenced->get($src_field)->isEmpty()) {
-                  $file = $referenced->get($src_field)->entity;
-                }
-              }
-              else {
-                $file = $referenced;
-              }
-              if ($file) {
-                $source_url = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
-              }
-              break;
-            }
-          }
-        }
+        $source_url = ttd_topics_get_node_image_url($node, [
+          'field_article_image',
+          'field_image',
+          'field_featured_image',
+          'field_article_banner',
+          'field_hero_image',
+          'field_media_image',
+        ]);
 
         $form['ttd_schema_images'] = [
           '#type' => 'details',
           '#title' => t('Schema Images'),
           '#weight' => 52,
           '#optional' => FALSE,
-          '#open' => FALSE,
+          '#open' => TRUE,
         ];
 
         $focal_html = '';
@@ -696,7 +739,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         }
 
         $form['ttd_schema_images']['widget'] = [
-          '#markup' => '<div class="ttd-schema-images-wrap" data-nid="' . $node->id() . '">'
+          '#markup' => Markup::create('<div class="ttd-schema-images-wrap" data-nid="' . $node->id() . '">'
             . '<div class="ttd-schema-status">Loading...</div>'
             . '<div class="ttd-schema-formats"></div>'
             . '<div class="ttd-schema-source-info"></div>'
@@ -707,7 +750,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
             . '<input type="file" class="ttd-schema-file-input" accept="image/*">'
             . '<button type="button" class="ttd-schema-clear-btn">Clear Images</button>'
             . '</div>'
-            . '</div>',
+            . '</div>'),
         ];
 
         $form['ttd_schema_images']['#attached']['library'][] = 'ttd_topics/schema_images';
@@ -875,31 +918,35 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
             'count' => $count,
             'salience_score' => $entity_salience['salience_score'],
             'salience_category' => $tier,
+            'salience_tier' => $tier,
+            'is_manual' => $is_manual,
           ];
         }
       }
     }
 
-    // Sort filtered topics based on configured sort order.
+    // Match WordPress ordering: mainEntity, about, mentions, then configured sort.
     $sort_order = $config->get('frontend_sort_order') ?: 'salience';
-    if ($sort_order === 'alphabetical') {
-      usort($filtered_topics, function ($a, $b) {
-        return strcasecmp($a['term']->label(), $b['term']->label());
-      });
-    }
-    else {
-      // Default: sort by salience score (highest first), then alphabetically.
-      usort($filtered_topics, function ($a, $b) {
-        $score_a = $a['salience_score'] ?? -1;
-        $score_b = $b['salience_score'] ?? -1;
+    $tier_priority = ['mainEntity' => 0, 'about' => 1, 'mentions' => 2];
+    usort($filtered_topics, function ($a, $b) use ($sort_order, $tier_priority) {
+      $tier_a = $tier_priority[$a['salience_category'] ?? 'mentions'] ?? 2;
+      $tier_b = $tier_priority[$b['salience_category'] ?? 'mentions'] ?? 2;
+      if ($tier_a !== $tier_b) {
+        return $tier_a <=> $tier_b;
+      }
 
-        if ($score_b !== $score_a) {
-          return $score_b <=> $score_a;
-        }
-
+      if ($sort_order === 'alphabetical') {
         return strcasecmp($a['term']->label(), $b['term']->label());
-      });
-    }
+      }
+
+      $score_a = $a['salience_score'] ?? -1;
+      $score_b = $b['salience_score'] ?? -1;
+      if ($score_b !== $score_a) {
+        return $score_b <=> $score_a;
+      }
+
+      return strcasecmp($a['term']->label(), $b['term']->label());
+    });
   }
 
   return $filtered_topics;
@@ -949,11 +996,11 @@ function ttd_topics_build_frontend_topics_display(NodeInterface $node, bool $res
     return [];
   }
 
-  if ($respect_automatic_mentions && !($config->get('enable_automatic_mentions') ?? TRUE)) {
+  if (!$config->get('enable_frontend') && !ttd_topics_account_has_required_permission()) {
     return [];
   }
 
-  if (!$config->get('enable_frontend') && !ttd_topics_account_has_required_permission()) {
+  if ($respect_automatic_mentions && !($config->get('enable_automatic_mentions') ?? TRUE) && !ttd_topics_account_has_required_permission()) {
     return [];
   }
 

@@ -920,6 +920,12 @@
   font-size: 13px;
   line-height: 18px;
   border-radius: 3px;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ttd-wide-layout #get-topics-button span {
+  text-shadow: none !important;
 }
 
 .ttd-wide-layout .ttd-topics-search-container {
