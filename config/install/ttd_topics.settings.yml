@@ -14,6 +14,7 @@ api_key_validation_hash: ''
 subscription_status: ''
 domain_mismatch: {  }
 topicalboost_api_endpoint: ''
+site_base_url: ''
 organization_facebook_url: ''
 organization_twitter_url: ''
 organization_linkedin_url: ''

@@ -101,13 +101,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
 
       // Step 1: Initiate analysis.
       $response = $client->post($api_base_url . '/analyze/single', [
-        'headers' => [
-          'Content-Type' => 'application/json',
-          'x-api-key' => $api_key,
-        ],
+        'headers' => \ttd_topics_api_headers($api_key),
         'json' => [
           'customer_id' => $node->id(),
-          'url' => $node->toUrl()->setAbsolute()->toString(),
+          'url' => \ttd_topics_get_node_absolute_url($node),
           'title' => $node->getTitle(),
           'text' => $analysis_text,
         ],

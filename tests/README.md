@@ -34,6 +34,9 @@ themselves.
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-core.php
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-wp-equivalents.php
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-performance.php
+
+# From the module root, no Drupal bootstrap required.
+php tests/cli/test-sync-cursor-upgrade.php
 ```
 
 `test-parity-core.php` covers:
@@ -63,6 +66,11 @@ Drupal runtime behavior:
 The WordPress `vip-scan.php` is a WordPress-specific static compatibility scan;
 the Drupal equivalent gate is PHP syntax/static loading of the touched Drupal
 files plus the runtime parity scripts above.
+
+`test-sync-cursor-upgrade.php` statically guards the cursor-only sync upgrade:
+new sync jobs must include `after_id`, legacy jobs missing `after_id` must cancel
+without retrying, and the update hook must clear only non-processing
+TopicalBoost sync pull jobs.
 
 `test-parity-performance.php` maps the WordPress performance/query-count tests
 to Drupal schema and topic hot paths:

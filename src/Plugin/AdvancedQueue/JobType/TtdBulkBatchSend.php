@@ -176,7 +176,7 @@ class TtdBulkBatchSend extends JobTypeBase {
     $analysis_text = $field_collector->collect($node);
 
     $data = [
-      'url' => $node->toUrl()->setAbsolute()->toString(),
+      'url' => \ttd_topics_get_node_absolute_url($node),
       'title' => $node->getTitle(),
       'text' => $analysis_text,
       'status' => $node->isPublished() ? 'publish' : 'draft',
@@ -200,10 +200,7 @@ class TtdBulkBatchSend extends JobTypeBase {
     $client = new Client();
 
     $response = $client->post($api_base_url . '/analyze/bulk/send', [
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'x-api-key' => $api_key,
-      ],
+      'headers' => \ttd_topics_api_headers($api_key),
       'json' => [
         'request_id' => $request_id,
         'page' => $page,

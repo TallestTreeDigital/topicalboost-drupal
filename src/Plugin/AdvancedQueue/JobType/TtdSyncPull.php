@@ -32,8 +32,8 @@ class TtdSyncPull extends JobTypeBase {
     try {
       $result = \Drupal::service('ttd_topics.sync_service')->pullSyncPage($type, $page, $page_size, $since, $after_id);
 
-      if (!empty($result['split_jobs'])) {
-        return JobResult::success('Split topics page ' . $page . ' into ' . $result['split_jobs'] . ' smaller pull jobs');
+      if (!empty($result['cancelled_legacy'])) {
+        return JobResult::success('Cancelled legacy offset sync pull for ' . $type . ' page ' . $page);
       }
 
       if ($type === 'topics') {

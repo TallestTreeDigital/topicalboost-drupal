@@ -96,15 +96,13 @@ class TtdTopicsAnalysisService {
 
       // Step 1: Initiate analysis.
       $response = $client->post($api_base_url . '/analyze/single', [
-        'headers' => [
-          'Content-Type' => 'application/json',
-          'x-api-key' => $api_key,
+        'headers' => array_merge(\ttd_topics_api_headers($api_key), [
           'x-tb-plugin-version' => $this->getModuleVersion(),
           'x-tb-platform' => 'drupal',
-        ],
+        ]),
         'json' => array_filter([
           'customer_id' => $node->id(),
-          'url' => $node->toUrl()->setAbsolute()->toString(),
+          'url' => \ttd_topics_get_node_absolute_url($node),
           'title' => $node->getTitle(),
           'text' => $analysis_text,
           'status' => $node->isPublished() ? 'publish' : 'draft',
@@ -542,7 +540,7 @@ class TtdTopicsAnalysisService {
     $api_key = $config->get('topicalboost_api_key');
     $api_base_url = TOPICALBOOST_API_ENDPOINT;
 
-    $url = $node->toUrl()->setAbsolute()->toString();
+    $url = \ttd_topics_get_node_absolute_url($node);
     if (empty($url)) {
       return;
     }

@@ -31,12 +31,10 @@ class TtdSyncService {
     }
 
     $options = [
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'x-api-key' => $api_key,
+      'headers' => array_merge(\ttd_topics_api_headers($api_key), [
         'x-tb-plugin-version' => $this->getModuleVersion(),
         'x-tb-platform' => 'drupal',
-      ],
+      ]),
       'timeout' => 30,
     ];
 
@@ -316,8 +314,18 @@ class TtdSyncService {
    * Pull one sync page from the API and apply it locally.
    */
   public function pullSyncPage(string $type, int $page, int $page_size, ?string $since = NULL, $after_id = NULL) {
-    if ($type === 'topics' && $page_size > static::TOPIC_PAGE_SIZE && $after_id === NULL) {
-      return $this->splitOversizedTopicPull($page, $page_size, $since);
+    if ($after_id === NULL) {
+      \Drupal::logger('ttd_topics')->notice('Cancelling legacy offset sync action for @type page @page; cursor pagination is required.', [
+        '@type' => $type,
+        '@page' => $page,
+      ]);
+      $this->cancelSync();
+      return [
+        'cancelled_legacy' => TRUE,
+        'topics' => 0,
+        'posts_applied' => 0,
+        'posts_skipped' => 0,
+      ];
     }
 
     $query = [
@@ -395,40 +403,6 @@ class TtdSyncService {
       'topics' => 0,
       'posts_applied' => $applied,
       'posts_skipped' => $skipped,
-    ];
-  }
-
-  /**
-   * Split legacy 100-topic pull jobs into smaller child jobs before doing work.
-   */
-  private function splitOversizedTopicPull(int $page, int $page_size, ?string $since = NULL) {
-    $queue = $this->getQueue();
-    if (!$queue) {
-      throw new \RuntimeException('TopicalBoost analysis queue is not available');
-    }
-
-    $child_page_size = static::TOPIC_PAGE_SIZE;
-    $first_offset = max(0, ($page - 1) * $page_size);
-    $child_count = (int) ceil($page_size / $child_page_size);
-
-    for ($index = 0; $index < $child_count; $index++) {
-      $child_offset = $first_offset + ($index * $child_page_size);
-      $queue->enqueueJob(Job::create(static::SYNC_JOB_TYPE, [
-        'type' => 'topics',
-        'page' => (int) floor($child_offset / $child_page_size) + 1,
-        'page_size' => $child_page_size,
-        'since' => $since,
-      ]));
-    }
-
-    $this->expandActiveSyncTotalJobs($child_count, 'topics');
-    $this->recordPullResult([]);
-
-    return [
-      'topics' => 0,
-      'posts_applied' => 0,
-      'posts_skipped' => 0,
-      'split_jobs' => $child_count,
     ];
   }
 

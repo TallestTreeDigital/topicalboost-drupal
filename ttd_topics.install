@@ -1383,3 +1383,27 @@ function ttd_topics_update_9007() {
 
   return t('Removed retired TopicalBoost editor placement setting.');
 }
+
+/**
+ * Clear queued legacy sync pull jobs before cursor-only sync processing.
+ */
+function ttd_topics_update_9008() {
+  $deleted = 0;
+  $database = \Drupal::database();
+
+  if ($database->schema()->tableExists('advancedqueue')) {
+    $deleted = $database->delete('advancedqueue')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', 'ttd_sync_pull')
+      ->condition('state', 'processing', '<>')
+      ->execute();
+  }
+
+  $state = \Drupal::state();
+  $state->delete('ttd_active_sync');
+  $state->delete('ttd_sync_status_cache');
+
+  return t('Cleared @count queued TopicalBoost sync pull jobs for cursor pagination.', [
+    '@count' => $deleted,
+  ]);
+}
