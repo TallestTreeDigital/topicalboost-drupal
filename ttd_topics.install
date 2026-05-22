@@ -1407,3 +1407,40 @@ function ttd_topics_update_9008() {
     '@count' => $deleted,
   ]);
 }
+
+/**
+ * Preserve the 1.5.6 kg_description update number for live upgrade continuity.
+ */
+function ttd_topics_update_9100() {
+  return ttd_topics_update_9006();
+}
+
+/**
+ * Bridge sites already marked at 9100 onto the 2.0 parity update set.
+ */
+function ttd_topics_update_9101() {
+  $update_callbacks = [
+    'ttd_topics_update_8001',
+    'ttd_topics_update_8002',
+    'ttd_topics_update_8003',
+    'ttd_topics_update_9001',
+    'ttd_topics_update_9002',
+    'ttd_topics_update_9003',
+    'ttd_topics_update_9004',
+    'ttd_topics_update_9005',
+    'ttd_topics_update_9006',
+    'ttd_topics_update_9007',
+    'ttd_topics_update_9008',
+  ];
+
+  $messages = [];
+  foreach ($update_callbacks as $callback) {
+    if (function_exists($callback)) {
+      $messages[] = $callback();
+    }
+  }
+
+  return t('Replayed TopicalBoost parity update coverage for sites upgrading from 1.5.x schema 9100. @details', [
+    '@details' => implode(' ', array_map('strval', $messages)),
+  ]);
+}
