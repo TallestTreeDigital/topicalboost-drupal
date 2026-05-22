@@ -162,6 +162,16 @@
   color: #00a32a;
 }
 
+/* Warning State */
+.api-key-warning {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.api-key-warning .api-key-icon {
+  color: #dba617;
+}
+
 /* Invalid State */
 .api-key-invalid {
   background-color: transparent;
@@ -181,6 +191,35 @@
 .api-key-loading .api-key-icon {
   color: #2271b1;
   animation: spin 1s linear infinite;
+}
+
+.api-key-validation-feedback {
+  display: none;
+  grid-column: 2 / 4;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid transparent;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.api-key-feedback-success {
+  background: #edfaef;
+  border-left-color: #00a32a;
+  color: #1d2327;
+}
+
+.api-key-feedback-warning {
+  background: #fcf9e8;
+  border-left-color: #dba617;
+  color: #1d2327;
+}
+
+.api-key-feedback-error {
+  background: #fcf0f1;
+  border-left-color: #d63638;
+  color: #1d2327;
 }
 
 /* Spinning animation for loading icon */
@@ -315,6 +354,13 @@
   outline: none !important;
 }
 
+.field-glow-warning {
+  border-color: #dba617 !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.2) !important;
+  transition: all 0.3s ease !important;
+  outline: none !important;
+}
+
 /* More aggressive focus override to ensure our styles show */
 #ttd-topics-api-key-field.field-glow-success:focus {
   border-color: #00a32a !important;
@@ -325,6 +371,12 @@
 #ttd-topics-api-key-field.field-glow-error:focus {
   border-color: #d63638 !important;
   box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.28) !important;
+  outline: none !important;
+}
+
+#ttd-topics-api-key-field.field-glow-warning:focus {
+  border-color: #dba617 !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.3) !important;
   outline: none !important;
 }
 
@@ -416,6 +468,27 @@
   border-color: #d63638 !important;
   background: #2a2a2a !important;
   box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.35) !important;
+}
+
+.gin--dark-mode #ttd-topics-api-key-field.field-glow-warning {
+  border-color: #dba617 !important;
+  background: #2a2a2a !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.35) !important;
+}
+
+.gin--dark-mode .api-key-feedback-success {
+  background: #0d3d1a;
+  color: #b7f7c3;
+}
+
+.gin--dark-mode .api-key-feedback-warning {
+  background: #3d3000;
+  color: #ffe59b;
+}
+
+.gin--dark-mode .api-key-feedback-error {
+  background: #3d0d10;
+  color: #ffc2c4;
 }
 
 .gin--dark-mode .ttd-topics-toggle-slider {
