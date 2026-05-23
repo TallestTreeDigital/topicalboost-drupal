@@ -471,6 +471,53 @@ class SchemaGenerator {
       return $grouped;
     }
 
+    if (function_exists('ttd_topics_get_filtered_topics_for_node')) {
+      $filtered_topics = \ttd_topics_get_filtered_topics_for_node($node);
+      $term_ids = [];
+      foreach ($filtered_topics as $topic_data) {
+        if (!empty($topic_data['term']) && $topic_data['term'] instanceof TermInterface) {
+          $term_ids[] = (int) $topic_data['term']->id();
+        }
+      }
+      $term_aliases = $this->getTermAliasesBatch(array_values(array_unique($term_ids)));
+
+      foreach ($filtered_topics as $topic_data) {
+        $term = $topic_data['term'] ?? NULL;
+        if (!$term instanceof TermInterface) {
+          continue;
+        }
+
+        $term_id = (int) $term->id();
+        $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+          ? (int) $term->get('field_ttd_id')->value
+          : 0;
+        if (!$ttd_id) {
+          continue;
+        }
+
+        $tier = $topic_data['salience_tier'] ?? ($topic_data['salience_category'] ?? 'mentions');
+        if (!in_array($tier, ['mainEntity', 'about', 'mentions'], TRUE)) {
+          $tier = 'mentions';
+        }
+
+        $grouped[$tier][] = (object) [
+          'tid' => $term_id,
+          'name' => $term->label(),
+          'field_ttd_id_value' => $ttd_id,
+          'field_hide_value' => 0,
+          'alias' => $term_aliases[$term_id] ?? '/taxonomy/term/' . $term_id,
+          'post_count' => (int) ($topic_data['count'] ?? 0),
+        ];
+      }
+
+      if (count($grouped['mainEntity']) > 1) {
+        $extra_main_entities = array_splice($grouped['mainEntity'], 1);
+        $grouped['about'] = array_merge($grouped['about'], $extra_main_entities);
+      }
+
+      return $grouped;
+    }
+
     $topics = $node->get('field_ttd_topics')->referencedEntities();
     $term_ids = array_map(static fn($term) => (int) $term->id(), $topics);
     $term_counts = function_exists('ttd_topics_get_topic_node_counts')
@@ -530,14 +577,6 @@ class SchemaGenerator {
 
       $grouped[$tier][] = $topic;
     }
-
-    foreach ($grouped as &$topics_by_tier) {
-      usort($topics_by_tier, static function ($a, $b) {
-        $count_compare = ($b->post_count ?? 0) <=> ($a->post_count ?? 0);
-        return $count_compare !== 0 ? $count_compare : strcasecmp($a->name, $b->name);
-      });
-    }
-    unset($topics_by_tier);
 
     if (count($grouped['mainEntity']) > 1) {
       $extra_main_entities = array_splice($grouped['mainEntity'], 1);

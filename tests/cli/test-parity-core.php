@@ -177,6 +177,22 @@ function ttd_parity_schema_names($items): array {
   return $names;
 }
 
+function ttd_parity_schema_names_in_order($items): array {
+  if (empty($items)) {
+    return [];
+  }
+  if (isset($items['name'])) {
+    return [$items['name']];
+  }
+  $names = [];
+  foreach ((array) $items as $item) {
+    if (is_array($item) && isset($item['name'])) {
+      $names[] = $item['name'];
+    }
+  }
+  return $names;
+}
+
 function ttd_parity_schema_images(array $article): array {
   $images = $article['image'] ?? [];
   if (empty($images)) {
@@ -388,6 +404,45 @@ try {
   foreach ([$topics['regular_low'], $topics['hidden_about'], $topics['rejected_about']] as $topic) {
     ttd_parity_assert(!in_array($topic['name'], $schema_names, TRUE), "Schema excludes non-visible topic {$topic['name']}");
   }
+
+  $order_high_ttd_id = $base_ttd_id + $i++;
+  $order_high_name = "TB Parity About High Score {$suffix}";
+  ttd_parity_insert_entity($order_high_ttd_id, $order_high_name, $schema_type_id);
+  $order_high_term = ttd_parity_create_topic($order_high_name, $order_high_ttd_id);
+
+  $order_low_ttd_id = $base_ttd_id + $i++;
+  $order_low_name = "TB Parity About Low Score High Count {$suffix}";
+  ttd_parity_insert_entity($order_low_ttd_id, $order_low_name, $schema_type_id);
+  $order_low_term = ttd_parity_create_topic($order_low_name, $order_low_ttd_id);
+
+  ttd_parity_create_node(
+    "TB Parity Schema Order Count Helper {$suffix}",
+    [(int) $order_low_term->id()]
+  );
+  $order_node = ttd_parity_create_node(
+    "TB Parity Schema Order {$suffix}",
+    [(int) $order_low_term->id(), (int) $order_high_term->id()]
+  );
+  ttd_parity_set_salience($order_node, $order_high_ttd_id, 'about', 0.20);
+  ttd_parity_set_salience($order_node, $order_low_ttd_id, 'about', 0.06);
+
+  \Drupal::entityTypeManager()->getStorage('node')->resetCache([$order_node->id()]);
+  $order_node = Node::load($order_node->id());
+  $frontend_about_order = array_values(array_map(
+    static fn($topic_data) => $topic_data['term']->label(),
+    array_filter(
+      ttd_topics_get_filtered_topics_for_node($order_node),
+      static fn($topic_data) => ($topic_data['salience_category'] ?? 'mentions') === 'about'
+    )
+  ));
+  $order_schema = \Drupal::service('ttd_topics.schema_generator')->getNodeTopicsSchema($order_node->id());
+  $order_article = ttd_parity_schema_article($order_schema);
+  $schema_about_order = ttd_parity_schema_names_in_order($order_article['about'] ?? []);
+  if ($schema_about_order !== $frontend_about_order) {
+    echo "Expected schema about order: " . implode(', ', $frontend_about_order) . "\n";
+    echo "Actual schema about order:   " . implode(', ', $schema_about_order) . "\n";
+  }
+  ttd_parity_assert($schema_about_order === $frontend_about_order, 'Schema about order follows frontend topic order like WordPress');
 
   $computed_tiers = ttd_topics_compute_tiers([
     ['entity_id' => 1, 'salience_score' => 0.45, 'llm_tier' => NULL],
