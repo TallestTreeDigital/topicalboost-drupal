@@ -594,6 +594,20 @@ try {
   if ($image_file && $schema_node_a->hasField('field_image')) {
     $schema_node_a->set('field_image', ['target_id' => $image_file->id(), 'alt' => 'Featured parity image']);
     $schema_node_a->save();
+    $fallback_schema = \Drupal::service('ttd_topics.schema_generator')->getNodeTopicsSchema($schema_node_a->id());
+    $fallback_article = ttd_parity_wp_schema_article($fallback_schema);
+    $fallback_images = $fallback_article['image'] ?? [];
+    $fallback_sizes = [];
+    foreach ($fallback_images as $fallback_image) {
+      if (!empty($fallback_image['url']) && strpos($fallback_image['url'], 'featured-' . $image_file->id()) !== FALSE) {
+        $fallback_sizes[] = ($fallback_image['width'] ?? 0) . 'x' . ($fallback_image['height'] ?? 0);
+      }
+    }
+    sort($fallback_sizes);
+    $expected_fallback_sizes = ['1200x675', '675x675', '900x675'];
+    sort($expected_fallback_sizes);
+    ttd_parity_wp_assert($fallback_sizes === $expected_fallback_sizes, 'Schema falls back to featured image in WordPress-equivalent schema ratios');
+
     $schema_images_controller = new \Drupal\ttd_topics\Controller\SchemaImagesController();
     $image_response = $schema_images_controller->generate(new Request([], [
       'nid' => (int) $schema_node_a->id(),

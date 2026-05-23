@@ -4,6 +4,7 @@ namespace Drupal\ttd_topics;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\file\FileInterface;
 use Drupal\node\NodeInterface;
 use Drupal\path_alias\AliasManagerInterface;
 use Drupal\taxonomy\TermInterface;
@@ -12,6 +13,27 @@ use Drupal\taxonomy\TermInterface;
  * Service for generating schema.org metadata for TopicalBoost.
  */
 class SchemaGenerator {
+
+  /**
+   * Node image/media fields that can provide a fallback Article image.
+   */
+  protected const SOURCE_IMAGE_FIELDS = [
+    'field_image',
+    'field_featured_image',
+    'field_article_image',
+    'field_article_banner',
+    'field_hero_image',
+    'field_media_image',
+  ];
+
+  /**
+   * WordPress-compatible Article schema image formats.
+   */
+  protected const SCHEMA_IMAGE_SIZES = [
+    '1x1' => ['field' => 'field_ttd_schema_1x1', 'width' => 675, 'height' => 675],
+    '4x3' => ['field' => 'field_ttd_schema_4x3', 'width' => 900, 'height' => 675],
+    '16x9' => ['field' => 'field_ttd_schema_16x9', 'width' => 1200, 'height' => 675],
+  ];
 
   /**
    * The database connection.
@@ -1388,14 +1410,8 @@ class SchemaGenerator {
       return [];
     }
 
-    $field_map = [
-      '16x9' => ['field' => 'field_ttd_schema_16x9', 'width' => 1200, 'height' => 675],
-      '4x3' => ['field' => 'field_ttd_schema_4x3', 'width' => 900, 'height' => 675],
-      '1x1' => ['field' => 'field_ttd_schema_1x1', 'width' => 675, 'height' => 675],
-    ];
-
     $images = [];
-    foreach ($field_map as $ratio => $info) {
+    foreach (self::SCHEMA_IMAGE_SIZES as $ratio => $info) {
       if (!$node->hasField($info['field']) || $node->get($info['field'])->isEmpty()) {
         continue;
       }
@@ -1416,7 +1432,177 @@ class SchemaGenerator {
       ];
     }
 
+    if (empty($images)) {
+      $images = $this->getSourceImageSchemaObjects($node);
+    }
+
     return $images;
+  }
+
+  /**
+   * Builds ImageObjects from the node's featured/source image.
+   *
+   * This matches WordPress behavior: generated schema crops are preferred, but
+   * existing featured images can provide 1:1, 4:3, and 16:9 Article image
+   * schema for legacy content that has not generated TopicalBoost schema image
+   * fields yet.
+   */
+  protected function getSourceImageSchemaObjects(NodeInterface $node): array {
+    $file = $this->getSourceImageFileFromNode($node);
+    if (!$file) {
+      return [];
+    }
+
+    $source_path = \Drupal::service('file_system')->realpath($file->getFileUri());
+    if (!$source_path || !file_exists($source_path)) {
+      return [];
+    }
+
+    $source_image = \Drupal::service('image.factory')->get($source_path);
+    if (!$source_image->isValid()) {
+      return [];
+    }
+
+    $source_width = (int) $source_image->getWidth();
+    $source_height = (int) $source_image->getHeight();
+    if ($source_width < 675 || $source_height < 675) {
+      return [$this->buildSourceImageObject($node, $file, $source_width, $source_height)];
+    }
+
+    $images = [];
+    foreach (self::SCHEMA_IMAGE_SIZES as $ratio => $info) {
+      $url = $this->ensureSourceSchemaCrop($node, $file, $source_path, $ratio, (int) $info['width'], (int) $info['height']);
+      if (!$url) {
+        continue;
+      }
+
+      $images[] = [
+        '@type' => 'ImageObject',
+        '@id' => $url,
+        'url' => $url,
+        'contentUrl' => $url,
+        'width' => (int) $info['width'],
+        'height' => (int) $info['height'],
+        'caption' => $node->getTitle(),
+      ];
+    }
+
+    return !empty($images) ? $images : [$this->buildSourceImageObject($node, $file, $source_width, $source_height)];
+  }
+
+  /**
+   * Builds an ImageObject for the original source image.
+   */
+  protected function buildSourceImageObject(NodeInterface $node, FileInterface $file, int $width = 0, int $height = 0): array {
+    $url = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+    $image = [
+      '@type' => 'ImageObject',
+      '@id' => $url,
+      'url' => $url,
+      'contentUrl' => $url,
+      'caption' => $node->getTitle(),
+    ];
+
+    if ($width > 0 && $height > 0) {
+      $image['width'] = $width;
+      $image['height'] = $height;
+    }
+
+    return $image;
+  }
+
+  /**
+   * Ensures a WordPress-compatible schema crop exists for a source image.
+   */
+  protected function ensureSourceSchemaCrop(NodeInterface $node, FileInterface $file, string $source_path, string $ratio, int $dest_width, int $dest_height): string {
+    $directory = 'public://schema-images/' . $node->id();
+    $file_system = \Drupal::service('file_system');
+    $file_system->prepareDirectory($directory, \Drupal\Core\File\FileSystemInterface::CREATE_DIRECTORY | \Drupal\Core\File\FileSystemInterface::MODIFY_PERMISSIONS);
+    $real_dir = $file_system->realpath($directory);
+    if (!$real_dir) {
+      return '';
+    }
+
+    $source_mtime = filemtime($source_path) ?: time();
+    $filename = 'featured-' . $file->id() . '-' . $source_mtime . '-' . $ratio . '.jpg';
+    $dest_uri = $directory . '/' . $filename;
+    $dest_path = $real_dir . '/' . $filename;
+    if (!file_exists($dest_path)) {
+      $image = \Drupal::service('image.factory')->get($source_path);
+      if (!$image->isValid()) {
+        return '';
+      }
+
+      $crop = $this->calculateSourceImageCrop((int) $image->getWidth(), (int) $image->getHeight(), $dest_width, $dest_height);
+      $image->crop($crop['x'], $crop['y'], $crop['width'], $crop['height']);
+      $image->resize($dest_width, $dest_height);
+      if (!$image->save($dest_path)) {
+        return '';
+      }
+    }
+
+    return \Drupal::service('file_url_generator')->generateAbsoluteString($dest_uri);
+  }
+
+  /**
+   * Calculates a centered crop region for a target aspect ratio.
+   */
+  protected function calculateSourceImageCrop(int $src_width, int $src_height, int $dest_width, int $dest_height): array {
+    $source_ratio = $src_width / $src_height;
+    $target_ratio = $dest_width / $dest_height;
+
+    if ($source_ratio > $target_ratio) {
+      $crop_height = $src_height;
+      $crop_width = (int) round($src_height * $target_ratio);
+      $crop_x = (int) round(($src_width - $crop_width) / 2);
+      $crop_y = 0;
+    }
+    else {
+      $crop_width = $src_width;
+      $crop_height = (int) round($src_width / $target_ratio);
+      $crop_x = 0;
+      $crop_y = (int) round(($src_height - $crop_height) / 2);
+    }
+
+    return [
+      'x' => max(0, $crop_x),
+      'y' => max(0, $crop_y),
+      'width' => min($src_width, $crop_width),
+      'height' => min($src_height, $crop_height),
+    ];
+  }
+
+  /**
+   * Resolves the best available source image file from node image/media fields.
+   */
+  protected function getSourceImageFileFromNode(NodeInterface $node): ?FileInterface {
+    foreach (self::SOURCE_IMAGE_FIELDS as $field_name) {
+      if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+        continue;
+      }
+
+      $referenced = $node->get($field_name)->entity;
+      if (!$referenced) {
+        continue;
+      }
+
+      if ($referenced instanceof FileInterface) {
+        return $referenced;
+      }
+
+      if (method_exists($referenced, 'getEntityTypeId') && $referenced->getEntityTypeId() === 'media') {
+        $media_source = $referenced->getSource();
+        $source_field = $media_source->getConfiguration()['source_field'] ?? 'field_media_image';
+        if ($referenced->hasField($source_field) && !$referenced->get($source_field)->isEmpty()) {
+          $file = $referenced->get($source_field)->entity;
+          if ($file instanceof FileInterface) {
+            return $file;
+          }
+        }
+      }
+    }
+
+    return NULL;
   }
 
 }
