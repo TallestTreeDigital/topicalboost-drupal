@@ -836,9 +836,11 @@ function ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id)
           $form[$metatag_field]['#access'] = FALSE;
         }
       }
-      // Hide Yoast SEO module form elements.
-      if (isset($form['field_yoast_seo'])) {
-        $form['field_yoast_seo']['#access'] = FALSE;
+      // Hide Yoast/Real-time SEO for Drupal form elements.
+      foreach (['field_yoast_seo', 'field_seo'] as $seo_field_name) {
+        if (isset($form[$seo_field_name])) {
+          $form[$seo_field_name]['#access'] = FALSE;
+        }
       }
       // Hide Simple XML Sitemap elements.
       if (isset($form['simple_sitemap'])) {
