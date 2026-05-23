@@ -160,12 +160,6 @@
     cursor: help;
 }
 
-.ttd-meta-keyword-chip .ttd-chip-volume::before {
-    content: "TP ";
-    font-weight: 600;
-    opacity: 0.75;
-}
-
 .ttd-chip-kd {
     width: 10px;
     height: 10px;
