@@ -1,0 +1,169 @@
+/* Watchlist */
+.ttd-watchlist-search-wrapper {
+  position: relative;
+}
+
+.ttd-watchlist-results {
+  position: absolute;
+  z-index: 100;
+  width: 100%;
+  max-width: 500px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  margin-top: 2px;
+}
+
+.ttd-watchlist-result-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f1;
+}
+
+.ttd-watchlist-result-item:last-child {
+  border-bottom: none;
+}
+
+.ttd-watchlist-result-item:hover {
+  background: #f0f6fc;
+}
+
+.ttd-watchlist-result-disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ttd-watchlist-result-name {
+  font-weight: 500;
+  font-size: 13px;
+  color: #1d2327;
+}
+
+.ttd-watchlist-result-desc {
+  font-size: 12px;
+  color: #757575;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ttd-watchlist-already {
+  font-size: 11px;
+  color: #757575;
+  font-style: italic;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.ttd-watchlist-no-results {
+  color: #757575;
+  font-style: italic;
+  cursor: default;
+}
+
+.ttd-watchlist-no-results:hover {
+  background: transparent;
+}
+
+.ttd-watchlist-create-custom {
+  cursor: pointer;
+  border-top: 1px dashed #c3c4c7;
+}
+
+.ttd-watchlist-create-custom:hover {
+  background: #f0f6fc;
+}
+
+.ttd-watchlist-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.ttd-watchlist-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: #f0f0f1;
+  border: 1px solid #c3c4c7;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #1d2327;
+  line-height: 1.4;
+  transition: opacity 0.2s;
+}
+
+.ttd-watchlist-chip-remove {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: #a7aaad;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.ttd-watchlist-chip-remove:hover {
+  color: #d63638;
+}
+
+.ttd-watchlist-empty {
+  color: #757575;
+  font-style: italic;
+}
+
+.ttd-watchlist-spinner.is-active {
+  visibility: visible;
+}
+
+#ttd-watchlist-feedback .success-message {
+  color: #00a32a;
+}
+
+#ttd-watchlist-feedback .error-message {
+  color: #d63638;
+}
+
+/* Dark mode (Gin theme) */
+.gin--dark-mode .ttd-watchlist-results {
+  background: #2b2d31;
+  border-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-watchlist-result-item {
+  border-bottom-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-watchlist-result-item:hover {
+  background: #35373b;
+}
+
+.gin--dark-mode .ttd-watchlist-result-name {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-watchlist-result-desc {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-watchlist-chip {
+  background: #2b2d31;
+  border-color: #3f4145;
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-watchlist-chip-remove {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-watchlist-create-custom {
+  border-top-color: #3f4145;
+}

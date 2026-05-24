@@ -330,34 +330,55 @@ fieldset .form-radios > div > div {
   font-size: 14px;
 }
 
-/* Inline mentions display - defensive against grid constraints */
-.topicalboost-section {
-  /* Break out of any narrow parent containers */
+/* Inline mentions display: match the WordPress frontend output. */
+.topicalboost-section.ttd-topics-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   width: 100%;
   max-width: 100%;
-  min-width: 0; /* Allow flexbox to shrink */
+  min-width: 0;
   box-sizing: border-box;
+  padding: 12px 0;
+  margin: 0 0 48px;
 }
 
-.topicalboost-inline-mentions {
-  display: block;
-  margin: 16px 0;
+.topicalboost-inline-mentions.ttd-topics-content {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.topicalboost-inline-mentions.ttd-topics-content > h1,
+.topicalboost-inline-mentions.ttd-topics-content > h2,
+.topicalboost-inline-mentions.ttd-topics-content > h3,
+.topicalboost-inline-mentions.ttd-topics-content > h4,
+.topicalboost-inline-mentions.ttd-topics-content > h5,
+.topicalboost-inline-mentions.ttd-topics-content > h6,
+.topicalboost-inline-mentions.ttd-topics-content > .ttd-topics-links {
+  flex: 0 0 100%;
   width: 100%;
   max-width: 100%;
 }
 
 .mentions-label {
   display: block;
+  width: 100%;
   font-weight: 600;
-  color: #374151;
-  font-size: 14px;
-  margin-bottom: 8px;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
 }
 
-.mentions-list {
+.mentions-list.ttd-topics-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0;
   align-items: center;
   width: 100%;
   max-width: 100%;
@@ -365,27 +386,38 @@ fieldset .form-radios > div > div {
 
 .mention-tag {
   display: inline-block;
-  background: #f3f4f6;
-  color: #374151;
+  margin: 0 10px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1.4;
   text-decoration: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  line-height: 1.2;
-  transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transition: color 0.15s ease;
+}
+
+body:not(.ttd-skeleton-style) .mention-tag {
+  color: rgb(122, 122, 122);
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  text-transform: uppercase;
 }
 
 .mention-tag:hover {
-  background: #2563eb;
-  color: white;
-  text-decoration: none;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: #2563eb;
+  text-decoration: underline;
+  transform: none;
 }
 
-.mention-tag.hidden {
+.mention-tag.hidden,
+.mention-tag.ttd-topics-display-hidden {
   display: none;
 }
 
@@ -399,28 +431,327 @@ fieldset .form-radios > div > div {
   display: inline !important;
 }
 
-.toggle-mentions-btn {
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  color: #6b7280;
-  padding: 4px 8px;
-  border-radius: 4px;
+.toggle-mentions-btn.ttd-topics-show-extra-button {
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
   font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
-  line-height: 1.2;
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  transition: color 0.15s ease;
 }
 
-.toggle-mentions-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-  color: #374151;
+.toggle-mentions-btn.ttd-topics-show-extra-button:hover {
+  background: transparent;
+  border-color: transparent;
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 .toggle-mentions-btn:focus {
-  outline: none;
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  border-color: #3b82f6;
 }
 
 /* No responsive adjustments needed - layout is vertical by default */
+
+/* KD Badge - displays search volume with color-coded difficulty */
+.ttd-kd-badge {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: help;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.ttd-kd-badge:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.gin--dark-mode .ttd-kd-badge {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gin--dark-mode .ttd-kd-badge:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* About/Mentions section styling for node edit form */
+.ttd-topics-section {
+  margin-bottom: 12px;
+}
+
+.ttd-topics-section:last-child {
+  margin-bottom: 0;
+}
+
+/* About section styling - static header (not collapsible) */
+.ttd-about-section .ttd-section-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: #f0f6fc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.ttd-about-section .ttd-section-title {
+  flex: 1;
+}
+
+.ttd-about-section .ttd-section-count {
+  color: #646970;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.gin--dark-mode .ttd-about-section .ttd-section-header {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--gin-color-text);
+}
+
+.gin--dark-mode .ttd-about-section .ttd-section-count {
+  color: var(--gin-color-text-light);
+}
+
+/* Mentions section styling */
+.ttd-mentions-section > summary {
+  background: #f6f7f7;
+}
+
+.ttd-mentions-section > summary:hover {
+  background: #f0f0f1;
+}
+
+/* Dark mode for sections */
+.gin--dark-mode .ttd-about-section > summary {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.gin--dark-mode .ttd-about-section > summary:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.gin--dark-mode .ttd-about-section {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.gin--dark-mode .ttd-mentions-section > summary {
+  background: var(--gin-bg-layer2);
+}
+
+.gin--dark-mode .ttd-mentions-section > summary:hover {
+  background: var(--gin-bg-layer3);
+}
+
+/* No primary topics message */
+.ttd-no-topics-message {
+  padding: 12px;
+  color: #646970;
+  font-style: italic;
+  font-size: 14px;
+  text-align: center;
+}
+
+.gin--dark-mode .ttd-no-topics-message {
+  color: var(--gin-color-text-light);
+}
+
+/* Topic item tooltips */
+.ttd-topic-item {
+  position: relative;
+  cursor: help;
+}
+
+.ttd-topic-item[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: rgba(31, 41, 55, 0.95);
+  color: white;
+  font-size: 11px;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-radius: 4px;
+  z-index: 999999;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ttd-topic-item[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid rgba(31, 41, 55, 0.95);
+  z-index: 999999;
+  pointer-events: none;
+}
+
+/* TopicalBoost Form Styling - Light and Dark Mode Support */
+
+/* Main form container */
+.ttd-topics-field-group,
+.ttd-topics-tabs-container {
+  background: #ffffff;
+  color: #1d2327;
+}
+
+.gin--dark-mode .ttd-topics-field-group,
+.gin--dark-mode .ttd-topics-tabs-container {
+  background: var(--gin-bg-layer);
+  color: var(--gin-color-text);
+}
+
+/* Input fields - "Add topics..." and similar */
+.ttd-topics-field-group input[type="text"],
+.ttd-topics-field-group textarea,
+.ttd-topics-tabs-container input[type="text"],
+.ttd-topics-tabs-container textarea {
+  background: #ffffff;
+  color: #1d2327;
+  border-color: #8c8f94;
+}
+
+.gin--dark-mode .ttd-topics-field-group input[type="text"],
+.gin--dark-mode .ttd-topics-field-group textarea,
+.gin--dark-mode .ttd-topics-tabs-container input[type="text"],
+.gin--dark-mode .ttd-topics-tabs-container textarea {
+  background: var(--gin-bg-layer2);
+  color: var(--gin-color-text);
+  border-color: var(--gin-border-color);
+}
+
+.gin--dark-mode .ttd-topics-field-group input[type="text"]::placeholder,
+.gin--dark-mode .ttd-topics-field-group textarea::placeholder,
+.gin--dark-mode .ttd-topics-tabs-container input[type="text"]::placeholder,
+.gin--dark-mode .ttd-topics-tabs-container textarea::placeholder {
+  color: var(--gin-color-text-light);
+  opacity: 0.6;
+}
+
+/* Topic sections - Main Topic, Also About, Below Threshold */
+.ttd-topic-section-wrapper,
+.ttd-main-topic-section,
+.ttd-also-about-section,
+.ttd-below-threshold-section {
+  background: #f9f9f9;
+  border: 1px solid #dcdcdc;
+  color: #1d2327;
+}
+
+.gin--dark-mode .ttd-topic-section-wrapper,
+.gin--dark-mode .ttd-main-topic-section,
+.gin--dark-mode .ttd-also-about-section,
+.gin--dark-mode .ttd-below-threshold-section {
+  background: var(--gin-bg-layer2);
+  border-color: var(--gin-border-color);
+  color: var(--gin-color-text);
+}
+
+/* Section headers */
+.ttd-section-header,
+.ttd-topic-section-header {
+  background: #f0f0f1;
+  color: #1d2327;
+  border-bottom: 1px solid #dcdcdc;
+}
+
+.gin--dark-mode .ttd-section-header,
+.gin--dark-mode .ttd-topic-section-header {
+  background: var(--gin-bg-layer3);
+  color: var(--gin-color-text);
+  border-bottom-color: var(--gin-border-color);
+}
+
+/* Drag and drop areas */
+.ttd-drop-zone,
+.ttd-drag-area {
+  background: #f9f9f9;
+  border: 2px dashed #c3c4c7;
+  color: #646970;
+}
+
+.gin--dark-mode .ttd-drop-zone,
+.gin--dark-mode .ttd-drag-area {
+  background: var(--gin-bg-layer2);
+  border-color: var(--gin-border-color-dark);
+  color: var(--gin-color-text-light);
+}
+
+/* Topic items/tags within sections */
+.ttd-topic-tag,
+.ttd-topic-item-tag {
+  background: #e5e7eb;
+  color: #1d2327;
+  border: 1px solid #c3c4c7;
+}
+
+.gin--dark-mode .ttd-topic-tag,
+.gin--dark-mode .ttd-topic-item-tag {
+  background: var(--gin-bg-app);
+  color: var(--gin-color-text);
+  border-color: var(--gin-border-color);
+}
+
+/* Help text and descriptions */
+.ttd-help-text,
+.ttd-description,
+.description {
+  color: #646970;
+}
+
+.gin--dark-mode .ttd-help-text,
+.gin--dark-mode .ttd-description,
+.gin--dark-mode .description {
+  color: var(--gin-color-text-light);
+}
+
+/* Buttons */
+.ttd-button,
+.ttd-topics-button {
+  background: #0073aa;
+  color: #ffffff;
+  border: 1px solid #0073aa;
+}
+
+.ttd-button:hover,
+.ttd-topics-button:hover {
+  background: #005a87;
+  border-color: #005a87;
+}
+
+.gin--dark-mode .ttd-button,
+.gin--dark-mode .ttd-topics-button {
+  background: rgb(var(--gin-color-primary-rgb));
+  border-color: rgb(var(--gin-color-primary-rgb));
+}
+
+.gin--dark-mode .ttd-button:hover,
+.gin--dark-mode .ttd-topics-button:hover {
+  background: rgb(var(--gin-color-primary-hover-rgb));
+  border-color: rgb(var(--gin-color-primary-hover-rgb));
+}

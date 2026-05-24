@@ -2,6 +2,7 @@
 
 namespace Drupal\ttd_topics\Controller;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use GuzzleHttp\ClientInterface;
@@ -29,16 +30,26 @@ class ApiValidationController extends ControllerBase {
   protected $loggerFactory;
 
   /**
+   * The config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
    * Constructs a new ApiValidationController object.
    *
    * @param \GuzzleHttp\ClientInterface $http_client
    *   The HTTP client.
    * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $logger_factory
    *   The logger factory.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The config factory.
    */
-  public function __construct(ClientInterface $http_client, LoggerChannelFactoryInterface $logger_factory) {
+  public function __construct(ClientInterface $http_client, LoggerChannelFactoryInterface $logger_factory, ConfigFactoryInterface $config_factory) {
     $this->httpClient = $http_client;
     $this->loggerFactory = $logger_factory;
+    $this->configFactory = $config_factory;
   }
 
   /**
@@ -47,7 +58,8 @@ class ApiValidationController extends ControllerBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('http_client'),
-      $container->get('logger.factory')
+      $container->get('logger.factory'),
+      $container->get('config.factory')
     );
   }
 
@@ -87,16 +99,22 @@ class ApiValidationController extends ControllerBase {
         ],
         'json' => [
           'api_key' => $api_key,
+          'site_url' => $request->getSchemeAndHttpHost(),
         ],
         'timeout' => 10,
       ]);
 
       $response_data = json_decode($response->getBody()->getContents(), TRUE);
+      $this->persistValidationStatus($api_key, $response_data ?: []);
 
       // Return the response from the external API.
       return new JsonResponse([
         'valid' => $response_data['valid'] ?? FALSE,
         'site_name' => $response_data['site_name'] ?? '',
+        'subscription_status' => $response_data['subscription_status'] ?? '',
+        'domain_mismatch' => !empty($response_data['domain_mismatch']),
+        'registered_domain' => $response_data['registered_domain'] ?? '',
+        'registered_environment' => $response_data['registered_environment'] ?? '',
         'error' => $response_data['error'] ?? '',
       ]);
 
@@ -120,11 +138,68 @@ class ApiValidationController extends ControllerBase {
         $error_message = 'CORS error';
       }
 
+      $config = $this->configFactory->get('ttd_topics.settings');
+      $cached_hash = (string) $config->get('api_key_validation_hash');
+      $cached_valid = (bool) $config->get('api_key_validated');
+      if ($cached_valid && $cached_hash !== '' && hash_equals($cached_hash, hash('sha256', $api_key))) {
+        $domain_mismatch = $config->get('domain_mismatch') ?: [];
+        return new JsonResponse([
+          'valid' => TRUE,
+          'site_name' => 'Saved key',
+          'subscription_status' => $config->get('subscription_status') ?: '',
+          'domain_mismatch' => !empty($domain_mismatch),
+          'registered_domain' => $domain_mismatch['registered_domain'] ?? '',
+          'registered_environment' => $domain_mismatch['registered_environment'] ?? '',
+          'warning' => $error_message,
+        ]);
+      }
+
       return new JsonResponse([
         'valid' => FALSE,
         'error' => $error_message,
       ], 500);
     }
+  }
+
+  /**
+   * Persists a validation response for later admin notices.
+   *
+   * @param string $api_key
+   *   API key that was validated.
+   * @param array $response_data
+   *   Decoded response data.
+   */
+  protected function persistValidationStatus($api_key, array $response_data) {
+    $config = $this->configFactory->getEditable('ttd_topics.settings');
+    $valid = !empty($response_data['valid']);
+
+    $config
+      ->set('api_key_validated', $valid)
+      ->set('api_key_validation_hash', hash('sha256', $api_key));
+
+    if (!$valid) {
+      $config
+        ->set('subscription_status', '')
+        ->set('domain_mismatch', [])
+        ->save();
+      return;
+    }
+
+    if (!empty($response_data['subscription_status'])) {
+      $config->set('subscription_status', strtoupper(trim((string) $response_data['subscription_status'])));
+    }
+
+    if (!empty($response_data['domain_mismatch'])) {
+      $config->set('domain_mismatch', [
+        'registered_domain' => trim((string) ($response_data['registered_domain'] ?? '')),
+        'registered_environment' => trim((string) ($response_data['registered_environment'] ?? '')),
+      ]);
+    }
+    else {
+      $config->set('domain_mismatch', []);
+    }
+
+    $config->save();
   }
 
 }

@@ -126,3 +126,122 @@
   color: #dc2626;
   font-weight: 600;
 }
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .analytics-card {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.gin--dark-mode .analytics-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.gin--dark-mode .analytics-number {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .analytics-label {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .analytics-table {
+  background: transparent;
+  box-shadow: none;
+}
+
+.gin--dark-mode .analytics-table th {
+  background: linear-gradient(135deg, #333 0%, #2a2a2a 100%);
+  color: #e8e8e8;
+  border-bottom-color: #3a3a3a;
+}
+
+.gin--dark-mode .analytics-table td {
+  border-bottom-color: #3a3a3a;
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .analytics-table tr:hover td {
+  background-color: #2a2a2a;
+}
+
+.gin--dark-mode .coverage-bar {
+  background: #3a3a3a;
+}
+
+.gin--dark-mode .status-good {
+  color: #4ade80;
+}
+
+.gin--dark-mode .status-warning {
+  color: #dba617;
+}
+
+.gin--dark-mode .status-poor {
+  color: #f87171;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-card {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-number {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-label {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-table {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-table th {
+    background: linear-gradient(135deg, #333 0%, #2a2a2a 100%);
+    color: #e8e8e8;
+    border-bottom-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-table td {
+    border-bottom-color: #3a3a3a;
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .analytics-table tr:hover td {
+    background-color: #2a2a2a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .coverage-bar {
+    background: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .status-good {
+    color: #4ade80;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .status-warning {
+    color: #dba617;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .status-poor {
+    color: #f87171;
+  }
+}

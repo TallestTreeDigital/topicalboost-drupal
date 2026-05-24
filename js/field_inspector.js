@@ -145,7 +145,7 @@
 
     performSearch: function (query, $searchInput, $resultsDropdown, $container, cache) {
       const self = this;
-      const searchUrl = $searchInput.data('search-url') || '/api/topicalboost/field-inspector/search';
+      const searchUrl = $searchInput.data('search-url') || '/admin/config/content/topicalboost/custom-fields/search';
 
       // Show loading state
       $resultsDropdown.html('<div class="search-loading"><div class="loading-spinner"></div><span>Searching...</span></div>').show();
@@ -232,6 +232,7 @@
 
     inspectNode: function (nodeId, $container) {
       const self = this;
+      const inspectUrlTemplate = $container.data('inspect-url-template') || '/admin/config/content/topicalboost/custom-fields/__node_id__';
 
       this.showLoading($container.find('.field-list'), 'Inspecting node fields...');
 
@@ -239,7 +240,7 @@
       $('#edit-analysis-custom-fields').prop('disabled', true);
 
       $.ajax({
-        url: `/admin/topicalboost/field-inspector/${nodeId}`,
+        url: inspectUrlTemplate.replace('__node_id__', encodeURIComponent(nodeId)),
         method: 'GET',
         dataType: 'json',
         success: function (data) {

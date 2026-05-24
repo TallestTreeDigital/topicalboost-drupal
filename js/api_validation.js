@@ -8,6 +8,7 @@
       
       const apiKeyField = context.querySelector('#ttd-topics-api-key-field');
       const indicator = context.querySelector('#api-key-validation-indicator');
+      const feedback = ensureFeedback(context);
 
       if (apiKeyField && indicator) {
         indicator.style.display = 'none';
@@ -77,13 +78,23 @@
           Drupal.ttd_topics.debug.log('Parsed response:', response);
           if (response.valid) {
             const siteName = response.site_name || 'API';
-            Drupal.ttd_topics.debug.log('API key validated successfully, applying success glow');
-            showIndicator('success', `Valid - ${siteName}`);
-            addFieldGlow('success');
+            const status = response.subscription_status ? ` - ${response.subscription_status}` : '';
+            if (response.domain_mismatch) {
+              Drupal.ttd_topics.debug.log('API key validated but domain mismatch was reported');
+              showIndicator('warning', 'Domain mismatch');
+              showFeedback('warning', buildDomainMismatchMessage(response));
+              addFieldGlow('warning');
+            } else {
+              Drupal.ttd_topics.debug.log('API key validated successfully, applying success glow');
+              showIndicator('success', `Valid - ${siteName}${status}`);
+              showFeedback('success', `Connected to: ${siteName}`);
+              addFieldGlow('success');
+            }
           } else {
             const error = response.error || 'Invalid API key';
             Drupal.ttd_topics.debug.log('API key validation failed, applying error glow');
             showIndicator('error', error);
+            showFeedback('error', error);
             addFieldGlow('error');
           }
         })
@@ -101,8 +112,55 @@
 
           Drupal.ttd_topics.debug.log('API validation caught error, applying error glow');
           showIndicator('error', errorMessage);
+          showFeedback('error', errorMessage);
           addFieldGlow('error');
         });
+      }
+
+      function ensureFeedback(context) {
+        const field = context.querySelector('#ttd-topics-api-key-field');
+        if (!field) {
+          return null;
+        }
+
+        const formItem = field.closest('.form-item, .js-form-item') || field.parentNode;
+        if (!formItem) {
+          return null;
+        }
+
+        let feedback = formItem.querySelector('#api-key-validation-feedback');
+        if (!feedback) {
+          feedback = document.createElement('div');
+          feedback.id = 'api-key-validation-feedback';
+          feedback.className = 'api-key-validation-feedback';
+          feedback.setAttribute('role', 'status');
+          feedback.setAttribute('aria-live', 'polite');
+          formItem.appendChild(feedback);
+        }
+
+        return feedback;
+      }
+
+      function showFeedback(type, message) {
+        if (!feedback) {
+          return;
+        }
+
+        feedback.className = `api-key-validation-feedback api-key-feedback-${type}`;
+        feedback.textContent = message;
+        feedback.style.display = 'block';
+      }
+
+      function getCurrentSiteHost() {
+        return window.location.hostname || 'this site';
+      }
+
+      function buildDomainMismatchMessage(response) {
+        const registeredDomain = response.registered_domain || 'another domain';
+        const registeredEnvironment = response.registered_environment || '';
+        const registeredLabel = registeredDomain && registeredEnvironment ? `${registeredDomain} (${registeredEnvironment})` : (registeredDomain || registeredEnvironment);
+
+        return `This API key is registered for ${registeredLabel}, but this site is ${getCurrentSiteHost()}. Analysis will not work from this site. Use the API key for this environment or add this domain in TopicalBoost.`;
       }
 
       function showIndicator(type, message) {
@@ -125,6 +183,11 @@
             className += ' api-key-invalid';
             break;
 
+          case 'warning':
+            icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+            className += ' api-key-warning';
+            break;
+
           case 'loading':
             icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg>`;
             className += ' api-key-loading';
@@ -132,6 +195,8 @@
         }
 
         indicator.className = className;
+        indicator.setAttribute('title', message);
+        indicator.setAttribute('aria-label', message);
         indicator.innerHTML = `<span class="api-key-icon">${icon}</span>`;
 
         // Show the indicator
@@ -152,9 +217,10 @@
         // Force remove existing glow classes immediately
         const hadSuccess = apiKeyField.classList.contains('field-glow-success');
         const hadError = apiKeyField.classList.contains('field-glow-error');
-        Drupal.ttd_topics.debug.log(`Removing existing glows - had success: ${hadSuccess}, had error: ${hadError}`);
+        const hadWarning = apiKeyField.classList.contains('field-glow-warning');
+        Drupal.ttd_topics.debug.log(`Removing existing glows - had success: ${hadSuccess}, had error: ${hadError}, had warning: ${hadWarning}`);
 
-        apiKeyField.classList.remove('field-glow-success', 'field-glow-error');
+        apiKeyField.classList.remove('field-glow-success', 'field-glow-error', 'field-glow-warning');
 
         // Force a repaint before adding new class
         apiKeyField.offsetHeight; // Trigger reflow
@@ -168,6 +234,10 @@
           } else if (type === 'error') {
             apiKeyField.classList.add('field-glow-error');
             Drupal.ttd_topics.debug.log('Added error glow class');
+            Drupal.ttd_topics.debug.log('Field classes now:', apiKeyField.className);
+          } else if (type === 'warning') {
+            apiKeyField.classList.add('field-glow-warning');
+            Drupal.ttd_topics.debug.log('Added warning glow class');
             Drupal.ttd_topics.debug.log('Field classes now:', apiKeyField.className);
           }
         }, 50); // Increased delay to ensure proper application
@@ -185,14 +255,21 @@
           Drupal.ttd_topics.debug.log('Reset indicator visibility');
         }
 
+        if (feedback) {
+          feedback.textContent = '';
+          feedback.style.display = 'none';
+          feedback.className = 'api-key-validation-feedback';
+        }
+
         if (apiKeyField) {
           // Check current state before removing
           const hadSuccess = apiKeyField.classList.contains('field-glow-success');
           const hadError = apiKeyField.classList.contains('field-glow-error');
-          Drupal.ttd_topics.debug.log(`Resetting field glow - had success: ${hadSuccess}, had error: ${hadError}`);
+          const hadWarning = apiKeyField.classList.contains('field-glow-warning');
+          Drupal.ttd_topics.debug.log(`Resetting field glow - had success: ${hadSuccess}, had error: ${hadError}, had warning: ${hadWarning}`);
 
           // Remove glow with proper timing
-          apiKeyField.classList.remove('field-glow-success', 'field-glow-error');
+          apiKeyField.classList.remove('field-glow-success', 'field-glow-error', 'field-glow-warning');
           Drupal.ttd_topics.debug.log('Removed all glow classes in reset');
         }
       }

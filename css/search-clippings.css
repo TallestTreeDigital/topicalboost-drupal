@@ -1,0 +1,34 @@
+#searchclippings-widget {
+  min-height: 200px;
+}
+
+.topicalboost-widget-error {
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+}
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .topicalboost-widget-error {
+  background: #3d3000;
+  border-color: #856404;
+  color: #dba617;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .topicalboost-widget-error {
+    background: #3d3000;
+    border-color: #856404;
+    color: #dba617;
+  }
+}

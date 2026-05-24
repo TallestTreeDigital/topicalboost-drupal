@@ -3,6 +3,7 @@
 namespace Drupal\ttd_topics\Service;
 
 use Drupal\node\NodeInterface;
+use Drupal\ttd_topics\Event\AnalysisCompleteEvent;
 use Drupal\taxonomy\Entity\Term;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -95,13 +96,18 @@ class TtdTopicsAnalysisService {
 
       // Step 1: Initiate analysis.
       $response = $client->post($api_base_url . '/analyze/single', [
-        'headers' => \ttd_topics_api_headers($api_key),
-        'json' => [
+        'headers' => array_merge(\ttd_topics_api_headers($api_key), [
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
+        ]),
+        'json' => array_filter([
           'customer_id' => $node->id(),
           'url' => \ttd_topics_get_node_absolute_url($node),
           'title' => $node->getTitle(),
           'text' => $analysis_text,
-        ],
+          'status' => $node->isPublished() ? 'publish' : 'draft',
+          'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+        ], function ($v) { return $v !== NULL; }),
         'timeout' => 60,
       ]);
 
@@ -117,7 +123,11 @@ class TtdTopicsAnalysisService {
         // Wait for 10 seconds between polls.
         sleep(10);
         $poll_response = $client->get($api_base_url . '/poll/analysis', [
-          'headers' => ['x-api-key' => $api_key],
+          'headers' => [
+            'x-api-key' => $api_key,
+            'x-tb-plugin-version' => $this->getModuleVersion(),
+            'x-tb-platform' => 'drupal',
+          ],
           'query' => ['request_id' => $request_id],
           'timeout' => 30,
         ]);
@@ -136,8 +146,15 @@ class TtdTopicsAnalysisService {
 
       // Step 3: Get analysis results.
       $results_response = $client->get($api_base_url . '/result/entities', [
-        'headers' => ['x-api-key' => $api_key],
-        'query' => ['request_id' => $request_id],
+        'headers' => [
+          'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
+        ],
+        'query' => [
+          'request_id' => $request_id,
+          'include_demand_metrics' => 'true',
+        ],
         'timeout' => 30,
       ]);
 
@@ -164,20 +181,151 @@ class TtdTopicsAnalysisService {
    */
   private function saveAnalysisResults(NodeInterface $node, array $results, $save_entity = TRUE) {
     $topicalboost = [];
+    $api_term_ids = [];
+    $api_ttd_ids = [];
+    $post_id = $node->id();
+
     foreach ($results['entities'] as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
       if (!empty($name)) {
         $term_id = $this->getOrCreateTerm($name, $entity['id'], $entity, $save_entity);
         if ($term_id) {
-          $topicalboost[] = [
-            'target_id' => $term_id,
-          ];
+          $api_term_ids[] = (int) $term_id;
+          $api_ttd_ids[] = (int) $entity['id'];
+
+          // Store demand metrics (KD/KV) if present
+          $this->storeDemandMetricsForTerm($term_id, $entity);
+
+          // Store salience data if present (nested in Contents array)
+          // API returns 'salience' (from Google NLP), we store as 'salience_score'
+          if ($post_id && !empty($entity['Contents']) && is_array($entity['Contents'])) {
+            foreach ($entity['Contents'] as $content) {
+              if (!is_array($content)) {
+                continue;
+              }
+              if (isset($content['customer_id']) && intval($content['customer_id']) === intval($post_id)) {
+                $salience_score = $content['salience'] ?? $content['salience_score'] ?? NULL;
+                $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
+                if ($salience_score !== NULL || $salience_category !== NULL) {
+                  $this->storeSalienceForEntity($entity['id'], $post_id, $salience_score, $salience_category);
+                }
+                break;
+              }
+            }
+          }
         }
       }
     }
+
+    $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
+      ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
+      : $api_term_ids;
+    $this->deleteStalePostRelationships($post_id, $this->getTtdIdsForTermIds($final_topic_ids));
+    foreach ($final_topic_ids as $term_id) {
+      $topicalboost[] = ['target_id' => $term_id];
+    }
+
     $node->set('field_ttd_topics', $topicalboost);
     if ($save_entity) {
       $node->save();
+      \Drupal::service('event_dispatcher')->dispatch(
+        new AnalysisCompleteEvent($node, $final_topic_ids),
+        'ttd_topics.analysis_complete'
+      );
+    }
+  }
+
+  /**
+   * Gets TopicalBoost entity IDs for term IDs.
+   */
+  private function getTtdIdsForTermIds(array $term_ids): array {
+    $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
+    if (empty($term_ids)) {
+      return [];
+    }
+
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('taxonomy_term__field_ttd_id')) {
+      return [];
+    }
+
+    return array_values(array_unique(array_map('intval', $database->select('taxonomy_term__field_ttd_id', 'ttd')
+      ->fields('ttd', ['field_ttd_id_value'])
+      ->condition('entity_id', $term_ids, 'IN')
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /**
+   * Removes entity-post rows that no longer belong to the node after analysis.
+   */
+  private function deleteStalePostRelationships($node_id, array $final_ttd_ids): void {
+    $database = \Drupal::database();
+    if (!$node_id || !$database->schema()->tableExists('ttd_entity_post_ids')) {
+      return;
+    }
+
+    $delete = $database->delete('ttd_entity_post_ids')
+      ->condition('post_id', (string) $node_id);
+
+    if (!empty($final_ttd_ids)) {
+      $delete->condition('entity_id', $final_ttd_ids, 'NOT IN');
+    }
+
+    $delete->execute();
+  }
+
+  /**
+   * Store salience score and category for an entity-post relationship.
+   *
+   * @param string $entity_id
+   *   The TTD entity ID.
+   * @param int $post_id
+   *   The node ID.
+   * @param float|null $salience_score
+   *   The salience score (0-1).
+   * @param string|null $salience_category
+   *   The salience category ('mainEntity', 'about', or 'mentions').
+   */
+  private function storeSalienceForEntity($entity_id, $post_id, $salience_score, $salience_category = NULL) {
+    $database = \Drupal::database();
+
+    if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+      $salience_category = NULL;
+    }
+
+    try {
+      // Update existing record with salience data.
+      $updated = $database->update('ttd_entity_post_ids')
+        ->fields([
+          'salience_score' => $salience_score,
+          'salience_category' => $salience_category,
+          'updatedAt' => date('Y-m-d H:i:s'),
+        ])
+        ->condition('entity_id', $entity_id)
+        ->condition('post_id', $post_id)
+        ->execute();
+
+      // If no record existed, insert one.
+      if ($updated === 0) {
+        $database->insert('ttd_entity_post_ids')
+          ->fields([
+            'entity_id' => $entity_id,
+            'post_id' => $post_id,
+            'salience_score' => $salience_score,
+            'salience_category' => $salience_category,
+            'createdAt' => date('Y-m-d H:i:s'),
+            'updatedAt' => date('Y-m-d H:i:s'),
+          ])
+          ->execute();
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error storing salience for entity @id on post @post: @message', [
+        '@id' => $entity_id,
+        '@post' => $post_id,
+        '@message' => $e->getMessage(),
+      ]);
     }
   }
 
@@ -221,7 +369,7 @@ class TtdTopicsAnalysisService {
     }
     else {
       // Exclude fields that are not columns in ttd_entities table
-      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories'];
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume', 'traffic_potential'];
       foreach ($exclude_fields as $field) {
         unset($entity_data[$field]);
       }
@@ -324,6 +472,10 @@ class TtdTopicsAnalysisService {
    * Handle related data for schema types and WB categories.
    */
   private function handleRelatedData($ttd_id, $type, $data) {
+    if (empty($data) || !is_array($data)) {
+      return;
+    }
+
     $database = \Drupal::database();
     $table = "ttd_entity_{$type}";
     $id_field = "{$type}_id";
@@ -382,6 +534,90 @@ class TtdTopicsAnalysisService {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Store demand metrics (KD/KV) for a term from entity data.
+   *
+   * @param int $term_id
+   *   The taxonomy term ID.
+   * @param array $entity_data
+   *   Entity data from API response.
+   */
+  private function storeDemandMetricsForTerm($term_id, array $entity_data) {
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential
+    $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
+    $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
+
+    if (!$has_kd && !$has_sv && !$has_tp) {
+      return;
+    }
+
+    // Build metrics data structure
+    $metrics_data = [];
+
+    if ($has_kd) {
+      $metrics_data['keyword_difficulty'] = (int) $entity_data['keyword_difficulty'];
+    }
+
+    if ($has_sv) {
+      $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
+    }
+
+    // Store using module function
+    ttd_store_demand_metrics($term_id, $metrics_data);
+  }
+
+  /**
+   * Update the stored content URL for a node (e.g. after draft -> publish).
+   */
+  public function updateContentUrl(NodeInterface $node) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+
+    $url = \ttd_topics_get_node_absolute_url($node);
+    if (empty($url)) {
+      return;
+    }
+
+    try {
+      $client = new Client();
+      $client->patch($api_base_url . '/content/url', [
+        'headers' => [
+          'Content-Type' => 'application/json',
+          'x-api-key' => $api_key,
+          'x-tb-plugin-version' => $this->getModuleVersion(),
+          'x-tb-platform' => 'drupal',
+        ],
+        'json' => array_filter([
+          'customer_id' => $node->id(),
+          'url' => $url,
+          'status' => $node->isPublished() ? 'publish' : 'draft',
+          'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+        ], function ($v) { return $v !== NULL; }),
+        'timeout' => 10,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to update content URL for node @id: @message', [
+        '@id' => $node->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
+  /**
+   * Get the module version.
+   */
+  protected function getModuleVersion(): string {
+    $info = \Drupal::service('extension.list.module')->getExtensionInfo('ttd_topics');
+    return $info['version'] ?? 'unknown';
   }
 
 }

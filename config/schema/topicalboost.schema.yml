@@ -14,6 +14,9 @@ ttd_topics.settings:
     enable_automatic_mentions:
       type: boolean
       label: 'Enable automatic mentions'
+    enable_meta_generator:
+      type: boolean
+      label: 'Enable SEO meta generator'
     maximum_visible_post_topics:
       type: integer
       label: 'Maximum topics to display'
@@ -38,6 +41,25 @@ ttd_topics.settings:
     topicalboost_api_key:
       type: string
       label: 'TopicalBoost API Key'
+    api_key_validated:
+      type: boolean
+      label: 'API key validated'
+    api_key_validation_hash:
+      type: string
+      label: 'API key validation hash'
+    subscription_status:
+      type: string
+      label: 'Subscription status'
+    domain_mismatch:
+      type: mapping
+      label: 'Domain mismatch details'
+      mapping:
+        registered_domain:
+          type: string
+          label: 'Registered domain'
+        registered_environment:
+          type: string
+          label: 'Registered environment'
     topicalboost_api_endpoint:
       type: string
       label: 'TopicalBoost API Endpoint'
@@ -68,3 +90,111 @@ ttd_topics.settings:
     organization_logo_url:
       type: string
       label: 'Organization logo URL'
+    frontend_filter_mode:
+      type: string
+      label: 'Frontend filter mode'
+    frontend_sort_order:
+      type: string
+      label: 'Frontend sort order'
+    auto_link_topics:
+      type: boolean
+      label: 'Auto-link topics in content'
+    skeleton_style:
+      type: boolean
+      label: 'Skeleton style mode'
+    taxonomy_label_singular:
+      type: string
+      label: 'Taxonomy label singular'
+    taxonomy_label_plural:
+      type: string
+      label: 'Taxonomy label plural'
+    include_excerpt:
+      type: boolean
+      label: 'Include excerpt in analysis'
+    batch_size:
+      type: integer
+      label: 'Batch size for bulk analysis'
+    beta_channel:
+      type: boolean
+      label: 'Enable beta channel'
+    use_beta_api:
+      type: boolean
+      label: 'Use beta analysis API'
+    error_telemetry_enabled:
+      type: boolean
+      label: 'Enable error telemetry'
+    disable_event_temporal_properties:
+      type: boolean
+      label: 'Disable event temporal properties'
+    hide_seo_module_ui:
+      type: boolean
+      label: 'Hide SEO module UI on node forms'
+    block_until_analyzed:
+      type: boolean
+      label: 'Block publishing until analyzed'
+    required_permission:
+      type: string
+      label: 'Required user permission'
+    new_topic_reanalysis_enabled:
+      type: boolean
+      label: 'Enable new topic re-analysis'
+    new_topic_reanalysis_lookback_days:
+      type: integer
+      label: 'New topic re-analysis lookback days'
+    search_clippings_enabled:
+      type: boolean
+      label: 'Enable search clippings widget'
+    citations_widget_enabled:
+      type: boolean
+      label: 'Enable citations widget'
+    citations_widget_limit:
+      type: integer
+      label: 'Citations widget limit'
+    meta_seo_prompt:
+      type: string
+      label: 'Meta SEO generation prompt'
+    meta_social_prompt:
+      type: string
+      label: 'Meta social generation prompt'
+    meta_title_case_format:
+      type: string
+      label: 'Meta title case format (title or sentence)'
+    auto_sync_enabled:
+      type: boolean
+      label: 'Enable auto-sync'
+    search_countries:
+      type: sequence
+      label: 'Search countries'
+      sequence:
+        type: string
+        label: 'Country code'
+    author_manager_enabled:
+      type: boolean
+      label: 'Enable Author Manager'
+    author_hide_content_types:
+      type: sequence
+      label: 'Content types with hidden authors'
+      sequence:
+        type: string
+        label: 'Content type machine name'
+    author_force_show_content_types:
+      type: sequence
+      label: 'Content types with forced author display'
+      sequence:
+        type: string
+        label: 'Content type machine name'
+    custom_author_schema_enabled:
+      type: boolean
+      label: 'Enable custom author schema'
+    author_field_name:
+      type: string
+      label: 'Author source field'
+    author_name_field:
+      type: string
+      label: 'Author name field'
+    author_image_field:
+      type: string
+      label: 'Author image field'
+    author_description_field:
+      type: string
+      label: 'Author description field'

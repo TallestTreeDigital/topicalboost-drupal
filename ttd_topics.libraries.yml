@@ -10,11 +10,10 @@ ttd_topics.styles:
       css/topicalboost.css: {}
       css/icons.css: {}
 
-tabs:
+settings:
   css:
     theme:
-      css/tabs.css: {}
-      css/ttd-coverage.css: {}
+      css/settings.css: {}
   js:
     js/tabs.js: {}
   dependencies:
@@ -23,7 +22,14 @@ tabs:
     - core/once
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/debug_stub
-    - ttd_topics/coverage
+
+author_manager:
+  js:
+    js/author-manager.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
 
 progress_bars:
   css:
@@ -53,11 +59,6 @@ topic_count_feedback:
     - core/drupal
     - core/once
 
-modern_forms:
-  css:
-    theme:
-      css/modern-forms.css: {}
-
 api_validation:
   css:
     theme:
@@ -68,6 +69,16 @@ api_validation:
     - core/jquery
     - core/drupal
     - ttd_topics/debug_stub
+
+admin_notices:
+  css:
+    theme:
+      css/admin-notices.css: {}
+  js:
+    js/admin-notices.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
 
 # Polyfill to restore legacy jQuery.once behaviour.
 jquery_once_polyfill:
@@ -163,15 +174,6 @@ coverage:
     - core/drupal
     - core/once
 
-overview:
-  css:
-    theme:
-      css/overview-improvements.css: {}
-  js:
-    js/overview-toggle.js: {}
-  dependencies:
-    - core/drupalSettings
-
 code_examples:
   css:
     theme:
@@ -182,4 +184,165 @@ code_examples:
     - core/drupal
     - core/once
 
+meta_generator:
+  css:
+    theme:
+      css/meta-generator.css: {}
+  js:
+    js/meta-generator.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
 
+admin_topics:
+  css:
+    theme:
+      css/admin-topics.css: {}
+  js:
+    js/utils.js: {}
+    js/post-editor.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+combined_tabs:
+  js:
+    js/combined-tabs.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+search_clippings:
+  css:
+    theme:
+      css/search-clippings.css: {}
+  js:
+    js/search-clippings.js: {}
+  dependencies:
+    - core/drupal
+
+citations_widget:
+  css:
+    theme:
+      css/citations-widget.css: {}
+  js:
+    js/citations-widget.js: {}
+  dependencies:
+    - core/drupal
+
+pinned_posts:
+  css:
+    theme:
+      css/pinned-posts.css: {}
+  js:
+    js/ttd-pinned-posts.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+overview:
+  css:
+    theme:
+      css/overview-improvements.css: {}
+  js:
+    js/overview-toggle.js: {}
+  dependencies:
+    - core/drupalSettings
+
+error_telemetry:
+  js:
+    js/error-telemetry.js: {}
+  dependencies:
+    - core/drupal
+
+health_checks:
+  css:
+    theme:
+      css/health-checks.css: {}
+
+new_topics:
+  css:
+    theme:
+      css/new-topics.css: {}
+  js:
+    js/new-topics.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+queue_status:
+  css:
+    theme:
+      css/queue-status.css: {}
+
+widgets_page:
+  css:
+    theme:
+      css/widgets-page.css: {}
+
+schema_images:
+  css:
+    theme:
+      css/schema-images.css: {}
+  js:
+    js/schema-images.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - ttd_topics/jquery_once_polyfill
+
+changelog:
+  css:
+    theme:
+      css/changelog.css: {}
+  js:
+    js/changelog.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
+watchlist:
+  css:
+    theme:
+      css/watchlist.css: {}
+  js:
+    js/watchlist.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+sync:
+  css:
+    theme:
+      css/sync.css: {}
+  js:
+    js/sync.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+
+troubleshoot:
+  css:
+    theme:
+      css/troubleshoot.css: {}
+  js:
+    js/troubleshoot.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once

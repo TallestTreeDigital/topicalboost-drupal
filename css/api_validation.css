@@ -71,8 +71,7 @@
 #ttd-topics-api-key-field {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
-  padding: 0.75rem;
-  padding-right: 50px !important; /* Make room for the indicator */
+  padding: 0.75rem 2.5rem 0.75rem 0.75rem;
   border: 2px solid #e5e7eb;
   border-radius: 6px;
   transition: all 0.3s ease;
@@ -92,7 +91,7 @@
   transition: all 0.3s ease;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 14px;
-  padding-right: 50px !important; /* Make room for the indicator */
+  padding-right: 2.5rem !important;
 }
 
 /* Ensure the form item container can contain positioned elements */
@@ -101,25 +100,51 @@
 }
 
 /* Position the indicator relative to the input field */
-.api-key-container .form-item {
+.api-key-container .form-item,
+.api-key-container .js-form-item {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
+  column-gap: 14px;
+  align-items: start;
   position: relative;
+}
+
+.api-key-container #ttd-topics-api-key-field {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.api-key-container .form-item__suffix {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  margin: 0 12px 0 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.api-key-container .form-item__description,
+.api-key-container .description {
+  grid-column: 2 / 4;
 }
 .api-key-indicator {
   display: none;
-  position: absolute;
-  top: 42px;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  position: static;
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  z-index: 1000;
+  z-index: 2;
 }
 
 .api-key-indicator .api-key-icon {
-  font-size: 14px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,33 +154,72 @@
 
 /* Valid State */
 .api-key-valid {
-  background-color: #10b981;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .api-key-valid .api-key-icon {
-  color: white;
+  color: #00a32a;
+}
+
+/* Warning State */
+.api-key-warning {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.api-key-warning .api-key-icon {
+  color: #dba617;
 }
 
 /* Invalid State */
 .api-key-invalid {
-  background-color: #ef4444;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .api-key-invalid .api-key-icon {
-  color: white;
+  color: #d63638;
 }
 
 /* Loading State */
 .api-key-loading {
-  background-color: #3b82f6;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .api-key-loading .api-key-icon {
-  color: white;
+  color: #2271b1;
   animation: spin 1s linear infinite;
+}
+
+.api-key-validation-feedback {
+  display: none;
+  grid-column: 2 / 4;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid transparent;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.api-key-feedback-success {
+  background: #edfaef;
+  border-left-color: #00a32a;
+  color: #1d2327;
+}
+
+.api-key-feedback-warning {
+  background: #fcf9e8;
+  border-left-color: #dba617;
+  color: #1d2327;
+}
+
+.api-key-feedback-error {
+  background: #fcf0f1;
+  border-left-color: #d63638;
+  color: #1d2327;
 }
 
 /* Spinning animation for loading icon */
@@ -277,41 +341,42 @@
 
 /* Field Glow Effects */
 .field-glow-success {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15),
-  0 0 8px rgba(16, 185, 129, 0.4),
-  0 0 16px rgba(16, 185, 129, 0.2) !important;
-  background-color: rgba(16, 185, 129, 0.03) !important;
+  border-color: #00a32a !important;
+  box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.18) !important;
   transition: all 0.3s ease !important;
-  animation: successPulse 0.6s ease-out !important;
   outline: none !important;
 }
 
 .field-glow-error {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15),
-  0 0 8px rgba(239, 68, 68, 0.4),
-  0 0 16px rgba(239, 68, 68, 0.2) !important;
-  background-color: rgba(239, 68, 68, 0.03) !important;
+  border-color: #d63638 !important;
+  box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.18) !important;
   transition: all 0.3s ease !important;
-  animation: errorPulse 0.6s ease-out !important;
+  outline: none !important;
+}
+
+.field-glow-warning {
+  border-color: #dba617 !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.2) !important;
+  transition: all 0.3s ease !important;
   outline: none !important;
 }
 
 /* More aggressive focus override to ensure our styles show */
 #ttd-topics-api-key-field.field-glow-success:focus {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2),
-  0 0 10px rgba(16, 185, 129, 0.5),
-  0 0 18px rgba(16, 185, 129, 0.25) !important;
+  border-color: #00a32a !important;
+  box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.28) !important;
   outline: none !important;
 }
 
 #ttd-topics-api-key-field.field-glow-error:focus {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2),
-  0 0 10px rgba(239, 68, 68, 0.5),
-  0 0 18px rgba(239, 68, 68, 0.25) !important;
+  border-color: #d63638 !important;
+  box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.28) !important;
+  outline: none !important;
+}
+
+#ttd-topics-api-key-field.field-glow-warning:focus {
+  border-color: #dba617 !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.3) !important;
   outline: none !important;
 }
 
@@ -361,4 +426,201 @@
 .api-key-indicator::before,
 .api-key-indicator::after {
   display: none;
+}
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-topics-api-success {
+  background-color: #0d3d1a;
+  color: #4ade80;
+}
+
+.gin--dark-mode .ttd-topics-api-error {
+  background-color: #3d0d10;
+  color: #f87171;
+}
+
+.gin--dark-mode .ttd-topics-api-loading {
+  background-color: #3d3000;
+  color: #dba617;
+}
+
+.gin--dark-mode #ttd-topics-api-key-field {
+  border-color: #3a3a3a;
+  background: #2a2a2a;
+  color: #e8e8e8;
+}
+
+.gin--dark-mode #ttd-topics-api-key-field:focus {
+  border-color: #6db3f2;
+  box-shadow: 0 0 0 3px rgba(109, 179, 242, 0.1);
+}
+
+.gin--dark-mode #ttd-topics-api-key-field.field-glow-success {
+  border-color: #00a32a !important;
+  background: #2a2a2a !important;
+  box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.35) !important;
+}
+
+.gin--dark-mode #ttd-topics-api-key-field.field-glow-error {
+  border-color: #d63638 !important;
+  background: #2a2a2a !important;
+  box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.35) !important;
+}
+
+.gin--dark-mode #ttd-topics-api-key-field.field-glow-warning {
+  border-color: #dba617 !important;
+  background: #2a2a2a !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.35) !important;
+}
+
+.gin--dark-mode .api-key-feedback-success {
+  background: #0d3d1a;
+  color: #b7f7c3;
+}
+
+.gin--dark-mode .api-key-feedback-warning {
+  background: #3d3000;
+  color: #ffe59b;
+}
+
+.gin--dark-mode .api-key-feedback-error {
+  background: #3d0d10;
+  color: #ffc2c4;
+}
+
+.gin--dark-mode .ttd-topics-toggle-slider {
+  background-color: #3a3a3a;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.gin--dark-mode .ttd-topics-toggle-field label {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-topics-toggle-field .description {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-topics-field-group .description {
+  color: #6b6b6b;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-success {
+    background-color: #0d3d1a;
+    color: #4ade80;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-error {
+    background-color: #3d0d10;
+    color: #f87171;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-loading {
+    background-color: #3d3000;
+    color: #dba617;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field {
+    border-color: #3a3a3a;
+    background: #2a2a2a;
+    color: #e8e8e8;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field:focus {
+    border-color: #6db3f2;
+    box-shadow: 0 0 0 3px rgba(109, 179, 242, 0.1);
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field.field-glow-success {
+    border-color: #00a32a !important;
+    background: #2a2a2a !important;
+    box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.35) !important;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field.field-glow-error {
+    border-color: #d63638 !important;
+    background: #2a2a2a !important;
+    box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.35) !important;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-slider {
+    background-color: #3a3a3a;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-field label {
+    color: #e8e8e8;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-field .description {
+    color: #6b6b6b;
+  }
+
+  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-field-group .description {
+    color: #6b6b6b;
+  }
+}
+
+/* Drupal/Gin light mode can run while the OS prefers dark colors. Keep this
+   settings form readable unless Gin explicitly enables dark mode. */
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning {
+  background: #fff !important;
+  color: #1d2327 !important;
+  -webkit-text-fill-color: #1d2327;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:not(.field-glow-success):not(.field-glow-error):not(.field-glow-warning) {
+  border-color: #8c8f94 !important;
+  box-shadow: none !important;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:focus,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:focus {
+  border-color: #2271b1 !important;
+  box-shadow: 0 0 0 1px #2271b1 !important;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:not(:focus) {
+  border-color: #00a32a !important;
+  box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.18) !important;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error:not(:focus) {
+  border-color: #d63638 !important;
+  box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.18) !important;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning:not(:focus) {
+  border-color: #dba617 !important;
+  box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.2) !important;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label {
+  color: #1d2327 !important;
+  opacity: 1;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
+  color: #646970 !important;
+  opacity: 1;
+}
+
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-section-title,
+html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-meta-generator-settings-title {
+  color: #1d2327 !important;
+  border-color: transparent !important;
+  opacity: 1;
 }

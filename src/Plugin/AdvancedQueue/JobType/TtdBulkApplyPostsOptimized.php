@@ -173,14 +173,9 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
    * Apply entities to a specific node.
    */
   private function applyEntitiesToNode(NodeInterface $node, $entities) {
-    $topicalboost = [];
+    $api_term_ids = [];
+    $api_ttd_ids = [];
     $failed_entities = [];
-    $existing_terms = [];
-
-    // Get already-assigned term IDs to avoid duplicates
-    foreach ($node->field_ttd_topics->getValue() as $item) {
-      $existing_terms[] = $item['target_id'];
-    }
 
     foreach ($entities as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
@@ -194,11 +189,8 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       try {
         $term_id = $this->getOrCreateTerm($name, $ttd_id, $entity);
         if ($term_id) {
-          // Only add if not already assigned to this node
-          if (!in_array($term_id, $existing_terms)) {
-            $topicalboost[] = ['target_id' => $term_id];
-            $existing_terms[] = $term_id;
-          }
+          $api_term_ids[] = (int) $term_id;
+          $api_ttd_ids[] = (int) $ttd_id;
         } else {
           \Drupal::logger('ttd_topics')->warning(
             'Failed to create/find term for entity @ttd_id: @name',
@@ -215,11 +207,51 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       }
     }
 
-    if (!empty($topicalboost)) {
-      foreach ($topicalboost as $topic) {
-        $node->field_ttd_topics->appendItem($topic);
-      }
+    $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
+      ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
+      : $api_term_ids;
+    $this->deleteStalePostRelationships($node->id(), $this->getTtdIdsForTermIds($final_topic_ids));
+    $node->set('field_ttd_topics', array_map(static fn($term_id) => ['target_id' => $term_id], $final_topic_ids));
+  }
+
+  /**
+   * Gets TopicalBoost entity IDs for term IDs.
+   */
+  private function getTtdIdsForTermIds(array $term_ids): array {
+    $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
+    if (empty($term_ids)) {
+      return [];
     }
+
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('taxonomy_term__field_ttd_id')) {
+      return [];
+    }
+
+    return array_values(array_unique(array_map('intval', $database->select('taxonomy_term__field_ttd_id', 'ttd')
+      ->fields('ttd', ['field_ttd_id_value'])
+      ->condition('entity_id', $term_ids, 'IN')
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /**
+   * Removes entity-post rows that no longer belong to the node after bulk apply.
+   */
+  private function deleteStalePostRelationships($node_id, array $final_ttd_ids): void {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('ttd_entity_post_ids')) {
+      return;
+    }
+
+    $delete = $database->delete('ttd_entity_post_ids')
+      ->condition('post_id', (string) $node_id);
+
+    if (!empty($final_ttd_ids)) {
+      $delete->condition('entity_id', $final_ttd_ids, 'NOT IN');
+    }
+
+    $delete->execute();
   }
 
   /**
@@ -252,7 +284,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
         ];
 
         $available_fields = [
-          'mid', 'nl_name', 'nl_type', 'wikipedia_url', 'kg_name', 'kg_image',
+          'mid', 'nl_name', 'nl_type', 'wikipedia_url', 'kg_name', 'kg_description', 'kg_image',
           'wb_qid', 'wb_name', 'wb_description', 'wb_date_modified', 'wb_instances',
           'wb_image', 'wb_logo_image', 'official_website', 'country', 'genre',
           'creator', 'author', 'producer', 'director', 'screenwriter', 'cast_member',
@@ -298,15 +330,50 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
             ->execute()
             ->fetchAssoc();
 
-          if (!$existing_rel) {
+          if ($existing_rel) {
             try {
-              \Drupal::database()->insert('ttd_entity_post_ids')
+              $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;
+              $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
+
+              if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+                $salience_category = NULL;
+              }
+
+              \Drupal::database()->update('ttd_entity_post_ids')
                 ->fields([
-                  'entity_id' => $ttd_id,
-                  'post_id' => (string) $customer_id,
-                  'createdAt' => date('Y-m-d H:i:s'),
+                  'salience_score' => $salience_score,
+                  'salience_category' => $salience_category,
                   'updatedAt' => date('Y-m-d H:i:s'),
                 ])
+                ->condition('entity_id', $ttd_id)
+                ->condition('post_id', (string) $customer_id)
+                ->execute();
+            } catch (\Exception $e) {
+              // Continue on error.
+            }
+          }
+          else {
+            try {
+              // Extract salience data if present
+              $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;
+              $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
+
+              // Validate salience_category is a valid value.
+              if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+                $salience_category = NULL;
+              }
+
+              $fields = [
+                'entity_id' => $ttd_id,
+                'post_id' => (string) $customer_id,
+                'createdAt' => date('Y-m-d H:i:s'),
+                'updatedAt' => date('Y-m-d H:i:s'),
+                'salience_score' => $salience_score,
+                'salience_category' => $salience_category,
+              ];
+
+              \Drupal::database()->insert('ttd_entity_post_ids')
+                ->fields($fields)
                 ->execute();
             } catch (\Exception $e) {
               // Continue on error
@@ -328,6 +395,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     }
 
     $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+    $term_id = NULL;
 
     // Always check by TTD ID first - this is the unique identifier
     $terms = $term_storage->loadByProperties([
@@ -336,26 +404,35 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     ]);
 
     if (!empty($terms)) {
-      return reset($terms)->id();
+      $term_id = reset($terms)->id();
+    }
+    else {
+      // Create new term for this TTD ID
+      // Drupal allows multiple terms with the same name; they're unique by term ID
+      try {
+        $term = Term::create([
+          'vid' => 'ttd_topics',
+          'name' => $name,
+          'field_ttd_id' => $ttd_id,
+        ]);
+        $term->save();
+        $term_id = $term->id();
+      }
+      catch (\Exception $e) {
+        \Drupal::logger('ttd_topics')->error(
+          'Failed to create taxonomy term for TTD ID @ttd_id (name: @name): @error',
+          ['@ttd_id' => $ttd_id, '@name' => $name, '@error' => $e->getMessage()]
+        );
+        return NULL;
+      }
     }
 
-    // Create new term for this TTD ID
-    // Drupal allows multiple terms with the same name; they're unique by term ID
-    try {
-      $term = Term::create([
-        'vid' => 'ttd_topics',
-        'name' => $name,
-        'field_ttd_id' => $ttd_id,
-      ]);
-      $term->save();
-      return $term->id();
-    } catch (\Exception $e) {
-      \Drupal::logger('ttd_topics')->error(
-        'Failed to create taxonomy term for TTD ID @ttd_id (name: @name): @error',
-        ['@ttd_id' => $ttd_id, '@name' => $name, '@error' => $e->getMessage()]
-      );
-      return NULL;
+    // Store demand metrics (KD/KV) if present - now that we have term_id
+    if ($term_id) {
+      $this->storeDemandMetricsForTerm($term_id, $entity_data);
     }
+
+    return $term_id;
   }
 
   /**
@@ -370,7 +447,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
     if ($type === 'schema_types') {
       foreach ($data as $item) {
-        if (isset($item['id'])) {
+        if (is_array($item) && isset($item['id'])) {
           $existing = $database->select('ttd_schema_types', 'tst')
             ->fields('tst')
             ->condition('ttd_id', $item['id'])
@@ -417,7 +494,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       }
     } elseif ($type === 'wb_categories') {
       foreach ($data as $item) {
-        if (isset($item['id'])) {
+        if (is_array($item) && isset($item['id'])) {
           $existing = $database->select('ttd_wb_categories', 'twc')
             ->fields('twc')
             ->condition('ttd_id', $item['id'])
@@ -480,6 +557,43 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     } catch (\Exception $e) {
       return NULL;
     }
+  }
+
+  /**
+   * Store demand metrics (KD/KV) for a term from entity data.
+   *
+   * @param int $term_id
+   *   The taxonomy term ID.
+   * @param array $entity_data
+   *   Entity data from API response.
+   */
+  private function storeDemandMetricsForTerm($term_id, $entity_data) {
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential.
+    $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
+    $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
+
+    if (!$has_kd && !$has_sv && !$has_tp) {
+      return;
+    }
+
+    // Build metrics data structure
+    $metrics_data = [];
+
+    if ($has_kd) {
+      $metrics_data['keyword_difficulty'] = (int) $entity_data['keyword_difficulty'];
+    }
+
+    if ($has_sv) {
+      $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
+    }
+
+    // Store using module function
+    ttd_store_demand_metrics($term_id, $metrics_data);
   }
 
 }

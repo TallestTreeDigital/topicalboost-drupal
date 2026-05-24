@@ -144,6 +144,8 @@ class BulkAnalysisController extends ControllerBase {
       $query->isNull('tla.field_ttd_last_analyzed_value');
     }
 
+    $this->applyCustomFieldFilter($query, $filters);
+
     $count = $query->countQuery()->execute()->fetchField();
 
     $count = (int) $count;
@@ -169,6 +171,7 @@ class BulkAnalysisController extends ControllerBase {
   public function initiateAnalysis(Request $request) {
     // SAFEGUARD 1: Check if an analysis is already in progress
     $existing_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $clear_stale_state = !$existing_request_id;
     if ($existing_request_id) {
       // Check if the existing analysis is actually still running or just stale
       $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress');
@@ -184,6 +187,7 @@ class BulkAnalysisController extends ControllerBase {
             'message' => 'A previous analysis is still completing. Please wait a moment and try again.',
           ]);
         }
+        $clear_stale_state = TRUE;
       } else {
         // Analysis is actively running (not completed yet)
         return new JsonResponse([
@@ -191,6 +195,10 @@ class BulkAnalysisController extends ControllerBase {
           'message' => 'An analysis is currently in progress. Please wait for it to complete before starting a new one.',
         ]);
       }
+    }
+
+    if ($clear_stale_state) {
+      $this->clearStaleBulkAnalysisState();
     }
 
     $filters = $this->parseFilters($request);
@@ -209,22 +217,8 @@ class BulkAnalysisController extends ControllerBase {
     $api_key = $config->get('topicalboost_api_key');
     $api_base_url = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
 
-    // Call the bulk initiate API endpoint.
-    $client = new Client();
-
     try {
-      $response = $client->post($api_base_url . '/analyze/bulk/initiate', [
-        'headers' => [
-          'Content-Type' => 'application/json',
-          'x-api-key' => $api_key,
-        ],
-        'json' => [
-          'content_count' => $content_count,
-        ],
-        'timeout' => 30,
-      ]);
-
-      $result = json_decode($response->getBody(), TRUE);
+      $result = $this->callBulkInitiateApi($api_base_url, $api_key, $content_count);
 
       if (isset($result['request_id'])) {
         $request_id = $result['request_id'];
@@ -234,8 +228,8 @@ class BulkAnalysisController extends ControllerBase {
         \Drupal::state()->set('topicalboost.bulk_analysis.filters', $filters);
         \Drupal::state()->set('topicalboost.bulk_analysis.content_count', $content_count);
 
-        // Calculate pages and batch size (50 nodes per batch like WordPress)
-        $batch_size = 50;
+        // Calculate pages and batch size from config (default 35).
+        $batch_size = (int) $config->get('batch_size') ?: 35;
         $page_count = ceil($content_count / $batch_size);
 
         // Clear any existing bulk analysis jobs.
@@ -286,6 +280,25 @@ class BulkAnalysisController extends ControllerBase {
         'message' => 'API request failed: ' . $e->getMessage(),
       ]);
     }
+  }
+
+  /**
+   * Calls the TopicalBoost bulk initiate endpoint.
+   */
+  protected function callBulkInitiateApi(string $api_base_url, string $api_key, int $content_count): array {
+    $client = new Client();
+    $response = $client->post($api_base_url . '/analyze/bulk/initiate', [
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'x-api-key' => $api_key,
+      ],
+      'json' => [
+        'content_count' => $content_count,
+      ],
+      'timeout' => 30,
+    ]);
+
+    return json_decode($response->getBody(), TRUE) ?: [];
   }
 
   /**
@@ -569,7 +582,61 @@ class BulkAnalysisController extends ControllerBase {
       $query->isNull('tla.field_ttd_last_analyzed_value');
     }
 
+    $this->applyCustomFieldFilter($query, $filters);
+
     return $query->countQuery()->execute()->fetchField();
+  }
+
+  /**
+   * Applies the optional custom-field populated filter.
+   */
+  private function applyCustomFieldFilter($query, array $filters): void {
+    if (empty($filters['custom_field_filter']) || empty($filters['custom_field'])) {
+      return;
+    }
+
+    $field_name = preg_replace('/[^a-z0-9_]/', '', (string) $filters['custom_field']);
+    if ($field_name === '') {
+      return;
+    }
+
+    $config = $this->configFactory->get('ttd_topics.settings');
+    $allowed_fields = array_filter($config->get('analysis_custom_fields') ?: []);
+    if (!in_array($field_name, $allowed_fields, TRUE)) {
+      return;
+    }
+
+    $table = 'node__' . $field_name;
+    if (!$this->database->schema()->tableExists($table)) {
+      return;
+    }
+
+    $alias = 'cf_' . substr(hash('sha1', $field_name), 0, 8);
+    $query->innerJoin($table, $alias, "n.nid = {$alias}.entity_id AND {$alias}.deleted = 0");
+    $query->distinct();
+
+    $candidate_columns = [
+      $field_name . '_value',
+      $field_name . '_target_id',
+      $field_name . '_uri',
+      $field_name . '_summary',
+      $field_name . '_alt',
+      $field_name . '_title',
+    ];
+
+    $or = $query->orConditionGroup();
+    $has_value_column = FALSE;
+    foreach ($candidate_columns as $column) {
+      if (!$this->database->schema()->fieldExists($table, $column)) {
+        continue;
+      }
+      $has_value_column = TRUE;
+      $or->isNotNull("{$alias}.{$column}");
+      $or->condition("{$alias}.{$column}", '', '<>');
+    }
+    if ($has_value_column) {
+      $query->condition($or);
+    }
   }
 
   /**
@@ -661,6 +728,19 @@ class BulkAnalysisController extends ControllerBase {
   }
 
   /**
+   * Clear stale state before starting a new bulk analysis lifecycle.
+   */
+  private function clearStaleBulkAnalysisState(): void {
+    \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.content_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.apply_progress');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.completed_at');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.customer_id_page_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
+  }
+
+  /**
    * Parse filters from request.
    */
   private function parseFilters(Request $request) {
@@ -673,6 +753,8 @@ class BulkAnalysisController extends ControllerBase {
       'include_drafts' => $content['include_drafts'] ?? FALSE,
       'only_topicless' => $content['only_topicless'] ?? FALSE,
       'reanalyze' => $content['reanalyze'] ?? FALSE,
+      'custom_field_filter' => $content['custom_field_filter'] ?? FALSE,
+      'custom_field' => $content['custom_field'] ?? '',
     ];
   }
 
@@ -719,6 +801,11 @@ class BulkAnalysisController extends ControllerBase {
    * Clean up completed analysis state.
    */
   private function cleanupCompletedAnalysis() {
+    $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    if ($request_id) {
+      $this->clearQueuedBulkJobsForRequest($request_id);
+    }
+
     // Clear all bulk analysis state.
     \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
     \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
@@ -729,6 +816,18 @@ class BulkAnalysisController extends ControllerBase {
     \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
 
     \Drupal::logger('ttd_topics')->info('Cleaned up completed bulk analysis state');
+  }
+
+  /**
+   * Clear queued bulk jobs that are no longer needed after completion.
+   */
+  private function clearQueuedBulkJobsForRequest($request_id): void {
+    $this->database->delete('advancedqueue')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller', 'ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
+      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->execute();
   }
 
 }

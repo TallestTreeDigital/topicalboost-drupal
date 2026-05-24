@@ -70,70 +70,192 @@ class SettingsForm extends ConfigFormBase {
     // Attach the necessary libraries.
     $form['#attached']['library'][] = 'core/drupal.progress';
     $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
-    $form['#attached']['library'][] = 'ttd_topics/tabs';
-    $form['#attached']['library'][] = 'ttd_topics/tabs_css';
-    $form['#attached']['library'][] = 'ttd_topics/modern_forms';
+    $form['#attached']['library'][] = 'ttd_topics/settings';
     $form['#attached']['library'][] = 'ttd_topics/progress_bars';
     $form['#attached']['library'][] = 'ttd_topics/coverage';
     $form['#attached']['library'][] = 'ttd_topics/code_examples';
     $form['#attached']['library'][] = 'ttd_topics/bulk_analysis';
 
+    // Page header with title.
+    $form['page_header'] = [
+      '#markup' => '<div class="ttd-page-header"><h1>TopicalBoost Settings</h1></div>',
+      '#weight' => -20,
+    ];
+
+    // Wrap the entire form.
+    $form['#attributes']['class'][] = 'ttd-settings-wrap';
+
     // Create tabbed interface container.
     $form['tabs_container'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tabs-container']],
+      '#attributes' => ['class' => ['ttd-settings-layout']],
     ];
 
-    // Tab navigation using proper HTML markup with anchors and Font Awesome icons.
+    // Sidebar navigation.
     $form['tabs_container']['nav'] = [
-      '#markup' => '<div class="ttd-topics-tabs-nav">
-        <div class="ttd-topics-tabs-buttons">
-          <a href="#analytics" class="ttd-topics-tab-button active" data-tab="tab-analytics" data-has-settings="false">
-            <span class="ttd-icon ttd-icon-analytics"></span>Analytics
-          </a>
-
-          <a href="#settings" class="ttd-topics-tab-button" data-tab="tab-settings" data-has-settings="true">
-            <span class="ttd-icon ttd-icon-settings"></span>Settings
-          </a>
-          <a href="#api" class="ttd-topics-tab-button" data-tab="tab-api" data-has-settings="true">
-            <span class="ttd-icon ttd-icon-api"></span>API
-          </a>
-          <a href="#schema" class="ttd-topics-tab-button" data-tab="tab-schema" data-has-settings="true">
-            <span class="ttd-icon ttd-icon-schema"></span>Schema
-          </a>
-          <a href="#bulk-analysis" class="ttd-topics-tab-button" data-tab="tab-bulk-analysis" data-has-settings="false">
-            <span class="ttd-icon ttd-icon-bulk-analysis"></span>Bulk Analysis
-          </a>
-          <a href="/admin/structure/taxonomy/manage/ttd_topics/overview" class="ttd-topics-tab-button ttd-topics-tab-button--link" title="View Topics taxonomy page">
-            <span class="ttd-icon ttd-icon-schema"></span>View Topics &#8599;
-          </a>
-        </div>
-      </div>',
+      '#markup' => '<nav class="ttd-settings-nav">
+        <div class="ttd-nav-group-label">General</div>
+        <div class="ttd-nav-item active" data-tab="tab-setup">Setup</div>
+        <div class="ttd-nav-item" data-tab="tab-content">Content</div>
+        <div class="ttd-nav-group-label">Display</div>
+        <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
+        <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
+        <div class="ttd-nav-group-label">Analysis</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Watchlist</div>
+        <div class="ttd-nav-group-label">Advanced</div>
+        <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
+        <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
+        <div class="ttd-nav-item" data-tab="tab-authors">Authors</div>
+        <div class="ttd-nav-item" data-tab="tab-developer">Developer</div>
+        <div class="ttd-nav-group-label">Info</div>
+        <div class="ttd-nav-item" data-tab="tab-changelog" data-has-settings="false">Changelog</div>
+      </nav>',
       '#weight' => -10,
     ];
 
     // Tab content container.
     $form['tabs_container']['content'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-content']],
+      '#attributes' => ['class' => ['ttd-settings-content']],
     ];
 
-    // Settings Tab.
-    $form['tabs_container']['content']['settings'] = [
+    $form['tabs_container']['content']['settings_search'] = [
+      '#markup' => Markup::create('<div class="ttd-settings-content-header">
+        <div class="ttd-settings-search-bar">
+          <span class="ttd-search-icon" aria-hidden="true"></span>
+          <input type="text" id="ttd-settings-search" placeholder="' . $this->t('Search settings...') . '" autocomplete="off" aria-label="' . $this->t('Search settings') . '" />
+          <button type="button" id="ttd-settings-search-clear" class="ttd-search-clear" style="display:none;">&times;</button>
+        </div>
+      </div>
+      <div class="ttd-search-no-results">' . $this->t('No settings found matching your search.') . '</div>'),
+      '#weight' => -20,
+    ];
+
+    // =========================================================================
+    // Setup Tab
+    // =========================================================================
+    $form['tabs_container']['content']['setup'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-settings'],
+      '#attributes' => ['class' => ['ttd-settings-panel', 'active'], 'id' => 'tab-setup'],
     ];
 
-    $form['tabs_container']['content']['settings']['title'] = [
-      '#markup' => '<div class="ttd-topics-section-title">
-        <span class="ttd-icon ttd-icon-large ttd-icon-display"></span>Display Settings
-      </div>',
+    $form['tabs_container']['content']['setup']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Setup</h2>',
     ];
 
-    $form['tabs_container']['content']['settings']['help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        Configure how TopicalBoost displays topics on your website and customize the user experience.
-      </div>',
+    // API Key (moved from API tab).
+    $form['tabs_container']['content']['setup']['api_key_container'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['api-key-container']],
+    ];
+
+    $form['tabs_container']['content']['setup']['api_key_container']['topicalboost_api_key'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('API Key'),
+      '#default_value' => $config->get('topicalboost_api_key'),
+      '#description' => $this->t('Your unique API key for TopicalBoost.'),
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group', 'ttd-topics-api-key-field'],
+        'id' => 'ttd-topics-api-key-field',
+        'placeholder' => 'Enter your API key here...',
+      ],
+      '#field_suffix' => '<div id="api-key-validation-indicator" class="api-key-indicator"></div>',
+    ];
+
+    // Add JavaScript for API key validation.
+    $form['tabs_container']['content']['setup']['#attached']['library'][] = 'ttd_topics/api_validation';
+    $form['tabs_container']['content']['setup']['#attached']['drupalSettings']['topicalBoost']['apiEndpoint'] = TOPICALBOOST_API_ENDPOINT;
+
+    $form['tabs_container']['content']['setup']['enable_frontend'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Frontend Display'),
+      '#default_value' => $config->get('enable_frontend'),
+      '#description' => $this->t('Show topics on your website.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['setup']['enable_meta_generator'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('SEO Meta Generator'),
+      '#default_value' => $config->get('enable_meta_generator') ?? FALSE,
+      '#description' => $this->t('Integrates with Yoast, Rank Math, AIOSEO, SEOPress.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#weight' => 10,
+    ];
+
+    $form['tabs_container']['content']['setup']['meta_generator_heading'] = [
+      '#type' => 'markup',
+      '#markup' => '<h3 class="ttd-section-title ttd-meta-generator-settings-title">' . $this->t('Meta Generator Settings') . '</h3>',
+      '#weight' => 11,
+    ];
+
+    $default_meta_seo_prompt = "- Natural keyword integration (no keyword stuffing)\n- E-E-A-T tone (authoritative, trustworthy)\n- Compelling and click-worthy\n- Each variation should have a different angle/approach";
+    $default_meta_social_prompt = "- Create curiosity gaps that make people want to click\n- Use emotional hooks (surprise, urgency, FOMO)\n- No keyword stuffing -- this is social, not search\n- Each variation should use a different hook style";
+
+    $title_case_value = $config->get('meta_title_case_format') ?: 'title';
+
+    $form['tabs_container']['content']['setup']['meta_title_case_format'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Title Casing'),
+      '#options' => [
+        'title' => $this->t('Title Case'),
+        'sentence' => $this->t('Sentence case'),
+      ],
+      '#default_value' => $title_case_value,
+      '#description' => $this->t('Controls whether generated meta titles use Title Case or Sentence case'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-button-group-radios']],
+      '#weight' => 12,
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_meta_generator"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['setup']['meta_seo_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('SEO Prompt'),
+      '#default_value' => $config->get('meta_seo_prompt') ?: $default_meta_seo_prompt,
+      '#description' => $this->t('Instructions for generating SEO meta titles and descriptions. Character limits and output format are handled automatically.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#rows' => 6,
+      '#weight' => 13,
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_meta_generator"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['setup']['meta_social_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Social Prompt'),
+      '#default_value' => $config->get('meta_social_prompt') ?: $default_meta_social_prompt,
+      '#description' => $this->t('Instructions for generating social media og:title and og:description. These appear in link cards on Facebook, Twitter/X, LinkedIn, etc.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#rows' => 6,
+      '#weight' => 14,
+      '#states' => [
+        'visible' => [
+          ':input[name="enable_meta_generator"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    // =========================================================================
+    // Content Tab
+    // =========================================================================
+    $form['tabs_container']['content']['content_tab'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-content'],
+    ];
+
+    $form['tabs_container']['content']['content_tab']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Content</h2>',
     ];
 
     // Content Type Selection.
@@ -143,9 +265,9 @@ class SettingsForm extends ConfigFormBase {
       $content_type_options[$content_type->id()] = $content_type->label();
     }
 
-    $form['tabs_container']['content']['settings']['enabled_content_types'] = [
+    $form['tabs_container']['content']['content_tab']['enabled_content_types'] = [
       '#type' => 'select',
-      '#title' => $this->t('Enable TopicalBoost for content types'),
+      '#title' => $this->t('Post Types'),
       '#options' => $content_type_options,
       '#default_value' => $config->get('enabled_content_types') ?: [],
       '#description' => $this->t('Select which content types should have TopicalBoost topic analysis and display.'),
@@ -157,195 +279,27 @@ class SettingsForm extends ConfigFormBase {
       '#required' => FALSE,
     ];
 
-          // Attach our local select2 library to the entire form.
-      $form['#attached']['library'][] = 'ttd_topics/select2';
-      $form['#attached']['library'][] = 'ttd_topics/topic_count_feedback';
-      $form['#attached']['library'][] = 'ttd_topics/api_validation';
-    
-          // Only load diagnostic library if debug mode is enabled
-      if ($config->get('debug_mode')) {
-        // Diagnostic library removed - file was missing
-    }
-    
+    // Attach our local select2 library to the entire form.
+    $form['#attached']['library'][] = 'ttd_topics/select2';
+    $form['#attached']['library'][] = 'ttd_topics/topic_count_feedback';
+    $form['#attached']['library'][] = 'ttd_topics/api_validation';
     // Pass debug mode setting to JavaScript
     $form['#attached']['drupalSettings']['ttd_topics']['debug_mode'] = $config->get('debug_mode') ?: FALSE;
 
-    $form['tabs_container']['content']['settings']['enable_frontend'] = [
+    $form['tabs_container']['content']['content_tab']['include_excerpt'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Display topics on frontend'),
-      '#default_value' => $config->get('enable_frontend'),
-      '#description' => $this->t('Show identified topics to visitors on article pages.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
-      '#prefix' => '<div class="ttd-topics-toggle-field ttd-topics-section-spaced">',
-      '#suffix' => '</div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['maximum_visible_post_topics'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Maximum topics to display'),
-      '#default_value' => $config->get('maximum_visible_post_topics') ?: 5,
-      '#min' => 1,
-      '#max' => 50,
-      '#description' => $this->t('Limit the number of topics shown to avoid overwhelming readers. Recommended: 5-10.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-      '#states' => [
-        'visible' => [
-          ':input[name="enable_frontend"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
-
-    $form['tabs_container']['content']['settings']['enable_automatic_mentions'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enable automatic mentions'),
-      '#default_value' => $config->get('enable_automatic_mentions') ?? TRUE,
-      '#description' => $this->t('Controls automatic display of mentions by the module. When disabled, topics will not be automatically added to content pages by the module, but manual Twig calls like <code>{{ topicalboost_display() }}</code> and <code>{{ topicalboost_data() }}</code> will still work normally.'),
+      '#title' => $this->t('Include Post Excerpt'),
+      '#default_value' => $config->get('include_excerpt') ?: FALSE,
+      '#description' => $this->t('Include excerpt content in topic analysis.'),
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
       '#prefix' => '<div class="ttd-topics-toggle-field">',
       '#suffix' => '</div>',
-      '#states' => [
-        'visible' => [
-          ':input[name="enable_frontend"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
-
-    // Custom Implementation Guide Section
-    $form['tabs_container']['content']['settings']['custom_implementation_section'] = [
-      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
-        <span class="ttd-icon ttd-icon-large ttd-icon-api"></span>Custom Implementation Guide
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_implementation_guide'] = [
-      '#markup' => '<p class="description"><strong>Custom implementation:</strong> Use these Twig functions in your templates to build custom topic displays.</p>
-        <div class="ttd-code-examples">
-          <div class="ttd-code-block">
-            <div class="ttd-code-header">
-              <strong>topicalboost_display()</strong>
-              <span class="ttd-code-toggle" role="button" tabindex="0" aria-expanded="false">
-                <span class="ttd-code-toggle-icon">▶</span> Expand
-              </span>
-            </div>
-            <div class="ttd-code-description">Renders the complete HTML for topic display with show more/less functionality. Results are filtered by visibility settings, rejection status, and threshold count.</div>
-            <div class="ttd-code-content">
-              <div class="ttd-code-section">
-                <strong>Function signature:</strong>
-                <pre><code class="language-twig">{{ topicalboost_display(node, options) }}</code></pre>
-              </div>
-              <div class="ttd-code-section">
-                <strong>Usage examples:</strong>
-                <pre><code class="language-twig">{# Display topics for the current node #}
-{{ topicalboost_display() }}
-
-{# Display topics for a specific node #}
-{{ topicalboost_display(node) }}
-
-{# Force display even if frontend is disabled #}
-{{ topicalboost_display(node, { force_display: true }) }}</code></pre>
-              </div>
-              <div class="ttd-code-section">
-                <strong>Return format:</strong>
-                <pre><code class="language-text">Rendered HTML string (safe markup)</code></pre>
-              </div>
-            </div>
-          </div>
-
-          <div class="ttd-code-block">
-            <div class="ttd-code-header">
-              <strong>topicalboost_data()</strong>
-              <span class="ttd-code-toggle" role="button" tabindex="0" aria-expanded="false">
-                <span class="ttd-code-toggle-icon">▶</span> Expand
-              </span>
-            </div>
-            <div class="ttd-code-description">Returns topic data as a structured array for building completely custom displays. Results are filtered by visibility settings, rejection status, and threshold count.</div>
-            <div class="ttd-code-content">
-              <div class="ttd-code-section">
-                <strong>Function signature:</strong>
-                <pre><code class="language-twig">{% set topics = topicalboost_data(node, options) %}</code></pre>
-              </div>
-              <div class="ttd-code-section">
-                <strong>Usage examples:</strong>
-                <pre><code class="language-twig">{# Get topics for current node #}
-{% set topics = topicalboost_data() %}
-
-{# Build a custom topic list #}
-{% set topics = topicalboost_data() %}
-{% if topics.topics|length > 0 %}
-  &lt;div class="my-custom-topics"&gt;
-    &lt;h3&gt;{{ topics.label }}&lt;/h3&gt;
-    {% for topic in topics.topics %}
-      &lt;a href="{{ topic.url }}"&gt;{{ topic.name }}&lt;/a&gt;
-    {% endfor %}
-  &lt;/div&gt;
-{% endif %}</code></pre>
-              </div>
-              <div class="ttd-code-section">
-                <strong>Return format:</strong>
-                <pre><code class="language-json">{
-  "topics": [
-    {
-      "id": 123,
-      "name": "Artificial Intelligence",
-      "label": "Artificial Intelligence",
-      "url": "/topics/artificial-intelligence",
-      "entity": { ... }
-    },
-    ...
-  ],
-  "label": "Mentions",
-  "max_visible": 5,
-  "total_count": 8
-}</code></pre>
-              </div>
-            </div>
-          </div>
-        </div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['topics_list_label'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Topics section label'),
-      '#default_value' => $config->get('topics_list_label') ?: 'Mentions',
-      '#description' => $this->t('The heading text displayed above the topics list (e.g., "Related Topics", "Tags", "Mentions").'),
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-      '#states' => [
-        'visible' => [
-          ':input[name="enable_frontend"]' => ['checked' => TRUE],
-          ':input[name="enable_automatic_mentions"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
-
-
-
-    $form['tabs_container']['content']['settings']['post_topic_minimum_display_count'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Minimum Display Count'),
-      '#default_value' => $config->get('post_topic_minimum_display_count') ?: 5,
-      '#min' => 1,
-      '#max' => 100,
-      '#description' => $this->t('Controls which topics appear on your site based on how often they\'re mentioned. Lower values show more topics including rare ones. Higher values show only frequently discussed topics.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-    ];
-
-    // Custom Fields for Analysis Section
-    $form['tabs_container']['content']['settings']['custom_fields_section'] = [
-      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
-        <span class="ttd-icon ttd-icon-large ttd-icon-display"></span>Custom Fields for Analysis
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['custom_fields_section_help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        Select additional fields whose content should be included in topic analysis.
-      </div>',
     ];
 
     // Get all field options for enabled content types
     $field_options = $this->getCustomFieldOptions($config);
 
-    $form['tabs_container']['content']['settings']['analysis_custom_fields'] = [
+    $form['tabs_container']['content']['content_tab']['analysis_custom_fields'] = [
       '#type' => 'select',
       '#title' => $this->t('Custom Fields'),
       '#options' => $field_options,
@@ -359,66 +313,166 @@ class SettingsForm extends ConfigFormBase {
       ],
     ];
 
-
-    // URL Path Configuration
-    $form['tabs_container']['content']['settings']['url_section'] = [
-      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
-        <span class="ttd-icon ttd-icon-large ttd-icon-settings"></span>URL Configuration
-      </div>',
-    ];
-
-    // Get current Pathauto pattern and extract just the path prefix
-    $pattern_storage = \Drupal::entityTypeManager()->getStorage('pathauto_pattern');
-    $current_pattern = $pattern_storage->load('ttd_topics');
-    $current_full_pattern = $current_pattern ? $current_pattern->getPattern() : '/topics/[term:name]';
-    
-    // Extract just the path prefix (remove [term:name] part)
-    $current_path_prefix = str_replace('[term:name]', '', $current_full_pattern);
-    $stored_prefix = $config->get('topic_url_path_prefix');
-    $default_prefix = $stored_prefix ?: $current_path_prefix;
-
-    $form['tabs_container']['content']['settings']['topic_url_path_prefix'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Topic URL path'),
-      '#default_value' => $default_prefix,
-      '#description' => $this->t('URL path prefix for topic pages.'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => '/topics/',
-        'id' => 'topic-url-path-input'
-      ],
-    ];
-
-    $form['tabs_container']['content']['settings']['url_preview'] = [
-      '#markup' => '<div style="margin-top: 8px; padding: 12px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; color: #495057; font-family: monospace; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; overflow-x: hidden;">
-        <strong>Preview:</strong> ' . \Drupal::request()->getSchemeAndHttpHost() . '<span id="url-path-preview">' . $default_prefix . '</span>artificial-intelligence
-      </div>',
-      '#attached' => [
-        'library' => ['ttd_topics/url_preview'],
-      ],
-    ];
-
-    // Developer Settings Section
-    $form['tabs_container']['content']['settings']['developer_section'] = [
-      '#markup' => '<div class="ttd-topics-section-title ttd-topics-section-spaced">
-        <span class="ttd-icon ttd-icon-large ttd-icon-settings"></span>Developer Settings
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['settings']['debug_mode'] = [
+    $form['tabs_container']['content']['content_tab']['new_topic_reanalysis_enabled'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Debug mode'),
-      '#default_value' => $config->get('debug_mode') ?: FALSE,
-      '#description' => $this->t('Enable detailed console logging for debugging. Disable this in production for better performance.'),
+      '#title' => $this->t('Re-analyze on New Topic'),
+      '#default_value' => $config->get('new_topic_reanalysis_enabled') ?: FALSE,
+      '#description' => $this->t('Re-analyze recent posts when a new topic is discovered.'),
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
       '#prefix' => '<div class="ttd-topics-toggle-field">',
       '#suffix' => '</div>',
     ];
 
-    // Analytics Tab - API Coverage Comparison
+    $form['tabs_container']['content']['content_tab']['new_topic_reanalysis_lookback_days'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Re-analysis Lookback'),
+      '#default_value' => $config->get('new_topic_reanalysis_lookback_days') ?: 30,
+      '#min' => 7,
+      '#max' => 365,
+      '#description' => $this->t('How far back to look for posts to re-analyze (7-365).'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['content_tab']['auto_sync_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Auto-Sync'),
+      '#default_value' => $config->get('auto_sync_enabled') ?: FALSE,
+      '#description' => $this->t('When enabled, the module checks every 15 minutes and automatically pulls missing topics and relationships from the API in the background.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    // =========================================================================
+    // Topic List Tab
+    // =========================================================================
+    $form['tabs_container']['content']['topiclist'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-topiclist'],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Topic List</h2>',
+    ];
+
+    $form['tabs_container']['content']['topiclist']['taxonomy_label_singular'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Taxonomy Label (Singular)'),
+      '#default_value' => $config->get('taxonomy_label_singular') ?: 'Topic',
+      '#description' => $this->t('Singular label used for topics throughout the interface (e.g., "Topic", "Tag", "Subject").'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['taxonomy_label_plural'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Taxonomy Label (Plural)'),
+      '#default_value' => $config->get('taxonomy_label_plural') ?: 'Topics',
+      '#description' => $this->t('Plural label used for topics throughout the interface (e.g., "Topics", "Tags", "Subjects").'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['topics_list_label'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Label Above Topics List'),
+      '#default_value' => $config->get('topics_list_label') ?: 'Topics on this page',
+      '#description' => $this->t('The heading text displayed above the topics list (e.g., "Related Topics", "Tags", "Mentions").'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['maximum_visible_post_topics'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Visible Topics'),
+      '#default_value' => $config->get('maximum_visible_post_topics') ?: 5,
+      '#min' => 1,
+      '#max' => 20,
+      '#description' => $this->t('Recommended: 5-10.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['frontend_filter_mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Filter Mode'),
+      '#options' => [
+        'all' => $this->t('Show all topics'),
+        'mentions_behind_toggle' => $this->t('Hide mentions behind "Show More"'),
+        'high_salience_only' => $this->t('Show only main & about topics'),
+      ],
+      '#default_value' => $config->get('frontend_filter_mode') ?: 'mentions_behind_toggle',
+      '#description' => $this->t('Controls which topics are visible on the frontend.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['frontend_sort_order'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Sort Order'),
+      '#options' => [
+        'salience' => $this->t('Salience score (highest first)'),
+        'alphabetical' => $this->t('Alphabetical (A-Z)'),
+      ],
+      '#default_value' => $config->get('frontend_sort_order') ?: 'salience',
+      '#description' => $this->t('How topics are ordered in the frontend display.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['topiclist']['post_topic_minimum_display_count'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Minimum Display Count'),
+      '#default_value' => $config->get('post_topic_minimum_display_count') ?: 10,
+      '#min' => 0,
+      '#max' => 100,
+      '#description' => $this->t('Topics appearing in fewer posts are soft-hidden. High-salience topics always display.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    // =========================================================================
+    // Behavior Tab
+    // =========================================================================
+    $form['tabs_container']['content']['behavior'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-behavior'],
+    ];
+
+    $form['tabs_container']['content']['behavior']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Behavior</h2>',
+    ];
+
+    $form['tabs_container']['content']['behavior']['enable_automatic_mentions'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Auto-append Topics'),
+      '#default_value' => $config->get('enable_automatic_mentions') ?? TRUE,
+      '#description' => $this->t('Automatically append topics to content.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['behavior']['auto_link_topics'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Auto-link Topics'),
+      '#default_value' => $config->get('auto_link_topics') ?: FALSE,
+      '#description' => $this->t('Automatically link the first occurrence of each about/mainEntity topic name in the content body to its topic page.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['behavior']['skeleton_style'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Skeleton Style'),
+      '#default_value' => $config->get('skeleton_style') ?: FALSE,
+      '#description' => $this->t('Enable minimal/skeleton styling for TopicalBoost frontend elements, allowing your theme to control most of the appearance.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    // =========================================================================
+    // Analytics Tab
+    // =========================================================================
     $form['tabs_container']['content']['analytics'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-analytics'],
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-analytics'],
+      '#access' => FALSE,
     ];
 
     // Get analytics data.
@@ -436,8 +490,7 @@ class SettingsForm extends ConfigFormBase {
           <h3>No Content Types Enabled</h3>
           <p>To start viewing analytics, you need to enable TopicalBoost for one or more content types. Once enabled, you\'ll see comprehensive topic coverage data, content type breakdowns, and API comparison metrics.</p>
           <div class="empty-state-action">
-            <a href="#settings" class="ttd-topics-tab-button ttd-topics-button-primary" data-tab="tab-settings">
-              <span class="ttd-icon ttd-icon-settings"></span>
+            <a href="#content" class="ttd-nav-item ttd-topics-button-primary" data-tab="tab-content">
               Configure Content Types
             </a>
           </div>
@@ -454,190 +507,404 @@ class SettingsForm extends ConfigFormBase {
       ];
     }
 
-    // API Tab.
-    $form['tabs_container']['content']['api'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-api'],
-    ];
-
-    $form['tabs_container']['content']['api']['title'] = [
-      '#markup' => '<div class="ttd-topics-section-title">
-        <span class="ttd-icon ttd-icon-large ttd-icon-key"></span>API Configuration
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['api']['api_help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        The API key will be automatically validated when entered to ensure it\'s working correctly.
-      </div>',
-    ];
-
-    // Create a container for the API key field and indicator.
-    $form['tabs_container']['content']['api']['api_key_container'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['api-key-container']],
-    ];
-
-    $form['tabs_container']['content']['api']['api_key_container']['topicalboost_api_key'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('TopicalBoost API Key'),
-      '#default_value' => $config->get('topicalboost_api_key'),
-      '#description' => $this->t('Your unique API key for TopicalBoost.'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group', 'ttd-topics-api-key-field'],
-        'id' => 'ttd-topics-api-key-field',
-        'placeholder' => 'Enter your API key here...',
-      ],
-      '#field_suffix' => '<div id="api-key-validation-indicator" class="api-key-indicator"></div>',
-    ];
-
-    // Add JavaScript for API key validation.
-    $form['tabs_container']['content']['api']['#attached']['library'][] = 'ttd_topics/api_validation';
-    $form['tabs_container']['content']['api']['#attached']['drupalSettings']['topicalBoost']['apiEndpoint'] = TOPICALBOOST_API_ENDPOINT;
-
-    // Schema Tab.
+    // =========================================================================
+    // Schema & URL Tab
+    // =========================================================================
     $form['tabs_container']['content']['schema'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-schema'],
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-schema'],
     ];
 
-    $form['tabs_container']['content']['schema']['title'] = [
-      '#markup' => '<div class="ttd-topics-section-title">
-        <span class="ttd-icon ttd-icon-large ttd-icon-schema"></span>Organization Schema
+    $form['tabs_container']['content']['schema']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Schema &amp; URL</h2>',
+    ];
+
+    // URL Path Configuration
+    $pattern_storage = \Drupal::entityTypeManager()->getStorage('pathauto_pattern');
+    $current_pattern = $pattern_storage->load('ttd_topics');
+    $current_full_pattern = $current_pattern ? $current_pattern->getPattern() : '/topics/[term:name]';
+    $current_path_prefix = str_replace('[term:name]', '', $current_full_pattern);
+    $stored_prefix = $config->get('topic_url_path_prefix');
+    $default_prefix = $stored_prefix ?: $current_path_prefix;
+
+    $form['tabs_container']['content']['schema']['topic_url_path_prefix'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Rewrite Slug'),
+      '#default_value' => $default_prefix,
+      '#description' => $this->t('URL path prefix for topic pages.'),
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group'],
+        'placeholder' => '/topics/',
+        'id' => 'topic-url-path-input'
+      ],
+    ];
+
+    $form['tabs_container']['content']['schema']['url_preview'] = [
+      '#markup' => '<div class="ttd-url-preview">
+        Preview: <span class="ttd-url-display">' . \Drupal::request()->getSchemeAndHttpHost() . '<span id="url-path-preview" class="ttd-url-slug">' . $default_prefix . '</span>artificial-intelligence</span>
       </div>',
+      '#attached' => [
+        'library' => ['ttd_topics/url_preview'],
+      ],
     ];
 
-    $form['tabs_container']['content']['schema']['schema_help'] = [
-      '#markup' => '<div class="ttd-topics-help-text">
-        <strong>Why this matters:</strong> This information creates structured data that helps search engines understand your organization and improves how your content appears in search results and social media, in addition to schema from your topics.
-      </div>',
-    ];
-
-    $form['tabs_container']['content']['schema']['social_media'] = [
-      '#type' => 'container',
+    $form['tabs_container']['content']['schema']['required_permission'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Required Capability'),
+      '#options' => $this->getPermissionOptions(),
+      '#default_value' => $config->get('required_permission') ?: 'administer topicalboost',
+      '#description' => $this->t('The Drupal permission a user needs to manage TopicalBoost topics.'),
       '#attributes' => ['class' => ['ttd-topics-field-group']],
     ];
 
-    $form['tabs_container']['content']['schema']['social_media']['title'] = [
-      '#markup' => '<h4><span class="ttd-icon ttd-icon-social"></span>Social Media Profiles</h4>',
-    ];
-
+    // Preserve organization profile settings for existing sites. These are not
+    // shown on the settings page because the WordPress settings page has no
+    // matching controls.
     $form['tabs_container']['content']['schema']['organization_facebook_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('Facebook Page'),
+      '#type' => 'hidden',
       '#default_value' => $config->get('organization_facebook_url'),
-      '#description' => $this->t('Your organization\'s Facebook page URL'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => 'https://www.facebook.com/yourorganization',
-      ],
     ];
 
     $form['tabs_container']['content']['schema']['organization_twitter_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('Twitter/X Profile'),
+      '#type' => 'hidden',
       '#default_value' => $config->get('organization_twitter_url'),
-      '#description' => $this->t('Your organization\'s Twitter/X profile URL'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => 'https://twitter.com/yourorganization',
-      ],
     ];
 
     $form['tabs_container']['content']['schema']['organization_linkedin_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('LinkedIn Company Page'),
+      '#type' => 'hidden',
       '#default_value' => $config->get('organization_linkedin_url'),
-      '#description' => $this->t('Your organization\'s LinkedIn company page URL'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => 'https://www.linkedin.com/company/yourorganization',
-      ],
     ];
 
     $form['tabs_container']['content']['schema']['organization_youtube_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('YouTube Channel'),
+      '#type' => 'hidden',
       '#default_value' => $config->get('organization_youtube_url'),
-      '#description' => $this->t('Your organization\'s YouTube channel URL'),
-      '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => 'https://www.youtube.com/user/yourorganization',
-      ],
-    ];
-
-    $form['tabs_container']['content']['schema']['other_links'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-    ];
-
-    $form['tabs_container']['content']['schema']['other_links']['title'] = [
-      '#markup' => '<h4><span class="ttd-icon ttd-icon-link"></span>Additional Links</h4>',
     ];
 
     $form['tabs_container']['content']['schema']['organization_wikipedia_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('Wikipedia Page'),
+      '#type' => 'hidden',
       '#default_value' => $config->get('organization_wikipedia_url'),
-      '#description' => $this->t('Your organization\'s Wikipedia page URL (if available)'),
+    ];
+
+    $form['tabs_container']['content']['schema']['block_until_analyzed'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Block Until Analyzed'),
+      '#default_value' => $config->get('block_until_analyzed') ?: FALSE,
+      '#description' => $this->t('Hold content until topic analysis is complete.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['schema']['disable_event_temporal_properties'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Output events as Things'),
+      '#default_value' => $config->get('disable_event_temporal_properties') ?: FALSE,
+      '#description' => $this->t('When enabled, Event entities will be output as generic "Thing" type in schema markup, without temporal properties (startDate, endDate, location). Useful if event data is outdated or incorrect.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['schema']['hide_seo_module_ui'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Hide SEO Plugin UI'),
+      '#default_value' => $config->get('hide_seo_module_ui') ?: FALSE,
+      '#description' => $this->t('Hide other SEO plugin metaboxes and columns.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['schema']['branding'] = [
+      '#type' => 'hidden',
+      '#default_value' => $config->get('organization_logo_fid') ?: '',
+    ];
+
+    // =========================================================================
+    // Authors Tab
+    // =========================================================================
+    $author_helper = \Drupal::service('ttd_topics.author_manager_helper');
+    $author_rows = $author_helper->getContentTypeRows();
+    $author_content_type_options = [];
+    foreach ($author_rows as $row) {
+      $author_content_type_options[$row['id']] = $row['label'] . ' (' . number_format($row['count']) . ')';
+    }
+    $author_settings = [
+      'author_name_field' => $config->get('author_name_field') ?: '',
+      'author_image_field' => $config->get('author_image_field') ?: '',
+      'author_description_field' => $config->get('author_description_field') ?: '',
+    ];
+    $selected_author_field = $config->get('author_field_name') ?: 'uid';
+
+    $form['#attached']['library'][] = 'ttd_topics/author_manager';
+    $form['#attached']['drupalSettings']['ttd_topics']['authorFieldMappingUrl'] = Url::fromRoute('topicalboost.api.author_field_mapping')->toString();
+
+    $form['tabs_container']['content']['authors'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-authors'],
+    ];
+
+    $form['tabs_container']['content']['authors']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Custom Author Manager</h2>
+        <p class="description">Manage Drupal author visibility, replace default authors with custom author data from users, taxonomy terms, or content references, and generate proper Person schema for SEO.</p>',
+    ];
+
+    $form['tabs_container']['content']['authors']['author_manager_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable custom author management'),
+      '#default_value' => $config->get('author_manager_enabled') ?: FALSE,
+      '#description' => $this->t('Controls author visibility, custom author schema, and author support features.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<table class="form-table ttd-author-manager-table"><tr><th scope="row">' . $this->t('Enable Author Manager') . '</th><td><div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#wrapper_attributes' => ['class' => ['ttd-author-manager-enable']],
+    ];
+    $form['tabs_container']['content']['authors']['author_manager_enabled_close'] = [
+      '#markup' => '</td></tr></table>',
+    ];
+
+    $form['tabs_container']['content']['authors']['settings'] = [
+      '#type' => 'container',
       '#attributes' => [
-        'class' => ['ttd-topics-field-group'],
-        'placeholder' => 'https://en.wikipedia.org/wiki/Your_Organization',
+        'id' => 'ttd-author-manager-settings',
+        'style' => ($config->get('author_manager_enabled') ?: FALSE) ? '' : 'display:none;',
       ],
     ];
 
-    $form['tabs_container']['content']['schema']['branding'] = [
+    $hide_author_types = array_filter($config->get('author_hide_content_types') ?: []);
+    $form['tabs_container']['content']['authors']['settings']['visibility_intro'] = [
+      '#markup' => '<h3>Hide Drupal Authors</h3>
+        <p class="description">Remove the default Drupal author UI from admin screens for selected content types. This only hides the display -- it does not delete author data.</p>
+        <table class="form-table ttd-author-manager-table">',
+    ];
+
+    $form['tabs_container']['content']['authors']['settings']['author_hide_content_types'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#tree' => TRUE,
     ];
-
-    $form['tabs_container']['content']['schema']['branding'] = [
-      '#type' => 'fieldset',
-      '#title' => '<span class="ttd-icon ttd-icon-logo"></span>' . $this->t('Logo & Branding'),
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-    ];
-
-    // Current logo status section.
-    $auto_detected_logo = $this->getAutoDetectedLogoUrl();
-
-    if ($auto_detected_logo) {
-      $dimensions_info = $this->getImageDimensions($auto_detected_logo);
-
-      $form['tabs_container']['content']['schema']['branding']['current_status']['preview'] = [
-        '#type' => 'item',
-        '#markup' => '<div style="background: #f8f9fa; padding: 16px; border-radius: 6px; border: 1px solid #e9ecef;"><div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px;"><img src="' . $auto_detected_logo . '" alt="Current Logo" style="max-width: 120px; max-height: 80px; border: 1px solid #ddd; padding: 6px; background: white; flex-shrink: 0;" /><div style="flex: 1; min-width: 0;"><div style="font-size: 13px; color: #495057; margin-bottom: 4px; word-break: break-all;"><strong>Source:</strong> ' . $auto_detected_logo . '</div><div style="font-size: 13px; color: #495057;"><strong>Info:</strong> ' . $dimensions_info . '</div></div></div><div style="font-size: 12px; color: #856404; background: #fff3cd; padding: 8px 10px; border-radius: 4px; border-left: 3px solid #ffc107;"></div></div>',
-      ];
+    if ($author_rows) {
+      foreach ($author_rows as $row) {
+        $form['tabs_container']['content']['authors']['settings']['author_hide_content_types'][$row['id']] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Hide Drupal author for @label', ['@label' => $row['label']]),
+          '#default_value' => in_array($row['id'], $hide_author_types, TRUE),
+          '#prefix' => '<tr><th scope="row">' . htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8') . '</th><td><div class="ttd-topics-toggle-field ttd-author-toggle-row">',
+          '#suffix' => '<span class="description ttd-author-count">(' . number_format($row['count']) . ' posts)</span></div></td></tr>',
+        ];
+      }
     }
     else {
-      $form['tabs_container']['content']['schema']['branding']['current_status']['no_logo'] = [
-        '#type' => 'item',
-        '#markup' => '<div style="padding: 12px 16px; border: 2px dashed #dc3545; border-radius: 6px; text-align: center; background: #f8d7da; color: #721c24;"><strong>⚠️ No logo detected.</strong> Please use the override options below.</div>',
+      $form['tabs_container']['content']['authors']['settings']['visibility_empty'] = [
+        '#markup' => '<tr><td colspan="2"><p class="description">No content types found.</p></td></tr>',
       ];
     }
-
-    // Upload override option.
-    $form['tabs_container']['content']['schema']['branding']['organization_logo_upload'] = [
-      '#type' => 'managed_file',
-      '#title' => $this->t('Upload Logo (Optional)'),
-      '#default_value' => $config->get('organization_logo_fid') ? [$config->get('organization_logo_fid')] : NULL,
-      '#description' => $this->t('Override the auto-detected logo. PNG/JPG recommended.'),
-      '#upload_validators' => [
-        'FileExtension' => [
-          'extensions' => 'png jpg jpeg svg gif'
-        ],
-        'FileSizeLimit' => [
-          'fileLimit' => 5 * 1024 * 1024, // 5MB max
-        ],
-      ],
-      '#upload_location' => 'public://logos/',
+    $form['tabs_container']['content']['authors']['settings']['visibility_close'] = [
+      '#markup' => '</table>',
     ];
 
+    $form['tabs_container']['content']['authors']['settings']['schema_title'] = [
+      '#markup' => '<h3>Custom Author Schema</h3>
+        <p class="description">Configure custom author fields used in TopicalBoost schema output. This replaces the default Drupal author in structured data with your custom author source.</p>
+        <table class="form-table ttd-author-manager-table">',
+    ];
+
+    $form['tabs_container']['content']['authors']['settings']['custom_author_schema_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Replace Drupal author schema with custom author data'),
+      '#default_value' => $config->get('custom_author_schema_enabled') ?: FALSE,
+      '#description' => $this->t('Adds schema.org Person authors to TopicalBoost JSON-LD.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<tr><th scope="row">' . $this->t('Enable Custom Author Schema') . '</th><td><div class="ttd-topics-toggle-field ttd-author-toggle-row">',
+      '#suffix' => '</div></td></tr>',
+    ];
+
+    $form['tabs_container']['content']['authors']['settings']['author_field_name'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Author Field'),
+      '#title_display' => 'invisible',
+      '#options' => $author_helper->getAuthorFieldOptions(array_filter($config->get('enabled_content_types') ?: [])),
+      '#default_value' => $selected_author_field,
+      '#description' => $this->t('Entity reference field that contains your authors.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group'], 'id' => 'ttd-author-field-name'],
+      '#prefix' => '<tr><th scope="row"><label for="ttd-author-field-name">' . $this->t('Author Field') . '</label></th><td>',
+      '#suffix' => '</td></tr></table>',
+    ];
+
+    $form['tabs_container']['content']['authors']['settings']['mapping'] = $author_helper->buildMappingForm(
+      $selected_author_field,
+      $author_settings,
+      array_filter($config->get('enabled_content_types') ?: [])
+    );
+
+    // =========================================================================
+    // Widgets Tab
+    // =========================================================================
+    $form['tabs_container']['content']['widgets'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-widgets'],
+    ];
+
+    $form['tabs_container']['content']['widgets']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Widgets</h2>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['search_clippings_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('SearchClippings'),
+      '#default_value' => $config->get('search_clippings_enabled') ?: FALSE,
+      '#description' => $this->t('Tracks your content appearances in Google Top Stories.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_section'] = [
+      '#markup' => '',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_widget_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Citations'),
+      '#default_value' => $config->get('citations_widget_enabled') ?: FALSE,
+      '#description' => $this->t('Tracks how often your content is cited across the web.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
+    $form['tabs_container']['content']['widgets']['citations_widget_limit'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Citations Limit'),
+      '#default_value' => $config->get('citations_widget_limit') ?: 20,
+      '#min' => 5,
+      '#max' => 100,
+      '#description' => $this->t('Maximum number of citations to display in the widget.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => [
+        'visible' => [
+          ':input[name="citations_widget_enabled"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['tabs_container']['content']['widgets']['search_countries_section'] = [
+      '#markup' => '<h4>Monitored Countries</h4>',
+    ];
+
+    // Build country options
+    $country_options = [
+      'US' => 'United States', 'GB' => 'United Kingdom', 'CA' => 'Canada',
+      'AU' => 'Australia', 'DE' => 'Germany', 'FR' => 'France', 'ES' => 'Spain',
+      'IT' => 'Italy', 'NL' => 'Netherlands', 'BR' => 'Brazil', 'IN' => 'India',
+      'JP' => 'Japan', 'MX' => 'Mexico', 'SE' => 'Sweden', 'NO' => 'Norway',
+      'DK' => 'Denmark', 'FI' => 'Finland', 'PL' => 'Poland', 'BE' => 'Belgium',
+      'AT' => 'Austria', 'CH' => 'Switzerland', 'IE' => 'Ireland', 'NZ' => 'New Zealand',
+      'SG' => 'Singapore', 'ZA' => 'South Africa', 'PT' => 'Portugal',
+      'AR' => 'Argentina', 'CL' => 'Chile', 'CO' => 'Colombia',
+      'KR' => 'South Korea', 'TW' => 'Taiwan', 'HK' => 'Hong Kong',
+      'PH' => 'Philippines', 'TH' => 'Thailand', 'MY' => 'Malaysia',
+      'ID' => 'Indonesia', 'VN' => 'Vietnam', 'IL' => 'Israel',
+      'AE' => 'United Arab Emirates', 'SA' => 'Saudi Arabia',
+      'TR' => 'Turkey', 'RU' => 'Russia', 'UA' => 'Ukraine',
+      'CZ' => 'Czech Republic', 'RO' => 'Romania', 'HU' => 'Hungary',
+      'GR' => 'Greece', 'HR' => 'Croatia', 'BG' => 'Bulgaria',
+    ];
+    asort($country_options);
+
+    $form['tabs_container']['content']['widgets']['search_countries'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Monitored Countries'),
+      '#options' => $country_options,
+      '#default_value' => $config->get('search_countries') ?: ['US'],
+      '#description' => $this->t('Select countries for search demand data. Changes are pushed to the API on save.'),
+      '#multiple' => TRUE,
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group', 'ttd-topics-select2'],
+        'data-placeholder' => 'Select countries...',
+      ],
+    ];
+
+    // =========================================================================
+    // Developer Tab
+    // =========================================================================
+    $form['tabs_container']['content']['developer'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-developer'],
+    ];
+
+    $form['tabs_container']['content']['developer']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Developer</h2>',
+    ];
+
+    $form['tabs_container']['content']['developer']['debug_mode'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Debug Mode'),
+      '#default_value' => $config->get('debug_mode') ?: FALSE,
+      '#description' => $this->t('Enable detailed console logging for debugging. Disable this in production for better performance.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#weight' => 0,
+    ];
+
+    $form['tabs_container']['content']['developer']['batch_size'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Batch Size'),
+      '#default_value' => $config->get('batch_size') ?: 35,
+      '#min' => 5,
+      '#max' => 100,
+      '#description' => $this->t('Number of posts to send per batch during bulk analysis. Lower values are safer for servers with limited resources. Default: 35.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#weight' => 4,
+    ];
+
+    $form['tabs_container']['content']['developer']['beta_channel'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Plugin Updates'),
+      '#default_value' => $config->get('beta_channel') ?: FALSE,
+      '#description' => $this->t('Get early access to new module features and UI changes.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#weight' => 1,
+    ];
+
+    $form['tabs_container']['content']['developer']['use_beta_api'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Beta Analysis'),
+      '#default_value' => $config->get('use_beta_api') ?: FALSE,
+      '#description' => $this->t('Routes analysis requests to the beta server for testing improvements.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#weight' => 2,
+    ];
+
+    $form['tabs_container']['content']['developer']['error_telemetry_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Error Telemetry'),
+      '#default_value' => $config->get('error_telemetry_enabled') ?? TRUE,
+      '#description' => $this->t('Send anonymous error reports to help improve TopicalBoost. No personal or content data is included.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+      '#weight' => 3,
+    ];
+
+    $form['tabs_container']['content']['developer']['alternative_display'] = [
+      '#markup' => Markup::create('<div class="form-item ttd-alternative-display"><label class="form-item__label">' . $this->t('Alternative Display') . '</label><div><p class="description">' . $this->t('Alternative methods for displaying topics when auto-append does not work with your theme.') . '</p><strong>Twig</strong><pre class="ttd-code-example"><code>{{ topicalboost_display() }}</code></pre><strong>Data</strong><pre class="ttd-code-example"><code>{{ topicalboost_data() }}</code></pre></div></div>'),
+      '#weight' => 5,
+    ];
+
+    // =========================================================================
     // Bulk Analysis Tab
+    // =========================================================================
     $form['tabs_container']['content']['bulk_analysis'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['ttd-topics-tab-panel'], 'id' => 'tab-bulk-analysis'],
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-bulk-analysis'],
       '#prefix' => '<div id="ttd-bulk-analysis-form">',
       '#suffix' => '</div>',
+      '#access' => FALSE,
     ];
 
     // Check if content types are enabled for bulk analysis
@@ -652,8 +919,7 @@ class SettingsForm extends ConfigFormBase {
           <h3>No Content Types Enabled</h3>
           <p>To perform bulk analysis, you need to enable TopicalBoost for one or more content types that have published posts.</p>
           <div class="empty-state-action">
-            <a href="#settings" class="ttd-topics-tab-button ttd-topics-button-primary" data-tab="tab-settings">
-              <span class="ttd-icon ttd-icon-settings"></span>
+            <a href="#content" class="ttd-nav-item ttd-topics-button-primary" data-tab="tab-content">
               Configure Content Types
             </a>
           </div>
@@ -795,7 +1061,7 @@ class SettingsForm extends ConfigFormBase {
         '#markup' => '<div class="ttd-filter-group">
           <div class="ttd-filter-header">
             <span class="ttd-section-label">Default from Settings • Click to Add/Remove for This Analysis</span>
-            <a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#settings" class="ttd-edit-link ttd-edit-link--pencil" title="Edit Default in Settings">
+            <a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#content" class="ttd-edit-link ttd-edit-link--pencil" title="Edit Default in Settings">
             </a>
           </div>
         </div>',
@@ -900,6 +1166,153 @@ class SettingsForm extends ConfigFormBase {
       $form['#attached']['drupalSettings']['ttd_topics']['nonce'] = \Drupal::csrfToken()->get('ttd_bulk_analysis');
       $form['#attached']['drupalSettings']['ttd_topics']['enabled_content_types'] = $bulk_enabled_content_types;
     }
+
+    // =========================================================================
+    // Watchlist Tab
+    // =========================================================================
+    $form['tabs_container']['content']['watchlist'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-watchlist'],
+    ];
+
+    $form['tabs_container']['content']['watchlist']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Entity Watchlist</h2>',
+    ];
+
+    $form['tabs_container']['content']['watchlist']['description'] = [
+      '#markup' => '<p class="description">' . $this->t('Entities on the watchlist are always checked during analysis. Use this for niche topics your publication frequently covers that analysis might otherwise miss.') . '</p>',
+    ];
+
+    $form['tabs_container']['content']['watchlist']['search_container'] = [
+      '#markup' => Markup::create('<div class="ttd-watchlist-search-wrapper">
+        <label for="ttd-watchlist-search">' . $this->t('Add Entity') . '</label>
+        <input type="text" id="ttd-watchlist-search" class="form-text" placeholder="' . $this->t('Search for an entity...') . '" autocomplete="off" />
+        <div class="ttd-watchlist-spinner" id="ttd-watchlist-spinner"></div>
+        <div class="ttd-watchlist-results" id="ttd-watchlist-results" style="display:none;"></div>
+      </div>
+      <div id="ttd-watchlist-feedback"></div>'),
+    ];
+
+    $form['tabs_container']['content']['watchlist']['items_container'] = [
+      '#markup' => Markup::create('<div class="ttd-watchlist-items-wrapper">
+        <h4>' . $this->t('Watchlist (<span id="ttd-watchlist-count"><span>0</span></span>/50)') . '</h4>
+        <div class="ttd-watchlist-items" id="ttd-watchlist-items">
+          <p class="ttd-watchlist-empty">Loading watchlist...</p>
+        </div>
+      </div>'),
+    ];
+
+    $form['#attached']['library'][] = 'ttd_topics/watchlist';
+
+    // =========================================================================
+    // Sync Tab
+    // =========================================================================
+    $form['tabs_container']['content']['sync'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-sync'],
+      '#access' => FALSE,
+    ];
+
+    $form['tabs_container']['content']['sync']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Sync</h2>',
+    ];
+
+    $form['tabs_container']['content']['sync']['content'] = [
+      '#markup' => '<div id="ttd-sync-container">
+        <div id="ttd-sync-status-label" style="display:none;">
+          <span class="ttd-sync-dot"></span>
+          <span class="ttd-sync-label">Checking...</span>
+        </div>
+
+        <div class="ttd-sync-cards">
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Topics') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-topics"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-topics">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-topics" style="display:none;"></div>
+          </div>
+
+          <div class="ttd-sync-card">
+            <div class="ttd-sync-card-header">
+              <span class="ttd-sync-card-title">' . $this->t('Relationships') . '</span>
+              <span class="ttd-sync-card-icon" id="sync-status-rels"></span>
+            </div>
+            <div class="ttd-sync-card-counts">
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-site-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('Site') . '</span>
+              </div>
+              <div class="ttd-sync-card-count">
+                <span class="ttd-sync-card-number" id="sync-api-rels">&mdash;</span>
+                <span class="ttd-sync-card-label">' . $this->t('API') . '</span>
+              </div>
+            </div>
+            <div class="ttd-sync-card-hint" id="sync-hint-rels" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div id="ttd-sync-progress" style="display:none;">
+          <div class="ttd-sync-progress-bar">
+            <div class="ttd-sync-progress-fill" id="sync-progress-fill" style="width:0%;"></div>
+          </div>
+          <div class="ttd-sync-progress-info">
+            <span id="sync-progress-text">0%</span>
+            <span id="sync-progress-stage"></span>
+          </div>
+        </div>
+
+        <div id="ttd-sync-result" style="display:none;"></div>
+        <div id="ttd-sync-summary" style="display:none;"></div>
+
+        <div class="ttd-sync-actions">
+          <button type="button" class="button button--primary" id="ttd-sync-btn" style="display:none;">' . $this->t('Sync Now') . '</button>
+          <button type="button" class="button" id="ttd-sync-cancel" style="display:none;">' . $this->t('Cancel') . '</button>
+        </div>
+      </div>',
+    ];
+
+    $form['#attached']['library'][] = 'ttd_topics/sync';
+
+    // =========================================================================
+    // Troubleshoot Tab
+    // =========================================================================
+    $form['tabs_container']['content']['troubleshoot'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-troubleshoot'],
+      '#access' => FALSE,
+    ];
+
+    $form['tabs_container']['content']['troubleshoot']['panel_title'] = [
+      '#markup' => '<h2 class="ttd-panel-title">Troubleshoot</h2>',
+    ];
+
+    $form['tabs_container']['content']['troubleshoot']['content'] = [
+      '#markup' => '<div id="ttd-troubleshoot-container">
+        <p class="description">' . $this->t('Manage stuck posts and clear analysis flags.') . '</p>
+        <p><a href="' . Url::fromRoute('topicalboost.troubleshoot')->toString() . '" class="button">' . $this->t('Open Troubleshoot Page') . '</a></p>
+      </div>',
+    ];
+
+    // Changelog panel.
+    $form['tabs_container']['content']['changelog'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-settings-panel'], 'id' => 'tab-changelog'],
+    ];
+    $form['tabs_container']['content']['changelog']['content'] = [
+      '#markup' => '<h2>Changelog</h2><div id="ttd-changelog-container"><p class="ttd-changelog-loading">Loading changelog...</p></div>',
+    ];
+    $form['#attached']['library'][] = 'ttd_topics/changelog';
 
     return parent::buildForm($form, $form_state);
   }
@@ -1362,6 +1775,32 @@ class SettingsForm extends ConfigFormBase {
   }
 
   /**
+   * Builds the list of selectable Drupal permissions.
+   *
+   * @return array
+   *   Permission machine names keyed to readable labels.
+   */
+  protected function getPermissionOptions() {
+    $permissions = \Drupal::service('user.permissions')->getPermissions();
+    $options = [];
+
+    foreach ($permissions as $permission => $definition) {
+      $title = isset($definition['title']) ? strip_tags((string) $definition['title']) : $permission;
+      $options[$permission] = $title . ' (' . $permission . ')';
+    }
+
+    asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+
+    $preferred = [
+      'administer topicalboost' => $this->t('Administer TopicalBoost (administer topicalboost)'),
+      'administer topicalboost configuration' => $this->t('Administer TopicalBoost configuration (administer topicalboost configuration)'),
+      'administer nodes' => $this->t('Administer nodes (administer nodes)'),
+    ];
+
+    return $preferred + $options;
+  }
+
+  /**
    * Manages field additions and removals when content types are enabled/disabled.
    */
   protected function manageContentTypeFields(array $old_content_types, array $new_content_types) {
@@ -1412,6 +1851,74 @@ class SettingsForm extends ConfigFormBase {
       'field_ttd_analysis_in_progress' => [
         'type' => 'boolean',
         'label' => 'TopicalBoost Analysis In Progress',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_generated_meta_title' => [
+        'type' => 'string',
+        'label' => 'TopicalBoost Generated Meta Title',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_generated_meta_desc' => [
+        'type' => 'string_long',
+        'label' => 'TopicalBoost Generated Meta Description',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_generated_og_title' => [
+        'type' => 'string',
+        'label' => 'TopicalBoost Generated OG Title',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_generated_og_desc' => [
+        'type' => 'string_long',
+        'label' => 'TopicalBoost Generated OG Description',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_tier_overrides' => [
+        'type' => 'map',
+        'label' => 'Topic Tier Overrides',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_manual_topics' => [
+        'type' => 'entity_reference',
+        'label' => 'Manual Topics',
+        'storage_settings' => [
+          'target_type' => 'taxonomy_term',
+        ],
+        'settings' => [
+          'handler' => 'default:taxonomy_term',
+          'handler_settings' => [
+            'target_bundles' => ['ttd_topics' => 'ttd_topics'],
+            'auto_create' => FALSE,
+          ],
+        ],
+      ],
+      'field_ttd_schema_16x9' => [
+        'type' => 'image',
+        'label' => 'Schema Image (16:9)',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_schema_4x3' => [
+        'type' => 'image',
+        'label' => 'Schema Image (4:3)',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_schema_1x1' => [
+        'type' => 'image',
+        'label' => 'Schema Image (1:1)',
+        'storage_settings' => [],
+        'settings' => [],
+      ],
+      'field_ttd_schema_focal_point' => [
+        'type' => 'string',
+        'label' => 'Schema Image Focal Point',
         'storage_settings' => [],
         'settings' => [],
       ],
@@ -1555,6 +2062,16 @@ class SettingsForm extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('ttd_topics.settings');
+    $new_api_key = trim((string) $form_state->getValue('topicalboost_api_key'));
+    $new_api_key_hash = $new_api_key !== '' ? hash('sha256', $new_api_key) : '';
+    $saved_validation_hash = (string) $config->get('api_key_validation_hash');
+    $validation_matches_saved_key = $new_api_key_hash !== ''
+      && $saved_validation_hash !== ''
+      && hash_equals($saved_validation_hash, $new_api_key_hash);
+    $api_key_validated = $validation_matches_saved_key ? (bool) $config->get('api_key_validated') : FALSE;
+    $api_key_validation_hash = $validation_matches_saved_key ? $saved_validation_hash : '';
+    $subscription_status = $validation_matches_saved_key ? ($config->get('subscription_status') ?: '') : '';
+    $domain_mismatch = $validation_matches_saved_key ? ($config->get('domain_mismatch') ?: []) : [];
     
     // Get old and new content types to manage field additions/removals.
     $old_content_types = array_filter($config->get('enabled_content_types') ?: []);
@@ -1579,7 +2096,7 @@ class SettingsForm extends ConfigFormBase {
     $this->manageContentTypeFields($old_content_types, $new_content_types);
 
     // Handle logo file upload.
-    $logo_fid = NULL;
+    $logo_fid = $config->get('organization_logo_fid');
     $upload_values = $form_state->getValue(['branding', 'organization_logo_upload']);
     if ($upload_values) {
       $logo_fid = $upload_values[0];
@@ -1618,24 +2135,85 @@ class SettingsForm extends ConfigFormBase {
       }
     }
 
+    // Push search_countries to API if changed.
+    $new_search_countries = array_filter($form_state->getValue('search_countries') ?: []);
+    $old_search_countries = array_filter($config->get('search_countries') ?: []);
+    if ($new_search_countries != $old_search_countries) {
+      $api_key = $form_state->getValue('topicalboost_api_key') ?: $config->get('topicalboost_api_key');
+      if ($api_key) {
+        try {
+          $client = \Drupal::httpClient();
+          $client->put(TOPICALBOOST_API_ENDPOINT . '/site-settings/countries', [
+            'headers' => [
+              'Content-Type' => 'application/json',
+              'x-api-key' => $api_key,
+            ],
+            'json' => ['countries' => array_values($new_search_countries)],
+            'timeout' => 15,
+          ]);
+        }
+        catch (\Exception $e) {
+          \Drupal::logger('topicalboost')->error('Failed to push search countries to API: @message', ['@message' => $e->getMessage()]);
+        }
+      }
+    }
+
     $config
       ->set('enabled_content_types', $new_content_types)
       ->set('enable_frontend', $form_state->getValue('enable_frontend'))
       ->set('enable_automatic_mentions', $form_state->getValue('enable_automatic_mentions'))
+      ->set('enable_meta_generator', $form_state->getValue('enable_meta_generator'))
       ->set('maximum_visible_post_topics', $form_state->getValue('maximum_visible_post_topics'))
       ->set('post_topic_minimum_display_count', $form_state->getValue('post_topic_minimum_display_count'))
       ->set('analysis_custom_fields', array_filter($form_state->getValue('analysis_custom_fields') ?: []))
       ->set('topics_list_label', $form_state->getValue('topics_list_label'))
       ->set('topic_url_path_prefix', $new_path_prefix)
       ->set('debug_mode', $form_state->getValue('debug_mode'))
-      ->set('topicalboost_api_key', $form_state->getValue('topicalboost_api_key'))
-
+      ->set('topicalboost_api_key', $new_api_key)
+      ->set('api_key_validated', $api_key_validated)
+      ->set('api_key_validation_hash', $api_key_validation_hash)
+      ->set('subscription_status', $subscription_status)
+      ->set('domain_mismatch', $domain_mismatch)
       ->set('organization_facebook_url', $form_state->getValue('organization_facebook_url'))
       ->set('organization_twitter_url', $form_state->getValue('organization_twitter_url'))
       ->set('organization_linkedin_url', $form_state->getValue('organization_linkedin_url'))
       ->set('organization_youtube_url', $form_state->getValue('organization_youtube_url'))
       ->set('organization_wikipedia_url', $form_state->getValue('organization_wikipedia_url'))
       ->set('organization_logo_fid', $logo_fid)
+      // New settings
+      ->set('frontend_filter_mode', $form_state->getValue('frontend_filter_mode') ?: 'mentions_behind_toggle')
+      ->set('frontend_sort_order', $form_state->getValue('frontend_sort_order'))
+      ->set('auto_link_topics', $form_state->getValue('auto_link_topics'))
+      ->set('skeleton_style', $form_state->getValue('skeleton_style'))
+      ->set('taxonomy_label_singular', $form_state->getValue('taxonomy_label_singular'))
+      ->set('taxonomy_label_plural', $form_state->getValue('taxonomy_label_plural'))
+      ->set('include_excerpt', $form_state->getValue('include_excerpt'))
+      ->set('batch_size', (int) $form_state->getValue('batch_size'))
+      ->set('beta_channel', $form_state->getValue('beta_channel'))
+      ->set('use_beta_api', $form_state->getValue('use_beta_api'))
+      ->set('error_telemetry_enabled', $form_state->getValue('error_telemetry_enabled'))
+      ->set('disable_event_temporal_properties', $form_state->getValue('disable_event_temporal_properties'))
+      ->set('hide_seo_module_ui', $form_state->getValue('hide_seo_module_ui'))
+      ->set('block_until_analyzed', $form_state->getValue('block_until_analyzed'))
+      ->set('required_permission', $form_state->getValue('required_permission') ?: 'administer topicalboost')
+      ->set('new_topic_reanalysis_enabled', $form_state->getValue('new_topic_reanalysis_enabled'))
+      ->set('new_topic_reanalysis_lookback_days', (int) $form_state->getValue('new_topic_reanalysis_lookback_days'))
+      ->set('search_clippings_enabled', $form_state->getValue('search_clippings_enabled'))
+      ->set('citations_widget_enabled', $form_state->getValue('citations_widget_enabled'))
+      ->set('citations_widget_limit', (int) $form_state->getValue('citations_widget_limit'))
+      ->set('meta_seo_prompt', $form_state->getValue('meta_seo_prompt'))
+      ->set('meta_social_prompt', $form_state->getValue('meta_social_prompt'))
+      ->set('meta_title_case_format', $form_state->getValue('meta_title_case_format') ?: 'title')
+      ->set('auto_sync_enabled', $form_state->getValue('auto_sync_enabled'))
+      ->set('search_countries', array_values($new_search_countries))
+      ->set('author_manager_enabled', $form_state->getValue('author_manager_enabled'))
+      ->set('author_hide_content_types', array_keys(array_filter($form_state->getValue('author_hide_content_types') ?: [])))
+      ->set('author_force_show_content_types', array_keys(array_filter($form_state->getValue('author_force_show_content_types') ?: [])))
+      ->set('custom_author_schema_enabled', $form_state->getValue('custom_author_schema_enabled'))
+      ->set('author_field_name', $form_state->getValue('author_field_name') ?: 'uid')
+      ->set('author_name_field', $form_state->getValue('author_name_field') ?: 'display_name')
+      ->set('author_image_field', $form_state->getValue('author_image_field') ?: '')
+      ->set('author_description_field', $form_state->getValue('author_description_field') ?: '')
       ->save();
 
     parent::submitForm($form, $form_state);

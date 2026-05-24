@@ -1,0 +1,23 @@
+topicalboost.settings_tab:
+  title: Settings
+  route_name: topicalboost.settings_form
+  base_route: topicalboost.settings_form
+  weight: 0
+
+topicalboost.bulk_analysis_tab:
+  title: Bulk Analysis
+  route_name: topicalboost.bulk_analysis
+  base_route: topicalboost.settings_form
+  weight: 1
+
+topicalboost.coverage_tab:
+  title: Topic Coverage
+  route_name: topicalboost.coverage
+  base_route: topicalboost.settings_form
+  weight: 2
+
+topicalboost.new_topics_tab:
+  title: New Topics
+  route_name: topicalboost.new_topics
+  base_route: topicalboost.settings_form
+  weight: 3

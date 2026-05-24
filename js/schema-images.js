@@ -1,0 +1,257 @@
+(function ($, Drupal, once) {
+  'use strict';
+
+  Drupal.behaviors.ttdSchemaImages = {
+    attach: function (context) {
+      once('ttd-schema-images', '.ttd-schema-images-wrap', context).forEach(function (wrapper) {
+        var $wrapper = $(wrapper);
+        var nid = $wrapper.data('nid');
+        var $status = $wrapper.find('.ttd-schema-status');
+        var $formats = $wrapper.find('.ttd-schema-formats');
+        var $focalPicker = $wrapper.find('.ttd-focal-picker');
+        var $focalToggle = $wrapper.find('.ttd-focal-toggle');
+        var $focalPanel = $wrapper.find('.ttd-focal-panel');
+        var $focalSummary = $wrapper.find('.ttd-focal-summary');
+        var focalX = 0.5;
+        var focalY = 0.5;
+
+        // Get CSRF token for POST requests.
+        var csrfToken = null;
+        $.ajax({
+          url: Drupal.url('session/token'),
+          async: false,
+          dataType: 'text',
+          success: function (token) { csrfToken = token; }
+        });
+
+        function showMessage(text, isError) {
+          var cls = isError ? 'messages--error' : 'messages--status';
+          var $msg = $('<div class="messages ' + cls + '" role="alert">' + Drupal.checkPlain(text) + '</div>');
+          $wrapper.prepend($msg);
+          setTimeout(function () { $msg.fadeOut(function () { $msg.remove(); }); }, 5000);
+        }
+
+        function loadStatus() {
+          $.ajax({
+            url: Drupal.url('api/topicalboost/schema-images/status'),
+            data: { nid: nid },
+            dataType: 'json',
+            success: function (data) {
+              if (!data.success) return;
+              renderStatus(data);
+            }
+          });
+        }
+
+        function renderStatus(data) {
+          var images = data.images || {};
+          var imageCount = Object.keys(images).length;
+          var source = data.source || null;
+          var canPreviewSource = source && source.url && source.suitable;
+
+          // Update status indicator.
+          var statusClass = (imageCount === 3 || canPreviewSource) ? 'ready' :
+            (imageCount > 0 ? 'partial' : 'missing');
+          var statusText = imageCount === 3 ? 'All formats ready' :
+            (imageCount > 0 ? imageCount + '/3 formats ready' :
+              (canPreviewSource ? 'Ready (featured image)' : 'No schema images'));
+          $status.html('<span class="ttd-schema-status-icon ttd-schema-status-' + statusClass + '"></span> ' + statusText);
+
+          // Update format previews.
+          var ratios = ['16x9', '4x3', '1x1'];
+          var labels = {'16x9': '16:9 (1200x675)', '4x3': '4:3 (900x675)', '1x1': '1:1 (675x675)'};
+          var descriptions = {
+            '16x9': 'Google Search, Article snippets',
+            '4x3': 'Google News, Social cards',
+            '1x1': 'Knowledge Panel, square displays'
+          };
+
+          $formats.empty();
+          ratios.forEach(function (ratio) {
+            var img = images[ratio];
+            var hasImage = !!img;
+            var previewClass = 'ttd-schema-preview ttd-schema-preview--ratio-' + ratio;
+            var $format = $('<div class="ttd-schema-format"></div>');
+
+            if (hasImage) {
+              $format.append('<div class="' + previewClass + '">' +
+                '<img src="' + img.url + '" alt="Schema ' + ratio + '">' +
+                '<span class="ttd-schema-checkmark">&#10003;</span>' +
+                '</div>');
+            } else if (canPreviewSource) {
+              $format.append('<div class="' + previewClass + ' ttd-schema-preview--source">' +
+                '<img src="' + source.url + '" alt="Featured image preview for schema ' + ratio + '">' +
+                '</div>');
+            } else {
+              $format.append('<div class="' + previewClass + ' ttd-schema-preview--empty">' +
+                '<span class="ttd-schema-placeholder">No image</span>' +
+                '</div>');
+            }
+
+            $format.append('<div class="ttd-schema-format-info">' +
+              '<strong>' + labels[ratio] + '</strong>' +
+              '<small>' + descriptions[ratio] + '</small>' +
+              '</div>');
+            $formats.append($format);
+          });
+
+          // Update focal point if available.
+          if (data.focal_point) {
+            focalX = data.focal_point.x;
+            focalY = data.focal_point.y;
+            updateFocalMarker();
+          }
+
+          // Source image info.
+          var $source = $wrapper.find('.ttd-schema-source-info');
+          if (data.source) {
+            var cls = data.source.suitable ? 'suitable' : 'unsuitable';
+            $source.html('<span class="ttd-schema-source-' + cls + '">' + Drupal.checkPlain(data.source.message) + '</span>');
+          } else if (imageCount === 0) {
+            $source.html('<span class="ttd-schema-source-unsuitable">No source image found. Upload a custom image or add a featured/header image.</span>');
+          } else {
+            $source.empty();
+          }
+        }
+
+        function updateFocalMarker() {
+          var $marker = $focalPicker.find('.ttd-focal-marker');
+          if ($marker.length) {
+            $marker.css({ left: (focalX * 100) + '%', top: (focalY * 100) + '%' });
+          }
+          $wrapper.find('.ttd-focal-coords').text(
+            'x: ' + focalX.toFixed(2) + ', y: ' + focalY.toFixed(2)
+          );
+          $focalSummary.text(
+            'Crop center: x ' + focalX.toFixed(2) + ', y ' + focalY.toFixed(2)
+          );
+        }
+
+        $focalToggle.on('click', function () {
+          var isOpen = !$focalPanel.prop('hidden');
+          $focalPanel.prop('hidden', isOpen);
+          $focalToggle.attr('aria-expanded', isOpen ? 'false' : 'true');
+          $focalToggle.text(isOpen ? 'Adjust crop' : 'Hide crop');
+          if (!isOpen) {
+            updateFocalMarker();
+          }
+        });
+
+        // Generate images button.
+        $wrapper.find('.ttd-schema-generate-btn').on('click', function () {
+          var $btn = $(this);
+          $btn.prop('disabled', true).text('Generating...');
+
+          $.ajax({
+            url: Drupal.url('api/topicalboost/schema-images/generate'),
+            method: 'POST',
+            data: {
+              nid: nid,
+              focal_x: focalX,
+              focal_y: focalY
+            },
+            headers: { 'X-CSRF-Token': csrfToken },
+            dataType: 'json',
+            success: function (data) {
+              $btn.prop('disabled', false).text('Generate Schema Images');
+              if (data.success) {
+                loadStatus();
+              } else {
+                showMessage(data.message || 'Generation failed', true);
+              }
+            },
+            error: function () {
+              $btn.prop('disabled', false).text('Generate Schema Images');
+              showMessage('Request failed', true);
+            }
+          });
+        });
+
+        // Clear images button.
+        $wrapper.find('.ttd-schema-clear-btn').on('click', function () {
+          if (!confirm('Clear all schema images for this content?')) return;
+
+          $.ajax({
+            url: Drupal.url('api/topicalboost/schema-images/clear'),
+            method: 'POST',
+            data: { nid: nid },
+            headers: { 'X-CSRF-Token': csrfToken },
+            dataType: 'json',
+            success: function () {
+              loadStatus();
+            }
+          });
+        });
+
+        // Upload button - uses generate endpoint with a file ID.
+        $wrapper.find('.ttd-schema-upload-btn').on('click', function () {
+          var $input = $wrapper.find('.ttd-schema-file-input');
+          $input.trigger('click');
+        });
+
+        $wrapper.find('.ttd-schema-file-input').on('change', function () {
+          var files = this.files;
+          if (!files.length) return;
+
+          // Send the source image to the schema generator, which saves and crops it.
+          var formData = new FormData();
+
+          var $btn = $wrapper.find('.ttd-schema-upload-btn');
+          $btn.prop('disabled', true).text('Uploading...');
+
+          formData.append('nid', nid);
+          formData.append('focal_x', focalX);
+          formData.append('focal_y', focalY);
+          formData.append('schema_image', files[0]);
+
+          $.ajax({
+            url: Drupal.url('api/topicalboost/schema-images/generate'),
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRF-Token': csrfToken },
+            dataType: 'json',
+            success: function (data) {
+              $btn.prop('disabled', false).text('Upload Custom Image');
+              $wrapper.find('.ttd-schema-file-input').val('');
+              if (data.success) {
+                loadStatus();
+              } else {
+                showMessage(data.message || 'Generation failed', true);
+              }
+            },
+            error: function () {
+              $btn.prop('disabled', false).text('Upload Custom Image');
+              showMessage('Upload failed', true);
+            }
+          });
+        });
+
+        // Focal point picker.
+        $focalPicker.on('click', function (e) {
+          var offset = $(this).offset();
+          var w = $(this).width();
+          var h = $(this).height();
+          focalX = Math.max(0, Math.min(1, (e.pageX - offset.left) / w));
+          focalY = Math.max(0, Math.min(1, (e.pageY - offset.top) / h));
+          updateFocalMarker();
+        });
+
+        // Lightbox for image previews.
+        $formats.on('click', '.ttd-schema-preview img', function () {
+          var src = $(this).attr('src');
+          var $lightbox = $('<div class="ttd-schema-lightbox">' +
+            '<div class="ttd-schema-lightbox-close">&times;</div>' +
+            '<img src="' + src + '">' +
+            '</div>');
+          $('body').append($lightbox);
+          $lightbox.on('click', function () { $lightbox.remove(); });
+        });
+
+        // Load initial status.
+        loadStatus();
+      });
+    }
+  };
+})(jQuery, Drupal, once);

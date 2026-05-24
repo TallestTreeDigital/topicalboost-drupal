@@ -1,0 +1,480 @@
+/**
+ * TopicalBoost Health Checks Page
+ */
+
+.ttd-health-wrap {
+  margin-right: 20px;
+}
+
+.ttd-health-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 960px;
+}
+
+/* -- Section card -------------------------------------------------------- */
+
+.ttd-health-section {
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.ttd-health-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2327;
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #dcdcde;
+  background: #f6f7f7;
+  display: flex;
+  align-items: center;
+}
+
+/* -- Check rows ---------------------------------------------------------- */
+
+.ttd-health-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ttd-health-check {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f1;
+  gap: 10px;
+}
+
+.ttd-health-check:last-child {
+  border-bottom: none;
+}
+
+/* -- Status indicator ---------------------------------------------------- */
+
+.ttd-health-indicator {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.ttd-health-icon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.ttd-health-indicator--pass .ttd-health-icon,
+.ttd-health-icon--pass {
+  color: #00a32a;
+}
+
+.ttd-health-indicator--warn .ttd-health-icon {
+  color: #dba617;
+}
+
+.ttd-health-indicator--fail .ttd-health-icon {
+  color: #d63638;
+}
+
+/* -- Label + Value ------------------------------------------------------- */
+
+.ttd-health-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ttd-health-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d2327;
+  margin: 0 0 2px;
+}
+
+.ttd-health-value {
+  font-size: 13px;
+  color: #50575e;
+  margin: 0;
+}
+
+.ttd-health-detail {
+  font-size: 12px;
+  color: #8c8f94;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.ttd-health-detail a {
+  color: #2271b1;
+  text-decoration: none;
+}
+
+.ttd-health-detail a:hover {
+  text-decoration: underline;
+}
+
+.ttd-health-resolution {
+  font-size: 12px;
+  color: #50575e;
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  background: #f6f7f7;
+  border-left: 3px solid #dba617;
+  line-height: 1.5;
+}
+
+.ttd-health-indicator--fail + .ttd-health-body .ttd-health-resolution {
+  border-left-color: #d63638;
+}
+
+/* -- Summary bar --------------------------------------------------------- */
+
+.ttd-health-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid #c3c4c7;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  max-width: 960px;
+}
+
+.ttd-health-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #50575e;
+}
+
+.ttd-health-summary-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ttd-health-summary-count--pass {
+  background: #00a32a;
+}
+
+.ttd-health-summary-count--warn {
+  background: #dba617;
+  color: #1d2327;
+}
+
+.ttd-health-summary-count--fail {
+  background: #d63638;
+}
+
+.ttd-health-summary-item--muted {
+  color: #8c8f94;
+  font-weight: 400;
+}
+
+/* -- Section variants --------------------------------------------------- */
+
+.ttd-health-section--issues h2 {
+  border-left: 3px solid #d63638;
+}
+
+.ttd-health-section--clean {
+  border-left: 3px solid #00a32a;
+}
+
+/* -- Clean section: <details>/<summary> as header ----------------------- */
+
+.ttd-health-section--clean > .ttd-health-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2327;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.ttd-health-section--clean > .ttd-health-section-header::-webkit-details-marker {
+  display: none;
+}
+
+.ttd-health-section--clean > .ttd-health-section-header::before {
+  content: "\25B6";
+  font-size: 10px;
+  width: 16px;
+  color: #8c8f94;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.ttd-health-section--clean[open] > .ttd-health-section-header::before {
+  transform: rotate(90deg);
+}
+
+.ttd-health-section--clean > .ttd-health-checks {
+  border-top: 1px solid #dcdcde;
+}
+
+/* -- Pass-count badge --------------------------------------------------- */
+
+.ttd-health-section-pass-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8c8f94;
+  margin-left: auto;
+}
+
+/* -- Collapsed passing checks inside issue sections --------------------- */
+
+.ttd-health-passed-details {
+  border-top: 1px solid #f0f0f1;
+}
+
+.ttd-health-passed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #8c8f94;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.ttd-health-passed-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.ttd-health-passed-toggle::before {
+  content: "\25B6";
+  font-size: 8px;
+  width: 14px;
+  color: #c3c4c7;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.ttd-health-passed-details[open] > .ttd-health-passed-toggle::before {
+  transform: rotate(90deg);
+}
+
+/* -- Muted checks ------------------------------------------------------- */
+
+.ttd-health-checks--muted .ttd-health-label {
+  font-weight: 400;
+  color: #50575e;
+}
+
+.ttd-health-checks--muted .ttd-health-value {
+  color: #8c8f94;
+}
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-health-section {
+  background: transparent;
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.gin--dark-mode .ttd-health-section h2 {
+  color: #e8e8e8;
+  border-bottom-color: #3a3a3a;
+  background: #333;
+}
+
+.gin--dark-mode .ttd-health-check {
+  border-bottom-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-health-label {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-health-value {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-health-detail {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-detail a {
+  color: #6db3f2;
+}
+
+.gin--dark-mode .ttd-health-resolution {
+  color: #a0a0a0;
+  background: #2a2a2a;
+}
+
+.gin--dark-mode .ttd-health-summary {
+  background: transparent;
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.gin--dark-mode .ttd-health-summary-item {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-health-summary-count--warn {
+  color: #1d2327;
+}
+
+.gin--dark-mode .ttd-health-summary-item--muted {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-section--clean > .ttd-health-section-header {
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-health-section--clean > .ttd-health-section-header::before {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-section--clean > .ttd-health-checks {
+  border-top-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-health-section-pass-count {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-passed-details {
+  border-top-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-health-passed-toggle {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-passed-toggle::before {
+  color: #6b6b6b;
+}
+
+.gin--dark-mode .ttd-health-checks--muted .ttd-health-label {
+  color: #a0a0a0;
+}
+
+.gin--dark-mode .ttd-health-checks--muted .ttd-health-value {
+  color: #6b6b6b;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section {
+    background: transparent;
+    border-color: #3a3a3a;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section h2 {
+    color: #e8e8e8;
+    border-bottom-color: #3a3a3a;
+    background: #333;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-check {
+    border-bottom-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-label {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-value {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-detail {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-detail a {
+    color: #6db3f2;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-resolution {
+    color: #a0a0a0;
+    background: #2a2a2a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-summary {
+    background: transparent;
+    border-color: #3a3a3a;
+    box-shadow: none;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-summary-item {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-summary-count--warn {
+    color: #1d2327;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-summary-item--muted {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section--clean > .ttd-health-section-header {
+    color: #e8e8e8;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section--clean > .ttd-health-section-header::before {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section--clean > .ttd-health-checks {
+    border-top-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-section-pass-count {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-passed-details {
+    border-top-color: #3a3a3a;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-passed-toggle {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-passed-toggle::before {
+    color: #6b6b6b;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-checks--muted .ttd-health-label {
+    color: #a0a0a0;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-health-checks--muted .ttd-health-value {
+    color: #6b6b6b;
+  }
+}

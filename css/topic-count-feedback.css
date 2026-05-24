@@ -1,38 +1,261 @@
-/* Topic count threshold feedback */
-.ttd-threshold-feedback {
-  margin-top: 6px;
-  font-size: 13px;
+/**
+ * Topic Threshold Feedback - Slider & Result
+ */
+
+.ttd-topics-tabs-container .description {
+  line-height: 1.5 !important;
+}
+
+/* Only color the feedback elements, not the entire description */
+.ttd-topics-tabs-container .description.loading em {
+  color: #6b7280 !important;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.ttd-topics-tabs-container .description.success strong {
+  color: #059669 !important;
+}
+
+.ttd-topics-tabs-container .description.warning strong {
+  color: #d97706 !important;
+}
+
+.ttd-topics-tabs-container .description.error strong {
+  color: #dc2626 !important;
+}
+
+/* Style the result line specifically */
+.ttd-topics-tabs-container .description strong {
+  font-weight: 600 !important;
+  margin-right: 4px;
+}
+
+.ttd-threshold-description {
+  display: block !important;
+  margin-bottom: 8px !important;
+  color: #8c8f94;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Slider container */
+.frequency-slider-container {
+  margin: 6px 0 4px;
+  padding: 12px 14px;
+  background: #f6f7f7;
+  border: 1px solid #e2e4e7;
+  border-radius: 3px;
+  position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.gin--dark-mode .frequency-slider-container {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border-color: rgba(100, 116, 139, 0.4) !important;
+}
+
+.frequency-slider-container::before {
+  display: none;
+}
+
+/* Range input */
+.frequency-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #dcdcde;
+  outline: none;
+  margin: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.gin--dark-mode .frequency-slider {
+  background: rgba(107, 114, 128, 0.5) !important;
+}
+
+.frequency-slider:hover,
+.frequency-slider:focus {
+  box-shadow: none;
+}
+
+.frequency-slider:focus-visible {
+  outline: 2px solid #007cba;
+  outline-offset: 4px;
+}
+
+.frequency-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #007cba;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  margin-top: -6px;
+}
+
+.frequency-slider::-webkit-slider-thumb:hover {
+  background: #005a87;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.frequency-slider::-webkit-slider-thumb:active {
+  background: #004469;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.frequency-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #007cba;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.frequency-slider::-moz-range-thumb:hover {
+  background: #005a87;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.frequency-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.frequency-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+  border: none;
+}
+
+/* Range endpoint labels */
+.slider-range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0;
+  font-size: 10px;
+  color: #a7aaad;
+  font-variant-numeric: tabular-nums;
+}
+
+.gin--dark-mode .slider-range-labels {
+  color: #94a3b8 !important;
+}
+
+/* Hide the recommendation zones -- they overlap at this width */
+.recommendation-zones {
+  display: none;
+}
+
+/* Hide number input when slider active */
+.frequency-slider-container ~ input[type="number"] {
+  display: none !important;
+}
+
+/* Feedback result */
+.integrated-feedback-area {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e4e7;
+}
+
+.gin--dark-mode .integrated-feedback-area {
+  border-top-color: rgba(100, 116, 139, 0.4) !important;
+}
+
+.integrated-feedback-area .topic-feedback-result {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.integrated-feedback-area .topic-feedback-result .result-header {
+  display: none;
+}
+
+.integrated-feedback-area .topic-feedback-result .result-value {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 400;
+  color: #646970;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.gin--dark-mode .integrated-feedback-area .topic-feedback-result .result-value {
+  color: #94a3b8 !important;
+}
+
+.integrated-feedback-area .topic-feedback-result .result-value strong {
   font-weight: 500;
 }
 
-.ttd-threshold-feedback.loading {
-  color: #6b7280;
+/* No traffic-light colors -- keep it neutral */
+.integrated-feedback-area .topic-feedback-result.success .result-value,
+.integrated-feedback-area .topic-feedback-result.warning .result-value,
+.integrated-feedback-area .topic-feedback-result.error .result-value {
+  color: #646970;
 }
 
-.ttd-threshold-feedback.success {
-  color: #059669;
+.gin--dark-mode .integrated-feedback-area .topic-feedback-result.success .result-value,
+.gin--dark-mode .integrated-feedback-area .topic-feedback-result.warning .result-value,
+.gin--dark-mode .integrated-feedback-area .topic-feedback-result.error .result-value {
+  color: #94a3b8 !important;
 }
 
-.ttd-threshold-feedback.warning {
-  color: #d97706;
+.integrated-feedback-area .topic-feedback-result.loading .result-value {
+  color: #a7aaad;
 }
 
-.ttd-threshold-feedback.error {
-  color: #dc2626;
+.gin--dark-mode .integrated-feedback-area .topic-feedback-result.loading .result-value {
+  color: #64748b !important;
 }
 
-.gin--dark-mode .ttd-threshold-feedback.loading {
-  color: #9ca3af;
+.integrated-feedback-area .topic-feedback-result.loading .result-value::after {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #a7aaad;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ttd-threshold-spin 0.8s linear infinite;
+  margin-left: 5px;
+  vertical-align: middle;
 }
 
-.gin--dark-mode .ttd-threshold-feedback.success {
-  color: #34d399;
+@keyframes ttd-threshold-spin {
+  to { transform: rotate(360deg); }
 }
 
-.gin--dark-mode .ttd-threshold-feedback.warning {
-  color: #fbbf24;
+/* Enhanced description styling */
+.description {
+  line-height: 1.5;
+  color: #495057;
 }
 
-.gin--dark-mode .ttd-threshold-feedback.error {
-  color: #f87171;
+.gin--dark-mode .description {
+  color: #cbd5e1 !important;
+}
+
+@media (max-width: 782px) {
+  .frequency-slider-container {
+    max-width: 100%;
+  }
 }

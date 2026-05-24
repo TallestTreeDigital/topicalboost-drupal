@@ -1,0 +1,48 @@
+.ttd-changelog-release {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--gin-border-color, #d4d4d8);
+}
+
+.ttd-changelog-release:last-child {
+    border-bottom: none;
+}
+
+.ttd-changelog-release h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 12px;
+    color: var(--gin-color-text, #1d2327);
+}
+
+.ttd-changelog-date {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--gin-color-text-light, #787c82);
+}
+
+.ttd-changelog-release h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gin-color-text-light, #50575e);
+    margin: 12px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ttd-changelog-release ul {
+    margin: 0 0 8px 18px;
+    padding: 0;
+}
+
+.ttd-changelog-release li {
+    font-size: 13px;
+    color: var(--gin-color-text, #3c434a);
+    margin-bottom: 4px;
+    line-height: 1.5;
+}
+
+.ttd-changelog-loading {
+    color: var(--gin-color-text-light, #787c82);
+    font-style: italic;
+}

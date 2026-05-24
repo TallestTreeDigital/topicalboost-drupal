@@ -1,11 +1,3 @@
-topicalboost.example:
-  path: '/topicalboost/example'
-  defaults:
-    _title: 'Example'
-    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::build'
-  requirements:
-    _permission: 'access content'
-
 topicalboost.settings_form:
   path: '/admin/config/content/topicalboost'
   defaults:
@@ -17,7 +9,8 @@ topicalboost.settings_form:
 topicalboost.bulk_analysis:
   path: '/admin/config/content/topicalboost/bulk-analysis'
   defaults:
-    _controller: 'Drupal\ttd_topics\Controller\TtdTopicsController::redirectToSettings'
+    _title: 'Bulk Analysis'
+    _form: 'Drupal\ttd_topics\Form\BulkAnalysisForm'
   requirements:
     _permission: 'administer topicalboost configuration'
 
@@ -35,7 +28,7 @@ topicalboost.api.topic_count:
     _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getTopicCount'
   methods: [GET]
   requirements:
-    _access: 'TRUE'
+    _permission: 'administer topicalboost configuration'
 
 topicalboost.api.recommendations:
   path: '/api/topicalboost/recommendations'
@@ -43,7 +36,7 @@ topicalboost.api.recommendations:
     _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getRecommendations'
   methods: [GET]
   requirements:
-    _access: 'TRUE'
+    _permission: 'administer topicalboost configuration'
 
 topicalboost.bulk_analysis.count:
   path: '/api/topicalboost/bulk-analysis/count'
@@ -101,7 +94,32 @@ topicalboost.api.validate_key:
   requirements:
     _permission: 'administer topicalboost configuration'
 
+topicalboost.api.author_field_mapping:
+  path: '/api/topicalboost/author-field-mapping'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\AuthorManagerController::fieldMapping'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.author_settings:
+  path: '/api/topicalboost/author-settings'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\AuthorManagerController::saveSettings'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
 topicalboost.field_inspector:
+  path: '/admin/config/content/topicalboost/custom-fields/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::inspectFields'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+    node: \d+
+
+topicalboost.field_inspector.legacy:
   path: '/admin/topicalboost/field-inspector/{node}'
   defaults:
     _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::inspectFields'
@@ -111,6 +129,14 @@ topicalboost.field_inspector:
     node: \d+
 
 topicalboost.field_inspector.recent_nodes:
+  path: '/admin/config/content/topicalboost/custom-fields/recent-nodes'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::getRecentNodes'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.field_inspector.recent_nodes_legacy:
   path: '/admin/topicalboost/field-inspector/recent-nodes'
   defaults:
     _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::getRecentNodes'
@@ -119,6 +145,14 @@ topicalboost.field_inspector.recent_nodes:
     _permission: 'administer nodes'
 
 topicalboost.field_inspector.search:
+  path: '/admin/config/content/topicalboost/custom-fields/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::searchNodesByTitle'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.field_inspector.search_legacy:
   path: '/api/topicalboost/field-inspector/search'
   defaults:
     _controller: '\Drupal\ttd_topics\Controller\FieldInspectorController::searchNodesByTitle'
@@ -132,7 +166,7 @@ topicalboost.api.check_analysis_status:
     _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::checkAnalysisStatus'
   methods: [GET]
   requirements:
-    _permission: 'access content'
+    _permission: 'administer nodes'
     node: \d+
 
 topicalboost.api.coverage_metrics:
@@ -140,6 +174,114 @@ topicalboost.api.coverage_metrics:
   defaults:
     _controller: '\Drupal\ttd_topics\Controller\CoverageController::getMetrics'
   methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.coverage:
+  path: '/admin/config/content/topicalboost/coverage'
+  defaults:
+    _title: 'Topic Coverage Analysis'
+    _controller: '\Drupal\ttd_topics\Controller\CoverageController::display'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Meta Generation API routes
+topicalboost.api.meta.get_keywords:
+  path: '/api/topicalboost/meta/keywords/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::getKeywords'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+    node: \d+
+
+topicalboost.api.meta.generate:
+  path: '/api/topicalboost/meta/generate'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::generate'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.save:
+  path: '/api/topicalboost/meta/save'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::save'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+# Topic editor AJAX endpoints (WP beta features)
+ttd_topics.search:
+  path: '/api/topicalboost/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::searchTopics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.lookup_api:
+  path: '/api/topicalboost/lookup'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::lookupApi'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.update_tier:
+  path: '/api/topicalboost/tier/update'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::updateTopicTier'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.remove_tier:
+  path: '/api/topicalboost/tier/remove'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::removeTopicTierOverride'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.update_topics:
+  path: '/api/topicalboost/topics/update'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::updateTopics'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.demand_metrics:
+  path: '/api/topicalboost/demand'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getDemandMetrics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+ttd_topics.run_analysis:
+  path: '/api/topicalboost/analyze-node/{node}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::runAnalysis'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+    node: \d+
+
+topicalboost.api.pinned_posts_search:
+  path: '/api/topicalboost/pinned-posts/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::searchPinnedPosts'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.telemetry:
+  path: '/api/topicalboost/telemetry/js-errors'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TelemetryController::receiveJsErrors'
+  methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
 
@@ -151,3 +293,295 @@ topicalboost.api.toggle_topic_visibility:
   requirements:
     _permission: 'administer topicalboost configuration'
     taxonomy_term: \d+
+
+# Health Checks Page
+topicalboost.health_checks:
+  path: '/admin/config/content/topicalboost/health'
+  defaults:
+    _title: 'TopicalBoost Health'
+    _controller: '\Drupal\ttd_topics\Controller\HealthCheckController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# New Topics Page
+topicalboost.new_topics:
+  path: '/admin/config/content/topicalboost/new-topics'
+  defaults:
+    _title: 'New Topics'
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::newTopicsPage'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.new_topics:
+  path: '/api/topicalboost/new-topics'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getNewTopics'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.toggle_force_show:
+  path: '/api/topicalboost/topic/{taxonomy_term}/toggle-force-show'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::toggleForceShow'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+    taxonomy_term: \d+
+
+# Queue Status Page
+topicalboost.queue_status:
+  path: '/admin/config/content/topicalboost/queue-status'
+  defaults:
+    _title: 'Queue Status'
+    _controller: '\Drupal\ttd_topics\Controller\QueueStatusController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Widgets Page
+topicalboost.widgets:
+  path: '/admin/config/content/topicalboost/widgets'
+  defaults:
+    _title: 'Widgets'
+    _controller: '\Drupal\ttd_topics\Controller\WidgetsController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Schema Images API endpoints
+topicalboost.api.schema_images.generate:
+  path: '/api/topicalboost/schema-images/generate'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::generate'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.schema_images.status:
+  path: '/api/topicalboost/schema-images/status'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::getStatus'
+  methods: [GET]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.schema_images.clear:
+  path: '/api/topicalboost/schema-images/clear'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SchemaImagesController::clear'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.changelog:
+  path: '/api/topicalboost/changelog'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getChangelog'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Watchlist API endpoints
+topicalboost.api.watchlist.get:
+  path: '/api/topicalboost/watchlist'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WatchlistController::get'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.watchlist.search:
+  path: '/api/topicalboost/watchlist/search'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WatchlistController::search'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.watchlist.add:
+  path: '/api/topicalboost/watchlist/add'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WatchlistController::add'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.watchlist.create_custom:
+  path: '/api/topicalboost/watchlist/create-custom'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WatchlistController::createCustom'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.watchlist.remove:
+  path: '/api/topicalboost/watchlist/remove'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WatchlistController::remove'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Sync API endpoints
+topicalboost.api.sync.check:
+  path: '/api/topicalboost/sync/check'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::check'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.sync.start:
+  path: '/api/topicalboost/sync/start'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::start'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.sync.progress:
+  path: '/api/topicalboost/sync/progress'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::progress'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.sync.cancel:
+  path: '/api/topicalboost/sync/cancel'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::cancel'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Social Meta Generation API endpoints
+topicalboost.api.meta.generate_social:
+  path: '/api/topicalboost/meta/generate-social'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::generateSocial'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.save_social:
+  path: '/api/topicalboost/meta/save-social'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::saveSocial'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.clear_social:
+  path: '/api/topicalboost/meta/clear-social'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::clearSocial'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.discard_pending:
+  path: '/api/topicalboost/meta/discard-pending'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::discardPending'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta.clear:
+  path: '/api/topicalboost/meta/clear'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\MetaGeneratorController::clearMeta'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+# Troubleshoot Page
+topicalboost.troubleshoot:
+  path: '/admin/config/content/topicalboost/troubleshoot'
+  defaults:
+    _title: 'Troubleshoot'
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::page'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Troubleshoot API endpoints
+topicalboost.api.clear_analysis_flags:
+  path: '/api/topicalboost/troubleshoot/clear-analysis-flags'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::clearAnalysisFlags'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.handle_stuck_posts:
+  path: '/api/topicalboost/troubleshoot/stuck-posts'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::handleStuckPosts'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.clear_polling_flag:
+  path: '/api/topicalboost/troubleshoot/clear-polling-flag'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::clearPollingFlag'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.clear_rejected_topics:
+  path: '/api/topicalboost/troubleshoot/clear-rejected-topics'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::clearRejectedTopics'
+  methods: [POST]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.entity_info:
+  path: '/api/topicalboost/entity-info'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::getEntityInfo'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.search_countries.get:
+  path: '/api/topicalboost/search-countries'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::getSearchCountries'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+topicalboost.api.search_countries.save:
+  path: '/api/topicalboost/search-countries'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TroubleshootController::saveSearchCountries'
+  methods: [PUT]
+  requirements:
+    _permission: 'administer topicalboost configuration'
+
+# Topic term management
+topicalboost.api.create_topic_term:
+  path: '/api/topicalboost/topic-term/create'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::createTopicTerm'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.get_term_by_ttd_id:
+  path: '/api/topicalboost/topic-term/by-ttd-id'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getTermByTtdId'
+  methods: [POST]
+  requirements:
+    _permission: 'administer nodes'
+
+topicalboost.api.meta_settings:
+  path: '/api/topicalboost/meta/settings'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\TtdTopicsController::getMetaSettings'
+  methods: [GET]
+  requirements:
+    _permission: 'administer topicalboost configuration'

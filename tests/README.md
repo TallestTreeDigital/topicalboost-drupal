@@ -23,6 +23,65 @@ The tests ensure that when new entities are discovered during analysis:
 
 ## Running the Tests
 
+### CLI Parity Tests
+
+These mirror the high-value WordPress CLI tests without calling the API. They
+create temporary Drupal content/topics, verify behavior, and clean up after
+themselves.
+
+```bash
+# From the Drupal site root.
+ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-core.php
+ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-wp-equivalents.php
+ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-performance.php
+
+# From the module root, no Drupal bootstrap required.
+php tests/cli/test-sync-cursor-upgrade.php
+```
+
+`test-parity-core.php` covers:
+
+1. Required Drupal fields for topic references, manual topics, rejected topics, tier overrides, hide, and force-show.
+2. Frontend topic filtering parity with WordPress: display threshold, manual-topic bypass, force-show bypass, rejected-topic exclusion, and hidden-topic exclusion.
+3. Schema parity for visible topics: `mainEntity`, `about`, `mentions`, manual topics, rejected topics, hidden topics, computed tiers, and custom schema image ratios.
+4. WordPress-compatible tier computation from salience-only rows and LLM tier rows, including one `mainEntity`, max four `about` topics, overrides, mixed old/new API rows, and overflow demotion to `mentions`.
+5. Backward-compatible salience-only rows where the API did not provide a stored tier, plus stale override cleanup when fresh LLM tiers arrive.
+6. Below-threshold edge cases: overrides to `mentions`, dragging topics to `about`, rejected topics staying hidden, and count-threshold visibility after node deletes.
+7. Editor controller parity for auto-unrejecting a topic when promoted to `mainEntity` or `about`, while keeping `mentions` rejected.
+8. SEO meta content preview cleanup and the WordPress 5000-character preview limit.
+9. Demand metric parity: traffic potential is stored and rendered for editor badges from single-analysis and bulk-analysis paths.
+10. Entity metadata allowlist parity so known API fields are stored and unknown API fields are ignored.
+
+`test-parity-wp-equivalents.php` maps the remaining WordPress CLI contracts to
+Drupal runtime behavior:
+
+1. Single-analysis parity: manual topics survive reanalysis, stale API topics are removed, promoted manual topics become API-managed, and the analysis-complete event fires.
+2. Bulk-analysis parity: bulk initiation paginates queue jobs by configured batch size, bulk result application preserves manual topics, removes stale API topics, and is idempotent.
+3. Sync parity: sync starts with the same topic/relationship page math, preserves manual topics, applies exact manual-plus-API relationships, and skips deleted content safely.
+4. Content cleanup parity: analysis text filtering preserves paragraph/list boundaries, decodes entities, strips shortcodes, and avoids leaking field machine names into collected text.
+5. Meta-preview parity: generated preview content strips HTML, shortcodes, image captions, image credits, excess whitespace, and caps at the WordPress 5000-character limit.
+6. Access parity: the configured Drupal permission gates widget access the same way the WordPress role test gates SearchClippings/Citations widgets.
+7. Schema parity: schema output uses `https://schema.org`, keeps per-node `mainEntity` isolation across batches, and generates WordPress-equivalent 16:9, 4:3, and 1:1 featured image ratios.
+
+The WordPress `vip-scan.php` is a WordPress-specific static compatibility scan;
+the Drupal equivalent gate is PHP syntax/static loading of the touched Drupal
+files plus the runtime parity scripts above.
+
+`test-sync-cursor-upgrade.php` statically guards the cursor-only sync upgrade:
+new sync jobs must include `after_id`, legacy jobs missing `after_id` must cancel
+without retrying, and the update hook must clear only non-processing
+TopicalBoost sync pull jobs.
+
+`test-parity-performance.php` maps the WordPress performance/query-count tests
+to Drupal schema and topic hot paths:
+
+1. Large-post consistency: repeated schema generations for a 120-topic node return identical, non-empty topic sets.
+2. Topic quality: every visible topic has entity data and the schema includes at least five schema.org entity types.
+3. Performance budgets: cold and warm schema/topic generation stay within the WordPress cold/warm budgets.
+4. Regression guard: entity and schema-type lookups are batched instead of one query per topic.
+5. Query ceiling: TopicalBoost schema hot-path queries and warm total schema queries stay under the WordPress regression ceiling.
+6. Index checks: the Drupal entity and schema relation tables have indexes used by the schema hot path.
+
 ### Using DDEV
 
 ```bash
@@ -136,4 +195,4 @@ $mock_analysis_results = [
 ];
 ```
 
-This allows testing without requiring an active connection to the external API service. 
+This allows testing without requiring an active connection to the external API service.

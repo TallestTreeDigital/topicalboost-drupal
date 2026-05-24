@@ -18,3 +18,13 @@ services:
     class: \Drupal\ttd_topics\Commands\HideTtdTopicsCommand
     tags:
       - { name: drush.command }
+
+  ttd_topics.sync_hidden_commands:
+    class: \Drupal\ttd_topics\Commands\SyncHiddenEntitiesCommand
+    tags:
+      - { name: drush.command }
+
+  ttd_topics.maintenance_commands:
+    class: \Drupal\ttd_topics\Commands\TopicalBoostMaintenanceCommands
+    tags:
+      - { name: drush.command }

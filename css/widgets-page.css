@@ -1,0 +1,140 @@
+.ttd-widgets-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .ttd-widgets-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ttd-widget-col {
+  min-height: 200px;
+}
+
+.ttd-widgets-notice {
+  grid-column: 1 / -1;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 16px 20px;
+  color: #856404;
+}
+
+.ttd-widgets-notice a {
+  color: #664d03;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   GIN DARK MODE
+   ========================================================================== */
+
+.gin--dark-mode .ttd-widgets-notice {
+  background: #3b2e00;
+  border-color: #6b5200;
+  color: #fcd34d;
+}
+
+.gin--dark-mode .ttd-widgets-notice a {
+  color: #fbbf24;
+}
+
+/* ==========================================================================
+   UNIVERSAL DARK MODE SUPPORT
+   Supports system-level dark mode preference for non-Gin themes
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-widgets-notice {
+    background: #3b2e00;
+    border-color: #6b5200;
+    color: #fcd34d;
+  }
+
+  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-widgets-notice a {
+    color: #fbbf24;
+  }
+}
+
+/* Final dark-mode hardening for Gin/admin cascade order. */
+.gin--dark-mode .ttd-widgets-notice {
+  background: #3b2e00 !important;
+  border-color: #6b5200 !important;
+  color: #fcd34d !important;
+}
+
+.gin--dark-mode .ttd-widgets-notice a {
+  color: #fbbf24 !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .topicalboost-embed-widget,
+.gin--dark-mode .ttd-widgets-page .sc-citations-widget {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+  box-shadow: none !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-widget-header,
+.gin--dark-mode .ttd-widgets-page .sc-header,
+.gin--dark-mode .ttd-widgets-page .sc-article-header,
+.gin--dark-mode .ttd-widgets-page .sc-controls,
+.gin--dark-mode .ttd-widgets-page .sc-pagination,
+.gin--dark-mode .ttd-widgets-page .sc-footer,
+.gin--dark-mode .ttd-widgets-page .sc-appearance,
+.gin--dark-mode .ttd-widgets-page .sc-article-group,
+.gin--dark-mode .ttd-widgets-page .sc-citer,
+.gin--dark-mode .ttd-widgets-page .sc-date-group-header {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-content,
+.gin--dark-mode .ttd-widgets-page .sc-list,
+.gin--dark-mode .ttd-widgets-page .sc-screenshot,
+.gin--dark-mode .ttd-widgets-page .sc-screenshot-container,
+.gin--dark-mode .ttd-widgets-page .sc-screenshot-wrapper,
+.gin--dark-mode .ttd-widgets-page .sc-favicon-container,
+.gin--dark-mode .ttd-widgets-page .sc-favicon {
+  background: var(--gin-bg-app, #1b1b1d) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-sort-select,
+.gin--dark-mode .ttd-widgets-page .sc-filters-toggle,
+.gin--dark-mode .ttd-widgets-page .sc-nav-btn,
+.gin--dark-mode .ttd-widgets-page .sc-country-chip,
+.gin--dark-mode .ttd-widgets-page .sc-sustained-badge,
+.gin--dark-mode .ttd-widgets-page .sc-dr,
+.gin--dark-mode .ttd-widgets-page .sc-velocity {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-title,
+.gin--dark-mode .ttd-widgets-page .sc-keyword,
+.gin--dark-mode .ttd-widgets-page .sc-article-title-link,
+.gin--dark-mode .ttd-widgets-page .sc-publisher-name {
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-article-link,
+.gin--dark-mode .ttd-widgets-page .sc-citation-url,
+.gin--dark-mode .ttd-widgets-page a {
+  color: var(--gin-color-primary-light, #8ab4f8) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page .sc-volume-label,
+.gin--dark-mode .ttd-widgets-page .sc-time,
+.gin--dark-mode .ttd-widgets-page .sc-updated,
+.gin--dark-mode .ttd-widgets-page .sc-count,
+.gin--dark-mode .ttd-widgets-page .sc-page-info,
+.gin--dark-mode .ttd-widgets-page .sc-country-label {
+  color: var(--gin-color-text-light, #a7aaad) !important;
+}

@@ -1,0 +1,145 @@
+{#
+/**
+ * @file
+ * Template for TopicalBoost admin topics editor (WP beta features port).
+ *
+ * Available variables:
+ * - node: The node entity.
+ * - main_entity: Main entity topic data (term, count, is_manual, etc).
+ * - about_topics: Array of "Also About" topics.
+ * - mentions_topics: Array of "Mentions" topics.
+ * - below_threshold_topics: Array of below-threshold topics.
+ * - threshold_count: Minimum display count threshold.
+ */
+#}
+
+{% macro render_topic_item(topic, section, node) %}
+  {% set term = topic.term %}
+  {% set ttd_id = term.field_ttd_id.0.value|default('') %}
+  {% set is_manual = topic.is_manual %}
+  {% set is_rejected = topic.is_rejected %}
+  {% set tier = topic.tier %}
+  {% set is_focus = section in ['mainEntity', 'about'] %}
+  {% set demand = topic.demand|default(null) %}
+
+  <div class="topic-item {{ is_manual ? 'manual-topic' : 'api-topic' }} {{ tier }}-topic {{ section }}-topic{% if is_rejected %} rejected{% endif %}"
+       data-term-id="{{ term.id() }}"
+       data-ttd-id="{{ ttd_id }}"
+       draggable="true">
+
+    {% if is_manual %}
+      <button type="button"
+              class="remove-topic"
+              data-term-id="{{ term.id() }}"
+              aria-label="Remove {{ term.label() }}"
+              title="Remove this manual topic">×</button>
+    {% elseif not is_focus %}
+      <input type="checkbox"
+             name="topics[]"
+             value="{{ term.id() }}"
+             {% if not is_rejected %}checked="checked"{% endif %}
+             aria-label="Accept {{ term.label() }}" />
+    {% endif %}
+
+    <div class="topic-name-container">
+      <label>{{ term.label() }}</label>
+    </div>
+
+    <div class="topic-metrics">
+      {% if is_focus and demand %}
+        <span class="ttd-kd-badge {{ demand.class }}"
+              title="{{ demand.title }}"
+              {% if demand.keyword_difficulty is defined %}data-kd="{{ demand.keyword_difficulty }}"{% endif %}
+              {% if demand.traffic_potential is defined %}data-tp="{{ demand.traffic_potential }}"{% endif %}
+              {% if demand.search_volume is defined %}data-sv="{{ demand.search_volume }}"{% endif %}>{{ demand.display }}</span>
+      {% endif %}
+      <span class="topic-count" data-count="{{ topic.count }}"
+            title="{{ topic.count }} {{ topic.count == 1 ? 'post with this topic' : 'posts with this topic' }}">
+        {{ topic.count_display|default(topic.count) }}
+      </span>
+    </div>
+  </div>
+{% endmacro %}
+
+{% import _self as macros %}
+
+<div class="ttd-topics-container ttd-admin-topics ttd-wide-layout" data-node-id="{{ node.id() }}">
+  <div id="ttd-topics-status"></div>
+
+  <div class="ttd-wide-top-bar">
+    <div class="ttd-topics-header-actions">
+      <button type="button" id="get-topics-button" class="button button-primary"><span>Run Analysis</span></button>
+    </div>
+    <div class="ttd-topics-search-container">
+      <input type="text" id="ttd-topics-search" placeholder="Add topics..." autocomplete="off" />
+      <div class="search-spinner"></div>
+      <div id="ttd-topics-search-results"></div>
+    </div>
+  </div>
+
+  <div class="ttd-topics-content">
+    <div id="ttd-topics-list-container">
+
+    {# Main Topic Section #}
+    <div class="ttd-topics-section ttd-main-entity-section" data-section="mainEntity">
+      <div class="ttd-section-header ttd-section-static">
+        <span class="ttd-section-title">Main Topic</span>
+        <span class="ttd-section-count">({{ main_entity ? 1 : 0 }})</span>
+        <span class="ttd-section-warning" style="display: none;">1 max</span>
+      </div>
+      <div class="ttd-topics-list">
+        {% if main_entity %}
+          {{ macros.render_topic_item(main_entity, 'mainEntity', node) }}
+        {% else %}
+          <div class="ttd-no-topics-message">Drag a topic here or <a href="#" class="ttd-add-manual-link">add one manually</a>.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Also About Section #}
+    <div class="ttd-topics-section ttd-about-section" data-section="about" data-max-recommended="4">
+      <div class="ttd-section-header ttd-section-static">
+        <span class="ttd-section-title">Also About</span>
+        <span class="ttd-section-count">({{ about_topics|length }})</span>
+        <span class="ttd-section-warning" style="{% if about_topics|length <= 4 %}display: none;{% endif %}">4 max</span>
+      </div>
+      <div class="ttd-topics-list">
+        {% if about_topics %}
+          {% for topic in about_topics %}
+            {{ macros.render_topic_item(topic, 'about', node) }}
+          {% endfor %}
+        {% else %}
+          <div class="ttd-no-topics-message">Drag topics here or <a href="#" class="ttd-add-manual-link">add manually</a>.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Mentions Section #}
+    {% if mentions_topics or below_threshold_topics %}
+    <div class="ttd-topics-section ttd-mentions-section" data-section="mentions">
+      <div class="ttd-section-header ttd-section-static">
+        <span class="ttd-section-title">Mentions</span>
+        <span class="ttd-section-count">({{ mentions_topics|length }})</span>
+        {% if below_threshold_topics %}
+          <button type="button" class="ttd-rejected-toggle ttd-wide-rejected-toggle" data-count="{{ below_threshold_topics|length }}">{{ below_threshold_topics|length }} hidden</button>
+        {% endif %}
+      </div>
+      <div class="ttd-topics-list">
+        {% for topic in mentions_topics %}
+          {{ macros.render_topic_item(topic, 'mentions', node) }}
+        {% endfor %}
+        {% if below_threshold_topics %}
+          <div class="ttd-threshold-separator">
+            <span class="ttd-threshold-title">Not shown on site</span>
+            <span class="ttd-threshold-desc">Below threshold or rejected</span>
+          </div>
+          {% for topic in below_threshold_topics %}
+            {{ macros.render_topic_item(topic, 'below-threshold', node) }}
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    </div>
+  </div>
+</div>

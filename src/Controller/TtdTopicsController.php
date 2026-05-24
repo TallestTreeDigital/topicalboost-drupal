@@ -2,8 +2,11 @@
 
 namespace Drupal\ttd_topics\Controller;
 
+use Drupal\advancedqueue\Job;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,6 +15,11 @@ use Symfony\Component\HttpFoundation\Request;
  * Returns responses for TopicalBoost routes.
  */
 class TtdTopicsController extends ControllerBase {
+
+  /**
+   * Fallback cooldown for temporary demand metrics API outages.
+   */
+  private const DEMAND_METRICS_COOLDOWN_SECONDS = 120;
 
   /**
    * Builds the response.
@@ -24,6 +32,89 @@ class TtdTopicsController extends ControllerBase {
     ];
 
     return $build;
+  }
+
+  /**
+   * Resolve a Drupal topic term to a TopicalBoost entity payload.
+   */
+  private function getEditorialSignalTopic($term_id = NULL, $ttd_id = NULL) {
+    $term = NULL;
+
+    if ($term_id) {
+      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+    }
+
+    if (!$term && $ttd_id) {
+      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+        'vid' => 'ttd_topics',
+        'field_ttd_id' => (string) $ttd_id,
+      ]);
+      if (!empty($terms)) {
+        $term = reset($terms);
+      }
+    }
+
+    $entity_id = $ttd_id ? (int) $ttd_id : 0;
+    if ($term && $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+      $entity_id = (int) $term->get('field_ttd_id')->value;
+    }
+
+    if (!$entity_id) {
+      return NULL;
+    }
+
+    return [
+      'entityId' => $entity_id,
+      'entityName' => $term ? $term->label() : NULL,
+      'termId' => $term ? (int) $term->id() : NULL,
+    ];
+  }
+
+  /**
+   * Fire-and-forget-ish editorial telemetry. Never block editor actions.
+   */
+  private function recordEditorialSignal($action, array $topic, array $context = []) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    if (empty($api_key) || empty($topic['entityId'])) {
+      return;
+    }
+
+    $metadata = array_filter(array_merge([
+      'termId' => $topic['termId'] ?? NULL,
+    ], $context['metadata'] ?? []), static function ($value) {
+      return $value !== NULL;
+    });
+
+    $payload = array_filter([
+      'action' => $action,
+      'postId' => isset($context['postId']) ? (string) $context['postId'] : NULL,
+      'entityId' => (int) $topic['entityId'],
+      'entityName' => $topic['entityName'] ?? NULL,
+      'fromTier' => $context['fromTier'] ?? NULL,
+      'toTier' => $context['toTier'] ?? NULL,
+      'actorId' => (string) \Drupal::currentUser()->id(),
+      'metadata' => !empty($metadata) ? $metadata : NULL,
+    ], static function ($value) {
+      return $value !== NULL;
+    });
+
+    try {
+      $api_endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
+      \Drupal::httpClient()->request('POST', $api_endpoint . '/telemetry/editorial-signals', [
+        'headers' => [
+          'content-type' => 'application/json',
+          'x-api-key' => $api_key,
+          'x-tb-platform' => 'drupal',
+        ],
+        'json' => $payload,
+        'timeout' => 1,
+        'connect_timeout' => 0.5,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->debug('Editorial signal telemetry failed: @message', ['@message' => $e->getMessage()]);
+    }
   }
 
   /**
@@ -152,14 +243,6 @@ class TtdTopicsController extends ControllerBase {
       $is_hidden = (int) $row->is_hidden;
       $is_below_threshold = $count < $min_display_count;
 
-      $status_indicators = [];
-      if ($is_hidden) {
-        $status_indicators[] = '<span class="ttd-status-badge ttd-status-badge--hidden" title="Hidden from public display">Hidden</span>';
-      }
-      if ($is_below_threshold) {
-        $status_indicators[] = '<span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
-      }
-
       $edit_url = Url::fromRoute('entity.taxonomy_term.edit_form', ['taxonomy_term' => $row->tid]);
       $toggle_url = Url::fromRoute('topicalboost.api.toggle_topic_visibility', ['taxonomy_term' => $row->tid]);
 
@@ -177,7 +260,7 @@ class TtdTopicsController extends ControllerBase {
         $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
       }
 
-      $rows[] = [
+      $rows[(int) $row->tid] = [
         'name' => [
           'data' => ['#markup' => $name_markup],
         ],
@@ -290,28 +373,52 @@ class TtdTopicsController extends ControllerBase {
     $count_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'count', 'order' => $count_order]]);
 
     $header = [
-      [
+      'name' => [
         'data' => [
           '#markup' => '<a href="' . $name_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'name' ? ' is-active' : '') . '">Topic Name' . $name_arrow . '</a>',
         ],
       ],
-      [
+      'count' => [
         'data' => [
           '#markup' => '<a href="' . $count_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'count' ? ' is-active' : '') . '">Posts' . $count_arrow . '</a>',
         ],
       ],
-      $this->t('Operations'),
+      'operations' => $this->t('Operations'),
     ];
 
-    // Simple table.
+    $build['bulk_actions'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-topics-bulk-actions', 'container-inline']],
+      '#weight' => -10,
+      'action' => [
+        '#type' => 'select',
+        '#title' => $this->t('Bulk action'),
+        '#title_display' => 'invisible',
+        '#options' => [
+          '' => $this->t('- Action -'),
+          'ttd_hide' => $this->t('Hide'),
+          'ttd_unhide' => $this->t('Unhide'),
+        ],
+        '#parents' => ['ttd_topics_bulk_action'],
+      ],
+      'apply' => [
+        '#type' => 'submit',
+        '#value' => $this->t('Apply'),
+        '#validate' => ['ttd_topics_bulk_terms_validate'],
+        '#submit' => ['ttd_topics_bulk_terms_submit'],
+      ],
+    ];
+
     $build['table'] = [
-      '#type' => 'table',
+      '#type' => 'tableselect',
       '#header' => $header,
-      '#rows' => $rows,
+      '#options' => $rows,
       '#empty' => $this->t('No topics found.'),
       '#attributes' => [
         'class' => ['ttd-topics-overview'],
       ],
+      '#js_select' => TRUE,
+      '#parents' => ['ttd_topics_bulk_terms'],
       '#weight' => 0,
     ];
 
@@ -344,6 +451,11 @@ class TtdTopicsController extends ControllerBase {
     $current = (bool) $term->get('field_hide')->value;
     $term->set('field_hide', !$current);
     $term->save();
+
+    $topic = $this->getEditorialSignalTopic($term->id());
+    if ($topic) {
+      $this->recordEditorialSignal(!$current ? 'force_hide' : 'force_unhide', $topic);
+    }
 
     return new JsonResponse([
       'success' => TRUE,
@@ -845,6 +957,1260 @@ class TtdTopicsController extends ControllerBase {
   public function redirectToSettings() {
     $url = Url::fromRoute('topicalboost.settings_form', [], ['fragment' => 'bulk-analysis']);
     return new RedirectResponse($url->toString(), 301);
+  }
+
+  /**
+   * Search for posts to pin on a topic term page.
+   */
+  public function searchPinnedPosts(Request $request) {
+    $query = $request->query->get('q', '');
+    $term_id = $request->query->get('term_id', 0);
+
+    if (strlen($query) < 2) {
+      return new JsonResponse(['results' => []]);
+    }
+
+    $database = \Drupal::database();
+    $config = \Drupal::config('ttd_topics.settings');
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+
+    if (empty($enabled_content_types)) {
+      return new JsonResponse(['results' => []]);
+    }
+
+    // Search published nodes by title.
+    $node_query = $database->select('node_field_data', 'n');
+    $node_query->fields('n', ['nid', 'title', 'type', 'created']);
+    $node_query->condition('n.status', 1);
+    $node_query->condition('n.type', $enabled_content_types, 'IN');
+    $node_query->condition('n.title', '%' . $database->escapeLike($query) . '%', 'LIKE');
+    $node_query->orderBy('n.created', 'DESC');
+    $node_query->range(0, 20);
+
+    $results = $node_query->execute()->fetchAll();
+
+    // Get already-pinned node IDs for this term to mark them.
+    $pinned_nids = [];
+    if ($term_id) {
+      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+      if ($term && $term->hasField('field_pinned_posts')) {
+        foreach ($term->get('field_pinned_posts') as $ref) {
+          if ($ref->target_id) {
+            $pinned_nids[] = (int) $ref->target_id;
+          }
+        }
+      }
+    }
+
+    $formatted = [];
+    foreach ($results as $row) {
+      $formatted[] = [
+        'nid' => (int) $row->nid,
+        'title' => $row->title,
+        'type' => $row->type,
+        'date' => date('M j, Y', $row->created),
+        'pinned' => in_array((int) $row->nid, $pinned_nids),
+      ];
+    }
+
+    return new JsonResponse(['results' => $formatted]);
+  }
+
+  /**
+   * Search for topics in local database.
+   */
+  public function searchTopics(Request $request) {
+    $query = $request->query->get('q', '');
+    $node_id = $request->query->get('node_id', 0);
+
+    if (strlen($query) < 2) {
+      return new JsonResponse(['results' => []]);
+    }
+
+    $database = \Drupal::database();
+
+    // Build query to search taxonomy terms - search for full phrase like WordPress does
+    $term_query = $database->select('taxonomy_term_field_data', 'ttfd');
+    $term_query->fields('ttfd', ['tid', 'name', 'description__value']);
+    $term_query->condition('ttfd.vid', 'ttd_topics');
+    $term_query->condition('ttfd.status', 1);
+
+    // Search for the full query string as a phrase (case-insensitive)
+    $search_pattern = '%' . $database->escapeLike(strtolower($query)) . '%';
+    $term_query->where('LOWER(ttfd.name) LIKE :pattern', [':pattern' => $search_pattern]);
+
+    // Get TTD IDs for terms
+    $term_query->leftJoin('taxonomy_term__field_ttd_id', 'ttid', 'ttfd.tid = ttid.entity_id');
+    $term_query->addField('ttid', 'field_ttd_id_value', 'ttd_id');
+
+    // Get node count for each term
+    $term_query->leftJoin('taxonomy_index', 'ti', 'ttfd.tid = ti.tid');
+    $term_query->addExpression('COUNT(DISTINCT ti.nid)', 'post_count');
+    $term_query->groupBy('ttfd.tid');
+    $term_query->groupBy('ttfd.name');
+    $term_query->groupBy('ttid.field_ttd_id_value');
+
+    // Limit results
+    $term_query->range(0, 10);
+
+    $results = $term_query->execute()->fetchAll();
+
+    $existing_tids = [];
+    if ($node_id) {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+      if ($node && $node->hasField('field_ttd_topics')) {
+        $existing_tids = array_column($node->get('field_ttd_topics')->getValue(), 'target_id');
+      }
+    }
+
+    // Format results
+    $formatted_results = [];
+    foreach ($results as $result) {
+      // Calculate relevance score
+      $exact_match = strcasecmp($result->name, $query) === 0;
+      $relevance = $exact_match ? 2 : 1;
+
+      $formatted_results[] = [
+        'term_id' => (int) $result->tid,
+        'ttd_id' => $result->ttd_id,
+        'name' => $result->name,
+        'description' => $result->description__value ?? '',
+        'count' => (int) $result->post_count,
+        'relevance' => $relevance,
+        'source' => 'local',
+        'in_post' => in_array($result->tid, $existing_tids),
+      ];
+    }
+
+    // Sort by relevance, then by count
+    usort($formatted_results, function($a, $b) {
+      if ($b['relevance'] !== $a['relevance']) {
+        return $b['relevance'] - $a['relevance'];
+      }
+      return $b['count'] - $a['count'];
+    });
+
+    return new JsonResponse(['results' => $formatted_results]);
+  }
+
+  /**
+   * Lookup topics from external API.
+   */
+  public function lookupApi(Request $request) {
+    $query = $request->query->get('q', '');
+    $node_id = $request->query->get('node_id', 0);
+
+    if (strlen($query) < 2) {
+      return new JsonResponse(['results' => []]);
+    }
+
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return new JsonResponse(['error' => 'API key not configured'], 400);
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/lookup', [
+        'query' => [
+          'q' => $query,
+        ],
+        'headers' => [
+          'X-API-Key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+      ]);
+
+      $data = json_decode($response->getBody(), TRUE);
+      $api_results = $data['results'] ?? [];
+
+      $database = \Drupal::database();
+      $formatted_results = [];
+
+      foreach ($api_results as $result) {
+        $exists = FALSE;
+        $in_post = FALSE;
+        $term_id = NULL;
+        $ttd_id = $result['ttd_id'] ?? NULL;
+
+        // Check if exists in ttd_entities
+        if (!empty($result['mid']) || !empty($result['wb_qid'])) {
+          $entity_query = $database->select('ttd_entities', 'te');
+          $entity_query->fields('te', ['ttd_id']);
+          if (!empty($result['mid'])) {
+            $entity_query->condition('te.mid', $result['mid']);
+          } elseif (!empty($result['wb_qid'])) {
+            $entity_query->condition('te.wb_qid', $result['wb_qid']);
+          }
+          $entity_result = $entity_query->execute()->fetchField();
+          if ($entity_result) {
+            $exists = TRUE;
+            $ttd_id = $entity_result;
+          }
+        }
+
+        // Check if exists in taxonomy by ttd_id
+        if ($ttd_id) {
+          $term_query = $database->select('taxonomy_term__field_ttd_id', 'ttid');
+          $term_query->fields('ttid', ['entity_id']);
+          $term_query->condition('ttid.field_ttd_id_value', $ttd_id);
+          $term_id = $term_query->execute()->fetchField();
+          if ($term_id) {
+            $exists = TRUE;
+          }
+        }
+
+        // Check if in current post
+        if ($node_id && $term_id) {
+          $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+          if ($node && $node->hasField('field_ttd_topics')) {
+            $existing_tids = array_column($node->get('field_ttd_topics')->getValue(), 'target_id');
+            $in_post = in_array($term_id, $existing_tids);
+          }
+        }
+
+        $formatted_results[] = [
+          'ttd_id' => $ttd_id,
+          'term_id' => $term_id,
+          'name' => $result['name'] ?? $result['wb_name'] ?? '',
+          'description' => $result['wb_description'] ?? '',
+          'exists' => $exists,
+          'in_post' => $in_post,
+          'source' => 'api',
+        ];
+      }
+
+      return new JsonResponse(['results' => $formatted_results]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('API lookup error: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['error' => 'API request failed'], 500);
+    }
+  }
+
+  /**
+   * Update topic tier override.
+   */
+  public function updateTopicTier(Request $request) {
+    $data = json_decode($request->getContent(), TRUE);
+    $node_id = $data['node_id'] ?? NULL;
+    $ttd_id = $data['ttd_id'] ?? NULL;
+    $term_id = $data['term_id'] ?? NULL;
+    $new_tier = $data['new_tier'] ?? NULL;
+
+    if (!$node_id || (!$ttd_id && !$term_id) || !$new_tier) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Missing required parameters'], 400);
+    }
+
+    try {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+      if (!$node) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
+      }
+
+      // Get current tier_overrides
+      $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+      if (!is_array($tier_overrides)) {
+        $tier_overrides = [];
+      }
+
+      // Build override key (prefer ttd_id, fall back to term_id)
+      $override_key = $ttd_id ? (string) $ttd_id : 'term_' . $term_id;
+      $previous_tier = $tier_overrides[$override_key] ?? NULL;
+      $topic = $this->getEditorialSignalTopic($term_id, $ttd_id);
+      $auto_rechecked = FALSE;
+
+      // If setting mainEntity, remove any existing mainEntity override
+      if ($new_tier === 'mainEntity') {
+        foreach ($tier_overrides as $key => $tier) {
+          if ($tier === 'mainEntity') {
+            unset($tier_overrides[$key]);
+          }
+        }
+      }
+
+      // Set new tier
+      $tier_overrides[$override_key] = $new_tier;
+
+      // Match WordPress: promoting a rejected topic to Main/About accepts it.
+      if (in_array($new_tier, ['mainEntity', 'about'], TRUE) && $node->hasField('field_ttd_rejected_topics')) {
+        $promoted_term_id = $term_id;
+        if (!$promoted_term_id && $ttd_id) {
+          $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+            'vid' => 'ttd_topics',
+            'field_ttd_id' => (string) $ttd_id,
+          ]);
+          if (!empty($terms)) {
+            $promoted_term_id = reset($terms)->id();
+          }
+        }
+
+        if ($promoted_term_id) {
+          $rejected_tids = array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'));
+          $auto_rechecked = in_array((int) $promoted_term_id, $rejected_tids, TRUE);
+          $rejected_tids = array_values(array_diff($rejected_tids, [(int) $promoted_term_id]));
+          $node->set('field_ttd_rejected_topics', array_map(static fn($tid) => ['target_id' => $tid], $rejected_tids));
+        }
+      }
+
+      // Save to node
+      $node->set('field_tier_overrides', ['value' => $tier_overrides]);
+      $node->save();
+
+      if ($topic && $previous_tier !== $new_tier) {
+        $this->recordEditorialSignal('tier_change', $topic, [
+          'postId' => $node_id,
+          'fromTier' => $previous_tier,
+          'toTier' => $new_tier,
+        ]);
+      }
+      if ($topic && $auto_rechecked) {
+        $this->recordEditorialSignal('recheck', $topic, [
+          'postId' => $node_id,
+          'metadata' => ['reason' => 'promoted_to_focus_tier'],
+        ]);
+      }
+
+      // Fetch demand metrics if tier is mainEntity or about
+      $demand_metrics = NULL;
+      if (in_array($new_tier, ['mainEntity', 'about']) && $term_id) {
+        $demand_metrics = $this->getDemandMetricsData($term_id);
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'tier' => $new_tier,
+          'demand_metrics' => $demand_metrics,
+          'term_id_for_fetch' => $term_id,
+        ],
+      ]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error updating topic tier: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['success' => FALSE, 'message' => 'Failed to update tier'], 500);
+    }
+  }
+
+  /**
+   * Remove topic tier override.
+   */
+  public function removeTopicTierOverride(Request $request) {
+    $data = json_decode($request->getContent(), TRUE);
+    $node_id = $data['node_id'] ?? NULL;
+    $ttd_id = $data['ttd_id'] ?? NULL;
+    $term_id = $data['term_id'] ?? NULL;
+
+    if (!$node_id || (!$ttd_id && !$term_id)) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Missing required parameters'], 400);
+    }
+
+    try {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+      if (!$node) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
+      }
+
+      // Get current tier_overrides
+      $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+      if (!is_array($tier_overrides)) {
+        $tier_overrides = [];
+      }
+
+      // Build override key
+      $override_key = $ttd_id ? (string) $ttd_id : 'term_' . $term_id;
+      $previous_tier = $tier_overrides[$override_key] ?? NULL;
+      $topic = $this->getEditorialSignalTopic($term_id, $ttd_id);
+
+      // Remove override
+      if (isset($tier_overrides[$override_key])) {
+        unset($tier_overrides[$override_key]);
+      }
+
+      // Save to node
+      $node->set('field_tier_overrides', ['value' => $tier_overrides]);
+      $node->save();
+
+      if ($topic && $previous_tier) {
+        $this->recordEditorialSignal('tier_change', $topic, [
+          'postId' => $node_id,
+          'fromTier' => $previous_tier,
+          'toTier' => 'system',
+          'metadata' => ['reason' => 'removed_tier_override'],
+        ]);
+      }
+
+      return new JsonResponse(['success' => TRUE]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error removing topic tier override: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['success' => FALSE, 'message' => 'Failed to remove override'], 500);
+    }
+  }
+
+  /**
+   * Update topics (add/remove manual topics, accept/reject).
+   */
+  public function updateTopics(Request $request) {
+    $data = json_decode($request->getContent(), TRUE);
+    $node_id = $data['node_id'] ?? NULL;
+    $topic_id = $data['topic_id'] ?? NULL;
+    $add_manual = $data['add_manual'] ?? FALSE;
+    $remove_manual = $data['remove_manual'] ?? FALSE;
+    $is_accepted = $data['is_accepted'] ?? NULL;
+
+    if (!$node_id || !$topic_id) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Missing required parameters'], 400);
+    }
+
+    try {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+      if (!$node) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
+      }
+
+      // Handle add manual topic
+      if ($add_manual) {
+        $manual_topics = $node->get('field_manual_topics')->getValue();
+        $manual_tids = array_column($manual_topics, 'target_id');
+        if (!in_array($topic_id, $manual_tids)) {
+          $manual_tids[] = $topic_id;
+          $node->set('field_manual_topics', $manual_tids);
+        }
+      }
+
+      // Handle remove manual topic
+      if ($remove_manual) {
+        $manual_topics = $node->get('field_manual_topics')->getValue();
+        $manual_tids = array_column($manual_topics, 'target_id');
+        $manual_tids = array_filter($manual_tids, function($tid) use ($topic_id) {
+          return $tid != $topic_id;
+        });
+        $node->set('field_manual_topics', array_values($manual_tids));
+      }
+
+      // Handle accept/reject
+      if ($is_accepted !== NULL) {
+        $rejected_topics = $node->get('field_ttd_rejected_topics')->getValue();
+        $rejected_tids = array_map('intval', array_column($rejected_topics, 'target_id'));
+        $topic_id_int = (int) $topic_id;
+        $was_rejected = in_array($topic_id_int, $rejected_tids, TRUE);
+        $signal_action = NULL;
+
+        if (!$is_accepted && !in_array($topic_id_int, $rejected_tids, TRUE)) {
+          // Reject topic
+          $rejected_tids[] = $topic_id_int;
+          $node->set('field_ttd_rejected_topics', $rejected_tids);
+          $signal_action = 'uncheck';
+        } elseif ($is_accepted && $was_rejected) {
+          // Un-reject topic
+          $rejected_tids = array_filter($rejected_tids, function($tid) use ($topic_id_int) {
+            return (int) $tid !== $topic_id_int;
+          });
+          $node->set('field_ttd_rejected_topics', array_values($rejected_tids));
+          $signal_action = 'recheck';
+        }
+      }
+
+      $node->save();
+
+      if (!empty($signal_action)) {
+        $topic = $this->getEditorialSignalTopic($topic_id);
+        if ($topic) {
+          $this->recordEditorialSignal($signal_action, $topic, ['postId' => $node_id]);
+        }
+      }
+
+      return new JsonResponse(['success' => TRUE]);
+
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error updating topics: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['success' => FALSE, 'message' => 'Failed to update topics'], 500);
+    }
+  }
+
+  /**
+   * Get demand metrics for a term.
+   */
+  public function getDemandMetrics(Request $request) {
+    $term_id = $request->query->get('term_id');
+    $keyword = $request->query->get('keyword');
+    $force_refresh = $request->query->get('force_refresh', 0);
+
+    if (!$term_id && !$keyword) {
+      return new JsonResponse(['error' => 'Missing term_id or keyword'], 400);
+    }
+
+    try {
+      $data = $this->getDemandMetricsData($term_id, $keyword, $force_refresh);
+      return new JsonResponse(['success' => TRUE, 'data' => $data]);
+    } catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Error getting demand metrics: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['error' => 'Failed to fetch demand metrics'], 500);
+    }
+  }
+
+  /**
+   * Queue analysis for a single node from the editor.
+   */
+  public function runAnalysis(NodeInterface $node, Request $request) {
+    try {
+      $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+      $queue = $queue_storage->load('ttd_topics_analysis');
+
+      if (!$queue) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'message' => 'TopicalBoost analysis queue not found.',
+        ], 500);
+      }
+
+      $job = Job::create('ttd_topics_analysis', [
+        'node_id' => $node->id(),
+        'force_analysis' => TRUE,
+      ]);
+      $queue->enqueueJob($job);
+
+      if ($node->hasField('field_ttd_analysis_in_progress')) {
+        $node->set('field_ttd_analysis_in_progress', TRUE);
+        $node->save();
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'message' => 'Analysis has been queued and will run in the background.',
+          'node_id' => (int) $node->id(),
+          'changed' => $node->getChangedTime(),
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('topicalboost')->error('Error queueing analysis for node @nid: @message', [
+        '@nid' => $node->id(),
+        '@message' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'success' => FALSE,
+        'message' => 'Error queueing TopicalBoost analysis: ' . $e->getMessage(),
+      ], 500);
+    }
+  }
+
+  /**
+   * Helper to fetch demand metrics data.
+   */
+  private function getDemandMetricsData($term_id = NULL, $keyword = NULL, $force_refresh = 0) {
+    $state = \Drupal::state();
+    $cache_key = 'ttd_demand_' . ($term_id ?? md5($keyword));
+    $cache_duration = 7 * 24 * 60 * 60; // 7 days
+    $cached = $state->get($cache_key);
+    $canonical_cached = NULL;
+    if ($term_id && function_exists('ttd_get_demand_metrics')) {
+      $canonical_cached = ttd_get_demand_metrics((int) $term_id);
+    }
+    elseif ($keyword && function_exists('ttd_get_demand_metrics')) {
+      $canonical_cached = ttd_get_demand_metrics($keyword);
+    }
+
+    $request_cached_data = (!empty($cached['data']) && is_array($cached['data'])) ? $cached['data'] : NULL;
+    $has_valid_request_cache = $this->hasValidDemandMetricsCache($request_cached_data);
+    $has_valid_canonical_cache = $this->hasValidDemandMetricsCache($canonical_cached);
+
+    // Check cache unless force refresh.
+    if (!$force_refresh) {
+      if ($has_valid_request_cache && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
+        return $request_cached_data;
+      }
+      if ($has_valid_canonical_cache) {
+        return $canonical_cached;
+      }
+    }
+
+    $cooldown_until = (int) $state->get('ttd_demand_metrics_api_cooldown_until', 0);
+    if ($cooldown_until > time()) {
+      $retry_after = max(1, $cooldown_until - time());
+      if ($has_valid_canonical_cache) {
+        return $this->markDemandMetricsUnavailable($canonical_cached, $retry_after);
+      }
+      if ($has_valid_request_cache) {
+        return $this->markDemandMetricsUnavailable($request_cached_data, $retry_after);
+      }
+      return [
+        'api_unavailable' => TRUE,
+        'cooldown' => TRUE,
+        'retry_after_seconds' => $retry_after,
+      ];
+    }
+
+    $ttd_id = NULL;
+
+    // Get keyword and TopicalBoost entity ID from term if available.
+    if ($term_id) {
+      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+      if ($term) {
+        if (!$keyword) {
+          $keyword = $term->getName();
+        }
+        if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+          $ttd_id = (int) $term->get('field_ttd_id')->value;
+        }
+      }
+    }
+
+    if (!$ttd_id && !$keyword) {
+      return NULL;
+    }
+
+    // Call TopicalBoost API
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return NULL;
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $path = $ttd_id
+        ? '/demand/entity/' . rawurlencode((string) $ttd_id)
+        : '/demand/keyword/' . rawurlencode($keyword);
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . $path, [
+        'headers' => [
+          'X-API-Key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+        'timeout' => 8,
+        'connect_timeout' => 3,
+      ]);
+
+      $data = json_decode($response->getBody(), TRUE);
+      $metrics = [
+        'keyword' => $data['keyword'] ?? $keyword,
+        'keyword_difficulty' => $data['keyword_difficulty'] ?? 0,
+        'search_volume' => $data['search_volume'] ?? 0,
+        'traffic_potential' => $data['traffic_potential'] ?? 0,
+        'traffic_potential_value' => $data['traffic_potential_value'] ?? 0,
+      ];
+
+      // Cache the result for this request path.
+      $state->set($cache_key, [
+        'timestamp' => time(),
+        'data' => $metrics,
+      ]);
+
+      // Also persist to the canonical demand cache used during page rendering.
+      // Without this, a badge fetched by clicking in the editor disappears on
+      // refresh because ttd_render_kd_badge() reads ttd_get_demand_metrics().
+      if ($term_id && function_exists('ttd_store_demand_metrics')) {
+        ttd_store_demand_metrics((int) $term_id, $metrics);
+      }
+      elseif ($keyword && function_exists('ttd_store_demand_metrics')) {
+        ttd_store_demand_metrics($keyword, $metrics);
+      }
+
+      return $metrics;
+
+    } catch (\Exception $e) {
+      $retry_after = $this->getDemandMetricsRetryAfter($e);
+      if ($retry_after !== NULL) {
+        $state->set('ttd_demand_metrics_api_cooldown_until', time() + $retry_after);
+        \Drupal::logger('ttd_topics')->notice('Demand metrics temporarily unavailable; retry after @seconds seconds.', [
+          '@seconds' => $retry_after,
+        ]);
+        if ($has_valid_canonical_cache) {
+          return $this->markDemandMetricsUnavailable($canonical_cached, $retry_after);
+        }
+        if ($has_valid_request_cache) {
+          return $this->markDemandMetricsUnavailable($request_cached_data, $retry_after);
+        }
+        return [
+          'api_unavailable' => TRUE,
+          'cooldown' => TRUE,
+          'retry_after_seconds' => $retry_after,
+        ];
+      }
+
+      \Drupal::logger('ttd_topics')->error('API demand metrics error: @message', ['@message' => $e->getMessage()]);
+      if ($has_valid_request_cache) {
+        return $request_cached_data;
+      }
+      if ($has_valid_canonical_cache) {
+        return $canonical_cached;
+      }
+      return NULL;
+    }
+  }
+
+  /**
+   * Determines whether a cached demand metric entry is usable.
+   */
+  private function hasValidDemandMetricsCache($metrics): bool {
+    if (!is_array($metrics) || !array_key_exists('traffic_potential', $metrics)) {
+      return FALSE;
+    }
+
+    // Match WordPress: old/anomalous cache with traffic_potential=0 but
+    // positive search_volume should be refetched instead of trusted.
+    return !((int) ($metrics['traffic_potential'] ?? 0) === 0
+      && !empty($metrics['search_volume'])
+      && (int) $metrics['search_volume'] > 0);
+  }
+
+  /**
+   * Annotates cached demand metrics returned during an API cooldown.
+   */
+  private function markDemandMetricsUnavailable(array $metrics, int $retry_after): array {
+    $metrics['stale'] = TRUE;
+    $metrics['api_unavailable'] = TRUE;
+    $metrics['cooldown'] = TRUE;
+    $metrics['retry_after_seconds'] = $retry_after;
+    return $metrics;
+  }
+
+  /**
+   * Extracts retry-after seconds from the expected demand metrics 503 response.
+   */
+  private function getDemandMetricsRetryAfter(\Exception $e): ?int {
+    if (!$e instanceof \GuzzleHttp\Exception\RequestException || !$e->hasResponse()) {
+      return NULL;
+    }
+
+    $response = $e->getResponse();
+    if ((int) $response->getStatusCode() !== 503) {
+      return NULL;
+    }
+
+    $data = json_decode((string) $response->getBody(), TRUE);
+    if (!is_array($data)
+      || ($data['error'] ?? '') !== 'External API error'
+      || ($data['message'] ?? '') !== 'SEO metrics temporarily unavailable') {
+      return NULL;
+    }
+
+    return max(1, (int) ($data['retry_after_seconds'] ?? self::DEMAND_METRICS_COOLDOWN_SECONDS));
+  }
+
+  /**
+   * Renders the New Topics page.
+   */
+  public function newTopicsPage() {
+    $html = '<div class="ttd-new-topics-wrap">';
+    $html .= '<p class="ttd-new-topics-description">Recently discovered topics from content analysis. Set visibility overrides before they appear on the frontend.</p>';
+
+    $html .= '<div class="ttd-new-topics-filters">';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="7">7 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="14">14 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn is-active" data-days="30">30 days</button>';
+    $html .= '<button class="ttd-new-topics-filter-btn" data-days="90">90 days</button>';
+    $html .= '</div>';
+
+    $html .= '<div class="ttd-new-topics-loading" style="display:none;">Loading topics...</div>';
+    $html .= '<div class="ttd-new-topics-empty" style="display:none;">No new topics found in this time period.</div>';
+
+    $html .= '<table class="ttd-new-topics-table" style="display:none;">';
+    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Hide</th><th>Force Show</th></tr></thead>';
+    $html .= '<tbody id="ttd-new-topics-body"></tbody>';
+    $html .= '</table>';
+    $html .= '<div class="ttd-new-topics-pagination" style="display:none;"></div>';
+
+    $html .= '</div>';
+
+    return [
+      '#type' => 'markup',
+      '#markup' => Markup::create($html),
+      '#attached' => [
+        'library' => ['ttd_topics/new_topics'],
+      ],
+    ];
+  }
+
+  /**
+   * AJAX endpoint: Get new topics filtered by date range.
+   */
+  public function getNewTopics(Request $request) {
+    $days = (int) $request->query->get('days', 30);
+    if ($days < 1) {
+      $days = 30;
+    }
+    $page = max(1, (int) $request->query->get('page', 1));
+    $per_page = min(100, max(1, (int) $request->query->get('per_page', 25)));
+    $offset = ($page - 1) * $per_page;
+
+    $database = \Drupal::database();
+    $cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+    try {
+      $total_query = $database->select('ttd_entities', 'e');
+      $total_query->condition('e.createdAt', $cutoff, '>=');
+      $total = (int) $total_query->countQuery()->execute()->fetchField();
+
+      $query = $database->select('ttd_entities', 'e');
+      $query->fields('e', ['ttd_id', 'name', 'createdAt']);
+      $query->condition('e.createdAt', $cutoff, '>=');
+      $query->leftJoin('ttd_entity_post_ids', 'ep', 'e.ttd_id = ep.entity_id');
+      $query->addExpression('COUNT(DISTINCT ep.post_id)', 'post_count');
+      $query->groupBy('e.ttd_id');
+      $query->groupBy('e.name');
+      $query->groupBy('e.createdAt');
+      $query->orderBy('e.createdAt', 'DESC');
+      $query->range($offset, $per_page);
+
+      $results = $query->execute()->fetchAll();
+
+      if (empty($results)) {
+        return new JsonResponse([
+          'topics' => [],
+          'pagination' => [
+            'total' => $total,
+            'total_pages' => 0,
+            'current_page' => $page,
+          ],
+        ]);
+      }
+
+      $ttd_ids = array_map(static function ($row) {
+        return (int) $row->ttd_id;
+      }, $results);
+
+      $term_map = [];
+      if (!empty($ttd_ids)) {
+        $term_rows = $database->select('taxonomy_term__field_ttd_id', 'fi')
+          ->fields('fi', ['entity_id', 'field_ttd_id_value'])
+          ->condition('fi.field_ttd_id_value', $ttd_ids, 'IN')
+          ->execute()
+          ->fetchAll();
+
+        foreach ($term_rows as $term_row) {
+          $term_map[(int) $term_row->field_ttd_id_value] = [
+            'tid' => (int) $term_row->entity_id,
+            'is_hidden' => FALSE,
+            'force_show' => FALSE,
+          ];
+        }
+      }
+
+      $tids = array_filter(array_column($term_map, 'tid'));
+      if (!empty($tids)) {
+        $hide_rows = $database->select('taxonomy_term__field_hide', 'tfh')
+          ->fields('tfh', ['entity_id', 'field_hide_value'])
+          ->condition('tfh.entity_id', $tids, 'IN')
+          ->execute()
+          ->fetchAllKeyed();
+
+        $force_rows = $database->select('taxonomy_term__field_force_show', 'tfs')
+          ->fields('tfs', ['entity_id', 'field_force_show_value'])
+          ->condition('tfs.entity_id', $tids, 'IN')
+          ->execute()
+          ->fetchAllKeyed();
+
+        foreach ($term_map as $ttd_id => $term_data) {
+          $tid = $term_data['tid'];
+          $term_map[$ttd_id]['is_hidden'] = !empty($hide_rows[$tid]);
+          $term_map[$ttd_id]['force_show'] = !empty($force_rows[$tid]);
+        }
+      }
+
+      $schema_type_map = [];
+      if (!empty($ttd_ids)) {
+        $schema_rows = $database->query(
+          "SELECT est.entity_id, st.name
+           FROM {ttd_entity_schema_types} est
+           INNER JOIN {ttd_schema_types} st ON est.schema_type_id = st.ttd_id
+           WHERE est.entity_id IN (:ids[])",
+          [':ids[]' => $ttd_ids]
+        )->fetchAll();
+
+        foreach ($schema_rows as $schema_row) {
+          $schema_type_map[(int) $schema_row->entity_id][] = $schema_row->name;
+        }
+      }
+
+      $topics = [];
+      foreach ($results as $row) {
+        $ttd_id = (int) $row->ttd_id;
+        $term_data = $term_map[$ttd_id] ?? NULL;
+
+        $topics[] = [
+          'tid' => $term_data['tid'] ?? NULL,
+          'ttd_id' => $ttd_id,
+          'name' => $row->name,
+          'created' => date('M j, Y', strtotime($row->createdAt)),
+          'post_count' => (int) $row->post_count,
+          'schema_types' => $schema_type_map[$ttd_id] ?? [],
+          'is_hidden' => (bool) ($term_data['is_hidden'] ?? FALSE),
+          'force_show' => (bool) ($term_data['force_show'] ?? FALSE),
+        ];
+      }
+
+      return new JsonResponse([
+        'topics' => $topics,
+        'pagination' => [
+          'total' => $total,
+          'total_pages' => (int) ceil($total / $per_page),
+          'current_page' => $page,
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('New topics endpoint error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'topics' => [],
+        'pagination' => [
+          'total' => 0,
+          'total_pages' => 0,
+          'current_page' => $page,
+        ],
+        'error' => 'Unable to load new topics.',
+      ], 500);
+    }
+  }
+
+  /**
+   * AJAX endpoint: Toggle force_show on a topic term.
+   */
+  public function toggleForceShow($taxonomy_term, Request $request) {
+    $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($taxonomy_term);
+
+    if (!$term || $term->bundle() !== 'ttd_topics') {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Term not found'], 404);
+    }
+
+    if (!$term->hasField('field_force_show')) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'field_force_show not available'], 400);
+    }
+
+    $content = json_decode($request->getContent(), TRUE);
+    $force_show = !empty($content['force_show']);
+    $term->set('field_force_show', $force_show);
+    $term->save();
+
+    $topic = $this->getEditorialSignalTopic($term->id());
+    if ($topic) {
+      $this->recordEditorialSignal($force_show ? 'force_show' : 'force_unshow', $topic);
+    }
+
+    return new JsonResponse([
+      'success' => TRUE,
+      'force_show' => $force_show,
+    ]);
+  }
+
+  /**
+   * Proxy changelog request to the TopicalBoost API.
+   */
+  public function getChangelog() {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return new JsonResponse(['error' => 'API key not configured'], 400);
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/changelog', [
+        'query' => [
+          'product' => 'drupal',
+          'limit' => 20,
+        ],
+        'headers' => [
+          'x-api-key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+        'timeout' => 10,
+      ]);
+
+      $data = json_decode($response->getBody(), TRUE);
+      return new JsonResponse($data);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse(['error' => 'Unable to fetch changelog'], 500);
+    }
+  }
+
+  /**
+   * Create a topic taxonomy term from entity data.
+   *
+   * Accepts entity data (name, ttd_id, kg_name, wb_name, etc.), upserts into
+   * ttd_entities table, then creates or reuses a taxonomy term linked to it.
+   */
+  public function createTopicTerm(Request $request) {
+    $content = json_decode($request->getContent(), TRUE);
+    $topic_data = $content['topic_data'] ?? NULL;
+    $node_id = (int) ($content['post_id'] ?? 0);
+    $add_to_post = !empty($content['add_to_post']);
+
+    if (!$topic_data) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing topic data'],
+      ], 400);
+    }
+
+    // Resolve name.
+    $name = $topic_data['name'] ?? $topic_data['kg_name'] ?? $topic_data['wb_name'] ?? NULL;
+    $ttd_id = (int) ($topic_data['ttd_id'] ?? 0);
+
+    if (!$name || !$ttd_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing required topic data (name and ttd_id)'],
+      ], 400);
+    }
+
+    $database = \Drupal::database();
+
+    try {
+      // Upsert into ttd_entities table.
+      $existing = $database->select('ttd_entities', 'e')
+        ->fields('e', ['ttd_id'])
+        ->condition('e.ttd_id', $ttd_id)
+        ->execute()
+        ->fetchField();
+
+      if (!$existing) {
+        $fields = [
+          'ttd_id' => $ttd_id,
+          'name' => $topic_data['name'] ?? NULL,
+          'mid' => $topic_data['mid'] ?? NULL,
+          'kg_name' => $topic_data['kg_name'] ?? NULL,
+          'kg_image' => $topic_data['kg_image'] ?? NULL,
+          'nl_name' => $topic_data['nl_name'] ?? NULL,
+          'nl_type' => $topic_data['nl_type'] ?? NULL,
+          'wb_qid' => $topic_data['wb_qid'] ?? NULL,
+          'wb_name' => $topic_data['wb_name'] ?? NULL,
+          'wb_description' => $topic_data['wb_description'] ?? NULL,
+          'wb_image' => $topic_data['wb_image'] ?? NULL,
+          'wikipedia_url' => $topic_data['wikipedia_url'] ?? NULL,
+        ];
+        $database->insert('ttd_entities')->fields($fields)->execute();
+      }
+
+      // Find or create taxonomy term.
+      $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+
+      // Look up by field_ttd_id.
+      $terms = $term_storage->loadByProperties([
+        'vid' => 'ttd_topics',
+        'field_ttd_id' => $ttd_id,
+      ]);
+
+      if (!empty($terms)) {
+        $term = reset($terms);
+        $term_id = $term->id();
+      }
+      else {
+        // Check by name to avoid duplicates.
+        $terms_by_name = $term_storage->loadByProperties([
+          'vid' => 'ttd_topics',
+          'name' => $name,
+        ]);
+
+        if (!empty($terms_by_name)) {
+          $term = reset($terms_by_name);
+          $term_id = $term->id();
+          // Link it if not already.
+          if ($term->hasField('field_ttd_id') && empty($term->get('field_ttd_id')->value)) {
+            $term->set('field_ttd_id', $ttd_id);
+            $term->save();
+          }
+        }
+        else {
+          // Create new term.
+          $term = $term_storage->create([
+            'vid' => 'ttd_topics',
+            'name' => $name,
+            'description' => ['value' => $topic_data['wb_description'] ?? '', 'format' => 'plain_text'],
+            'field_ttd_id' => $ttd_id,
+          ]);
+          $term->save();
+          $term_id = $term->id();
+        }
+      }
+
+      // Optionally add to node.
+      if ($add_to_post && $node_id) {
+        $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+        if ($node && $node->hasField('field_ttd_topics')) {
+          $current_values = $node->get('field_ttd_topics')->getValue();
+          $already_assigned = FALSE;
+          foreach ($current_values as $val) {
+            if ((int) $val['target_id'] === (int) $term_id) {
+              $already_assigned = TRUE;
+              break;
+            }
+          }
+          if (!$already_assigned) {
+            $current_values[] = ['target_id' => $term_id];
+            $node->set('field_ttd_topics', $current_values);
+            $node->save();
+          }
+        }
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term_id,
+          'ttd_id' => $ttd_id,
+          'name' => $name,
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Create topic term error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Look up a taxonomy term by TTD ID, auto-create if missing.
+   */
+  public function getTermByTtdId(Request $request) {
+    $content = json_decode($request->getContent(), TRUE);
+    $ttd_id = (int) ($content['ttd_id'] ?? 0);
+
+    if (!$ttd_id) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Missing TTD ID'],
+      ], 400);
+    }
+
+    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+
+    // Look up by field_ttd_id.
+    $terms = $term_storage->loadByProperties([
+      'vid' => 'ttd_topics',
+      'field_ttd_id' => $ttd_id,
+    ]);
+
+    if (!empty($terms)) {
+      $term = reset($terms);
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term->id(),
+          'name' => $term->getName(),
+        ],
+      ]);
+    }
+
+    // Not found — auto-create from entity record.
+    $database = \Drupal::database();
+    try {
+      $entity = $database->select('ttd_entities', 'e')
+        ->fields('e')
+        ->condition('e.ttd_id', $ttd_id)
+        ->execute()
+        ->fetchAssoc();
+    }
+    catch (\Exception $e) {
+      $entity = NULL;
+    }
+
+    if (!$entity) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Term not found for TTD ID: ' . $ttd_id],
+      ], 404);
+    }
+
+    $name = $entity['kg_name'] ?: ($entity['wb_name'] ?: ($entity['name'] ?: 'Unnamed Entity'));
+    $description = $entity['wb_description'] ?? '';
+
+    try {
+      // Check if a term with this name already exists.
+      $existing = $term_storage->loadByProperties([
+        'vid' => 'ttd_topics',
+        'name' => $name,
+      ]);
+
+      if (!empty($existing)) {
+        $term = reset($existing);
+        // Link it.
+        if ($term->hasField('field_ttd_id')) {
+          $term->set('field_ttd_id', $ttd_id);
+          $term->save();
+        }
+      }
+      else {
+        $term = $term_storage->create([
+          'vid' => 'ttd_topics',
+          'name' => $name,
+          'description' => ['value' => $description, 'format' => 'plain_text'],
+          'field_ttd_id' => $ttd_id,
+        ]);
+        $term->save();
+      }
+
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => [
+          'term_id' => $term->id(),
+          'name' => $term->getName(),
+        ],
+      ]);
+    }
+    catch (\Exception $e) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => $e->getMessage()],
+      ], 500);
+    }
+  }
+
+  /**
+   * Get meta generation settings from the API.
+   */
+  public function getMetaSettings() {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+
+    if (empty($api_key)) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'API key not configured'],
+      ], 400);
+    }
+
+    try {
+      $client = \Drupal::httpClient();
+      $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . '/meta/settings', [
+        'headers' => [
+          'x-api-key' => $api_key,
+          'Content-Type' => 'application/json',
+        ],
+        'timeout' => 15,
+      ]);
+
+      $data = json_decode($response->getBody()->getContents(), TRUE);
+      return new JsonResponse([
+        'success' => TRUE,
+        'data' => $data,
+      ]);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Meta settings API error: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Failed to fetch meta settings from API'],
+      ], 500);
+    }
   }
 
 }

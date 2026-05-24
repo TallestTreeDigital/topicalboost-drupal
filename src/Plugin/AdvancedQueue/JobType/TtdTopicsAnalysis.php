@@ -41,7 +41,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
     }
 
     // Check if the node is eligible for analysis.
-    $is_eligible = $node->isPublished() || $force_analysis;
+    $config = \Drupal::config('ttd_topics.settings');
+    $analysis_in_progress = $node->hasField('field_ttd_analysis_in_progress') && (bool) $node->get('field_ttd_analysis_in_progress')->value;
+    $is_held_for_analysis = (bool) $config->get('block_until_analyzed') && $analysis_in_progress && !$node->isPublished();
+    $is_eligible = $node->isPublished() || $force_analysis || $is_held_for_analysis;
     $is_analyzed = !$node->get('field_ttd_last_analyzed')->isEmpty();
 
     if (!$is_eligible || ($is_analyzed && !$force_analysis)) {
@@ -53,10 +56,17 @@ class TtdTopicsAnalysis extends JobTypeBase {
       $node->set('field_ttd_analysis_in_progress', TRUE);
       $node->save();
 
-      $this->performSingleAnalysis($node);
+      $this->performSingleAnalysis($node, $force_analysis || $is_held_for_analysis);
 
       // Clear analysis in progress.
       $node->set('field_ttd_analysis_in_progress', FALSE);
+
+      // If block_until_analyzed is enabled, publish the node after analysis.
+      if ($config->get('block_until_analyzed') && !$node->isPublished()) {
+        $node->setPublished();
+        \Drupal::logger('topicalboost')->info('Published node @nid after analysis completed (block_until_analyzed).', ['@nid' => $node->id()]);
+      }
+
       $node->save();
 
       return JobResult::success('TopicalBoost analysis completed for node ' . $identifier);
@@ -77,76 +87,11 @@ class TtdTopicsAnalysis extends JobTypeBase {
   /**
    * Perform single analysis for a node.
    */
-  private function performSingleAnalysis(NodeInterface $node) {
-    $config = \Drupal::config('ttd_topics.settings');
-    $api_key = $config->get('topicalboost_api_key');
-    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+  private function performSingleAnalysis(NodeInterface $node, bool $force_analysis = FALSE) {
+    $result = \Drupal::service('ttd_topics.analysis_service')->performSingleAnalysis($node, $force_analysis);
 
-    $client = new Client();
-
-    try {
-      // Get analysis content using field collector
-      $field_collector = \Drupal::service('ttd_topics.field_collector');
-      $analysis_text = $field_collector->collect($node);
-
-      // Step 1: Initiate analysis.
-      $response = $client->post($api_base_url . '/analyze/single', [
-        'headers' => \ttd_topics_api_headers($api_key),
-        'json' => [
-          'customer_id' => $node->id(),
-          'url' => \ttd_topics_get_node_absolute_url($node),
-          'title' => $node->getTitle(),
-          'text' => $analysis_text,
-        ],
-      ]);
-
-      $result = json_decode($response->getBody(), TRUE);
-      $request_id = $result['request_id'];
-
-      // Step 2: Poll for analysis completion.
-      $completed = FALSE;
-      $max_attempts = 30;
-      $attempt = 0;
-
-      while (!$completed && $attempt < $max_attempts) {
-        // Wait for 10 seconds between polls.
-        sleep(10);
-        $poll_response = $client->get($api_base_url . '/poll/analysis', [
-          'headers' => ['x-api-key' => $api_key],
-          'query' => ['request_id' => $request_id],
-        ]);
-
-        $poll_result = json_decode($poll_response->getBody(), TRUE);
-        if ($poll_result['ready']) {
-          $completed = TRUE;
-        }
-
-        $attempt++;
-      }
-
-      if (!$completed) {
-        throw new \Exception('Analysis timed out');
-      }
-
-      // Step 3: Get analysis results.
-      $results_response = $client->get($api_base_url . '/result/entities', [
-        'headers' => ['x-api-key' => $api_key],
-        'query' => ['request_id' => $request_id],
-      ]);
-
-      $analysis_results = json_decode($results_response->getBody(), TRUE);
-
-      // Process and save the results.
-      $this->saveAnalysisResults($node, $analysis_results);
-
-      // Update the ttd_last_analyzed field.
-      $node->set('field_ttd_last_analyzed', \Drupal::time()->getRequestTime());
-      $node->save();
-
-    }
-    catch (RequestException $e) {
-      \Drupal::logger('ttd_topics')->error('Error during TopicalBoost analysis: @error', ['@error' => $e->getMessage()]);
-      throw $e;
+    if (empty($result['success'])) {
+      throw new \Exception($result['message'] ?? 'Analysis failed');
     }
   }
 
@@ -158,9 +103,15 @@ class TtdTopicsAnalysis extends JobTypeBase {
     foreach ($results['entities'] as $entity) {
       $name = $entity['name'] ?? $entity['nl_name'] ?? $entity['kg_name'] ?? $entity['wb_name'] ?? NULL;
       if (!empty($name)) {
-        $topicalboost[] = [
-          'target_id' => $this->getOrCreateTerm($name, $entity['id'], $entity),
-        ];
+        $term_id = $this->getOrCreateTerm($name, $entity['id'], $entity);
+        if ($term_id) {
+          $topicalboost[] = [
+            'target_id' => $term_id,
+          ];
+
+          // Store demand metrics (KD/KV) if present
+          $this->storeDemandMetricsForTerm($term_id, $entity);
+        }
       }
     }
     $node->set('field_ttd_topics', $topicalboost);
@@ -207,7 +158,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
     }
     else {
       // Exclude fields that are not columns in ttd_entities table
-      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories'];
+      $exclude_fields = ['id', 'Contents', 'SchemaTypes', 'WBCategories', 'keyword_difficulty', 'search_volume', 'traffic_potential'];
       foreach ($exclude_fields as $field) {
         unset($entity_data[$field]);
       }
@@ -305,6 +256,10 @@ class TtdTopicsAnalysis extends JobTypeBase {
    * Handle related data for schema types and WB categories.
    */
   private function handleRelatedData($ttd_id, $type, $data) {
+    if (empty($data) || !is_array($data)) {
+      return;
+    }
+
     $database = \Drupal::database();
     $table = "ttd_entity_{$type}";
     $id_field = "{$type}_id";
@@ -363,6 +318,43 @@ class TtdTopicsAnalysis extends JobTypeBase {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Store demand metrics (KD/KV) for a term from entity data.
+   *
+   * @param int $term_id
+   *   The taxonomy term ID.
+   * @param array $entity_data
+   *   Entity data from API response.
+   */
+  private function storeDemandMetricsForTerm($term_id, array $entity_data) {
+    // Check if entity has keyword_difficulty, search_volume, and/or traffic_potential.
+    $has_kd = isset($entity_data['keyword_difficulty']) && $entity_data['keyword_difficulty'] !== NULL;
+    $has_sv = isset($entity_data['search_volume']) && $entity_data['search_volume'] !== NULL;
+    $has_tp = isset($entity_data['traffic_potential']) && $entity_data['traffic_potential'] !== NULL;
+
+    if (!$has_kd && !$has_sv && !$has_tp) {
+      return;
+    }
+
+    // Build metrics data structure
+    $metrics_data = [];
+
+    if ($has_kd) {
+      $metrics_data['keyword_difficulty'] = (int) $entity_data['keyword_difficulty'];
+    }
+
+    if ($has_sv) {
+      $metrics_data['search_volume'] = (int) $entity_data['search_volume'];
+    }
+
+    if ($has_tp) {
+      $metrics_data['traffic_potential'] = (int) $entity_data['traffic_potential'];
+    }
+
+    // Store using module function
+    ttd_store_demand_metrics($term_id, $metrics_data);
   }
 
 }

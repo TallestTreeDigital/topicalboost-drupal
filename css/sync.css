@@ -1,0 +1,204 @@
+/* Sync Status */
+#ttd-sync-status-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ttd-sync-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c3c4c7;
+}
+
+.ttd-sync-dot.is-synced {
+  background: #00a32a;
+}
+
+.ttd-sync-dot.is-unsynced {
+  background: #dba617;
+}
+
+.ttd-sync-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1d2327;
+}
+
+/* Metric cards grid */
+.ttd-sync-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ttd-sync-card {
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  padding: 20px 24px;
+  background: #fff;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.ttd-sync-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ttd-sync-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #50575e;
+  letter-spacing: 0.5px;
+}
+
+.ttd-sync-card-icon .synced {
+  color: #00a32a;
+}
+
+.ttd-sync-card-icon .unsynced {
+  color: #dba617;
+}
+
+.ttd-sync-card-counts {
+  display: flex;
+  gap: 0;
+}
+
+.ttd-sync-card-count {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ttd-sync-card-count + .ttd-sync-card-count {
+  border-left: 1px solid #dcdcde;
+  padding-left: 20px;
+  margin-left: 20px;
+}
+
+.ttd-sync-card-number {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ttd-sync-card-count:first-child .ttd-sync-card-number {
+  color: #1d2327;
+}
+
+.ttd-sync-card-count:last-child .ttd-sync-card-number {
+  color: #2271b1;
+}
+
+.ttd-sync-card-label {
+  font-size: 11px;
+  color: #787c82;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ttd-sync-card-hint {
+  font-size: 12px;
+  color: #646970;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e8e8e8;
+}
+
+/* Syncing animation */
+.ttd-sync-card.is-syncing {
+  border-color: #2271b1;
+  animation: ttd-sync-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ttd-sync-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 113, 177, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1); }
+}
+
+/* Progress bar */
+.ttd-sync-progress-bar {
+  height: 10px;
+  background: #e2e4e7;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.ttd-sync-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2271b1 0%, #358fd8 100%);
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+
+.ttd-sync-progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #50575e;
+  margin-bottom: 16px;
+}
+
+.ttd-sync-progress-info #sync-progress-text {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ttd-sync-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .ttd-sync-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dark mode (Gin theme) */
+.gin--dark-mode .ttd-sync-card {
+  background: #2b2d31;
+  border-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-card-title {
+  color: #a0a4ab;
+}
+
+.gin--dark-mode .ttd-sync-card-count:first-child .ttd-sync-card-number {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-sync-card-label {
+  color: #9a9ea6;
+}
+
+.gin--dark-mode .ttd-sync-card-hint {
+  color: #9a9ea6;
+  border-top-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-card-count + .ttd-sync-card-count {
+  border-left-color: #3f4145;
+}
+
+.gin--dark-mode .ttd-sync-label {
+  color: #e0e0e0;
+}
+
+.gin--dark-mode .ttd-sync-progress-bar {
+  background: #3f4145;
+}
+
+.gin--dark-mode #ttd-sync-result .messages--status {
+  background: #1a3a1a;
+  color: #8ddb8d;
+}

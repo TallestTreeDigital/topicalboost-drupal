@@ -1,0 +1,59 @@
+enabled_content_types: []
+enable_frontend: false
+enable_automatic_mentions: true
+enable_meta_generator: false
+maximum_visible_post_topics: 5
+post_topic_minimum_display_count: 10
+analysis_custom_fields: []
+topics_list_label: 'Topics on this page'
+topic_url_path_prefix: topics
+debug_mode: false
+topicalboost_api_key: ''
+api_key_validated: false
+api_key_validation_hash: ''
+subscription_status: ''
+domain_mismatch: {  }
+topicalboost_api_endpoint: ''
+site_base_url: ''
+organization_facebook_url: ''
+organization_twitter_url: ''
+organization_linkedin_url: ''
+organization_youtube_url: ''
+organization_wikipedia_url: ''
+organization_logo_method: auto
+organization_logo_fid: null
+organization_logo_url: ''
+frontend_filter_mode: mentions_behind_toggle
+frontend_sort_order: salience
+auto_link_topics: false
+skeleton_style: false
+taxonomy_label_singular: Topic
+taxonomy_label_plural: Topics
+include_excerpt: false
+batch_size: 35
+beta_channel: false
+use_beta_api: false
+error_telemetry_enabled: true
+disable_event_temporal_properties: false
+hide_seo_module_ui: false
+block_until_analyzed: false
+required_permission: 'administer topicalboost'
+new_topic_reanalysis_enabled: false
+new_topic_reanalysis_lookback_days: 30
+search_clippings_enabled: false
+citations_widget_enabled: false
+citations_widget_limit: 20
+meta_seo_prompt: ''
+meta_social_prompt: ''
+meta_title_case_format: title
+auto_sync_enabled: false
+search_countries:
+  - US
+author_manager_enabled: false
+author_hide_content_types: []
+author_force_show_content_types: []
+custom_author_schema_enabled: false
+author_field_name: uid
+author_name_field: display_name
+author_image_field: ''
+author_description_field: ''
