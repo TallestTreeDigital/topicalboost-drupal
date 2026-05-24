@@ -442,12 +442,26 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Check if analysis is in progress.
     $analysis_in_progress = $node->get('field_ttd_analysis_in_progress')->value;
     $meta_gen_enabled = $config->get('enable_meta_generator') ?? FALSE;
-    $use_combined_editor = ($meta_gen_enabled && $is_saved && !$analysis_in_progress);
+    $has_schema_image_fields = $node->hasField('field_ttd_schema_16x9');
+    $schema_images_available = $is_saved && !$analysis_in_progress && $has_schema_image_fields;
+    $schema_images_ready = $schema_images_available
+      && $node->hasField('field_ttd_schema_16x9') && !$node->get('field_ttd_schema_16x9')->isEmpty()
+      && $node->hasField('field_ttd_schema_4x3') && !$node->get('field_ttd_schema_4x3')->isEmpty()
+      && $node->hasField('field_ttd_schema_1x1') && !$node->get('field_ttd_schema_1x1')->isEmpty();
+    $use_combined_editor = ($is_saved && !$analysis_in_progress && ($meta_gen_enabled || $schema_images_available));
     $topics_field_value = $is_saved ? $node->get('field_ttd_topics')->getValue() : [];
     $has_topics = !empty($topics_field_value);
     $existing_title = $node->hasField('field_ttd_generated_meta_title')
       ? $node->get('field_ttd_generated_meta_title')->value
       : '';
+
+    if ($has_schema_image_fields) {
+      foreach (['field_ttd_schema_16x9', 'field_ttd_schema_4x3', 'field_ttd_schema_1x1', 'field_ttd_schema_focal_point'] as $hide_field) {
+        if (isset($form[$hide_field])) {
+          $form[$hide_field]['#access'] = FALSE;
+        }
+      }
+    }
     $existing_description = $node->hasField('field_ttd_generated_meta_desc')
       ? $node->get('field_ttd_generated_meta_desc')->value
       : '';
@@ -503,19 +517,31 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     $form['#attached']['library'][] = 'ttd_topics/ttd_topics.styles';
 
     if ($use_combined_editor) {
-      $form['#attached']['library'][] = 'ttd_topics/meta_generator';
+      if ($meta_gen_enabled) {
+        $form['#attached']['library'][] = 'ttd_topics/meta_generator';
+      }
       $form['#attached']['library'][] = 'ttd_topics/combined_tabs';
+      if ($schema_images_available) {
+        $form['#attached']['library'][] = 'ttd_topics/schema_images';
+      }
 
       $analysis_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>';
       $seo_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.5-4.5"></path></svg>';
       $social_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.5 6.8-4"></path><path d="m8.6 13.5 6.8 4"></path></svg>';
+      $schema_icon = '<svg class="ttd-tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>';
+      $tab_buttons = '<button type="button" class="ttd-combined-tab ttd-combined-tab-active" data-tab="topics" role="tab" aria-selected="true">' . $analysis_icon . ' Analysis' . ($has_topics ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>';
+      if ($meta_gen_enabled) {
+        $tab_buttons .= '<button type="button" class="ttd-combined-tab" data-tab="seo" role="tab" aria-selected="false">' . $seo_icon . ' SEO Meta' . (($existing_title && $existing_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>';
+        $tab_buttons .= '<button type="button" class="ttd-combined-tab" data-tab="social" role="tab" aria-selected="false">' . $social_icon . ' Social Meta' . (($existing_og_title && $existing_og_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>';
+      }
+      if ($schema_images_available) {
+        $tab_buttons .= '<button type="button" class="ttd-combined-tab" data-tab="schema" role="tab" aria-selected="false">' . $schema_icon . ' Schema Images' . ($schema_images_ready ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>';
+      }
 
       $form['ttd_topics']['combined_open'] = [
         '#markup' => Markup::create('<div class="ttd-combined-metabox ttd-combined-tabbed">
           <div class="ttd-combined-tabs" role="tablist">
-            <button type="button" class="ttd-combined-tab ttd-combined-tab-active" data-tab="topics" role="tab" aria-selected="true">' . $analysis_icon . ' Analysis' . ($has_topics ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
-            <button type="button" class="ttd-combined-tab" data-tab="seo" role="tab" aria-selected="false">' . $seo_icon . ' SEO Meta' . (($existing_title && $existing_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
-            <button type="button" class="ttd-combined-tab" data-tab="social" role="tab" aria-selected="false">' . $social_icon . ' Social Meta' . (($existing_og_title && $existing_og_description) ? '<span class="ttd-combined-tab-check">&#10003;</span>' : '<span class="ttd-combined-tab-pending"></span>') . '</button>
+            ' . $tab_buttons . '
           </div>
           <div class="ttd-combined-panel ttd-combined-panel-active" data-panel="topics" role="tabpanel">'),
         '#weight' => 0,
@@ -543,8 +569,9 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     }
 
     if ($use_combined_editor) {
+      $next_panel = $meta_gen_enabled ? 'seo' : 'schema';
       $form['ttd_topics']['topics_panel_close'] = [
-        '#markup' => Markup::create('</div><div class="ttd-combined-panel" data-panel="seo" role="tabpanel">'),
+        '#markup' => Markup::create('</div><div class="ttd-combined-panel" data-panel="' . $next_panel . '" role="tabpanel">'),
         '#weight' => 20,
       ];
     }
@@ -696,24 +723,24 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
           ];
         }
 
-        $form[$meta_key]['combined_close'] = [
-          '#markup' => Markup::create('</div></div>'),
-          '#weight' => 50,
-        ];
+        if ($schema_images_available) {
+          $form[$meta_key]['schema_panel_open'] = [
+            '#markup' => Markup::create('</div><div class="ttd-combined-panel" data-panel="schema" role="tabpanel">'),
+            '#weight' => 50,
+          ];
+        }
+        else {
+          $form[$meta_key]['combined_close'] = [
+            '#markup' => Markup::create('</div></div>'),
+            '#weight' => 50,
+          ];
+        }
       }
     }
 
     // Add Schema Images section.
     if ($is_saved && !$node->get('field_ttd_analysis_in_progress')->value) {
-      $has_schema_field = $node->hasField('field_ttd_schema_16x9');
-      if ($has_schema_field) {
-        // Hide the raw schema image fields.
-        foreach (['field_ttd_schema_16x9', 'field_ttd_schema_4x3', 'field_ttd_schema_1x1', 'field_ttd_schema_focal_point'] as $hide_field) {
-          if (isset($form[$hide_field])) {
-            $form[$hide_field]['#access'] = FALSE;
-          }
-        }
-
+      if ($has_schema_image_fields) {
         // Get source image for focal point picker.
         $source_url = ttd_topics_get_node_image_url($node, [
           'field_article_image',
@@ -724,13 +751,16 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
           'field_media_image',
         ]);
 
-        $form['ttd_schema_images'] = [
-          '#type' => 'details',
-          '#title' => t('Schema Images'),
-          '#weight' => 52,
-          '#optional' => FALSE,
-          '#open' => TRUE,
-        ];
+        $schema_parent = $use_combined_editor ? 'ttd_topics' : 'ttd_schema_images';
+        if (!$use_combined_editor) {
+          $form[$schema_parent] = [
+            '#type' => 'details',
+            '#title' => t('Schema Images'),
+            '#weight' => 52,
+            '#optional' => FALSE,
+            '#open' => TRUE,
+          ];
+        }
 
         $focal_html = '';
         if ($source_url) {
@@ -745,7 +775,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
             . '</div>';
         }
 
-        $form['ttd_schema_images']['widget'] = [
+        $form[$schema_parent]['schema_images_widget'] = [
           '#markup' => Markup::create('<div class="ttd-schema-images-wrap" data-nid="' . $node->id() . '">'
             . '<div class="ttd-schema-status">Loading...</div>'
             . '<div class="ttd-schema-formats"></div>'
@@ -758,9 +788,17 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
             . '<button type="button" class="ttd-schema-clear-btn">Clear Images</button>'
             . '</div>'
             . '</div>'),
+          '#weight' => 55,
         ];
 
-        $form['ttd_schema_images']['#attached']['library'][] = 'ttd_topics/schema_images';
+        if ($use_combined_editor) {
+          $form[$schema_parent]['combined_close'] = [
+            '#markup' => Markup::create('</div></div>'),
+            '#weight' => 60,
+          ];
+        }
+
+        $form[$schema_parent]['#attached']['library'][] = 'ttd_topics/schema_images';
       }
     }
   }

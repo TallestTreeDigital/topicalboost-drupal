@@ -11,6 +11,13 @@
   color: #1d2327;
 }
 
+.ttd-combined-metabox .ttd-schema-images-wrap {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
 /* -- Status indicator --------------------------------------------------- */
 
 .ttd-schema-status {

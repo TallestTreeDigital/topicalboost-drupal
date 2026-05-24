@@ -878,7 +878,8 @@
 }
 
 .ttd-combined-panel[data-panel="seo"],
-.ttd-combined-panel[data-panel="social"] {
+.ttd-combined-panel[data-panel="social"],
+.ttd-combined-panel[data-panel="schema"] {
   padding-top: 12px;
 }
 

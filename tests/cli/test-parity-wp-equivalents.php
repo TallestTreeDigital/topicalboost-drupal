@@ -162,6 +162,14 @@ function ttd_parity_wp_node_topic_ids(Node $node, string $field_name = 'field_tt
   return array_map('intval', array_column($node->get($field_name)->getValue(), 'target_id'));
 }
 
+function ttd_parity_wp_render_node_form_html(Node $node): string {
+  \Drupal::entityTypeManager()->getStorage('node')->resetCache([$node->id()]);
+  $fresh = Node::load($node->id());
+  $form_object = \Drupal::entityTypeManager()->getFormObject('node', 'edit')->setEntity($fresh);
+  $build = \Drupal::formBuilder()->getForm($form_object);
+  return (string) \Drupal::service('renderer')->renderRoot($build);
+}
+
 function ttd_parity_wp_invoke_private(object|string $object_or_class, string $method_name, array $arguments): mixed {
   $reflection = is_object($object_or_class)
     ? new ReflectionClass($object_or_class)
@@ -336,6 +344,20 @@ try {
     [(int) $manual_term->id(), (int) $promoted_manual_term->id(), (int) $stale_term->id()],
     [(int) $manual_term->id(), (int) $promoted_manual_term->id()]
   );
+  $analysis_node->set('field_ttd_analysis_in_progress', 0);
+  $analysis_node->save();
+
+  $meta_generator_before_form_test = \Drupal::config('ttd_topics.settings')->get('enable_meta_generator');
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')->set('enable_meta_generator', TRUE)->save();
+  $combined_form_html = ttd_parity_wp_render_node_form_html($analysis_node);
+  ttd_parity_wp_assert(strpos($combined_form_html, 'data-tab="schema"') !== FALSE, 'Node editor includes Schema Images tab in TopicalBoost box');
+  ttd_parity_wp_assert(strpos($combined_form_html, 'ttd-schema-images-wrap') !== FALSE, 'Node editor renders schema images widget inside combined TopicalBoost box');
+  ttd_parity_wp_assert(strpos($combined_form_html, 'id="edit-ttd-schema-images"') === FALSE, 'Node editor does not render separate Schema Images details box when combined tabs are available');
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')->set('enable_meta_generator', FALSE)->save();
+  $schema_only_form_html = ttd_parity_wp_render_node_form_html($analysis_node);
+  ttd_parity_wp_assert(strpos($schema_only_form_html, 'data-tab="schema"') !== FALSE, 'Node editor keeps Schema Images tab when meta generator is disabled');
+  ttd_parity_wp_assert(strpos($schema_only_form_html, 'data-tab="seo"') === FALSE && strpos($schema_only_form_html, 'data-tab="social"') === FALSE, 'Node editor omits meta tabs when meta generator is disabled');
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')->set('enable_meta_generator', $meta_generator_before_form_test)->save();
 
   $event_seen = ['called' => FALSE, 'node_id' => NULL, 'topic_count' => 0];
   \Drupal::service('event_dispatcher')->addListener('ttd_topics.analysis_complete', static function ($event) use (&$event_seen) {
