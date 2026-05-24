@@ -459,6 +459,10 @@
             type: 'GET',
             data: { term_id: termId },
             success: function(response) {
+              if (response.success && response.data && response.data.cooldown) {
+                renderDemandCooldown($badge, response.data.retry_after_seconds);
+                return;
+              }
               if (response.success && response.data) {
                 renderDemandMetrics($badge, response.data);
               }
@@ -466,7 +470,11 @@
                 renderNoDemandData($badge, 'No demand data available');
               }
             },
-            error: function() {
+            error: function(xhr) {
+              if (xhr && xhr.status === 503) {
+                renderDemandCooldown($badge);
+                return;
+              }
               renderNoDemandData($badge, 'Failed to load');
             }
           });
@@ -476,6 +484,11 @@
          * Render demand metrics in a topic badge.
          */
         function renderDemandMetrics($badge, metrics) {
+          if (metrics && metrics.cooldown) {
+            renderDemandCooldown($badge, metrics.retry_after_seconds);
+            return;
+          }
+
           const tp = metrics && metrics.traffic_potential ? parseInt(metrics.traffic_potential, 10) : 0;
           const kd = metrics && metrics.keyword_difficulty ? parseInt(metrics.keyword_difficulty, 10) : 0;
 
@@ -492,6 +505,17 @@
                 .addClass(kdClass)
                 .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
                 .text(tpFormatted);
+        }
+
+        /**
+         * Render a temporary unavailable state for demand metrics cooldowns.
+         */
+        function renderDemandCooldown($badge, retryAfter) {
+          const retryText = retryAfter ? '\nRetry after about ' + retryAfter + ' seconds.' : '';
+          $badge.removeClass('ttd-kd-loading ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+                .addClass('ttd-kd-no-data')
+                .attr('title', 'Demand metrics temporarily unavailable.' + retryText + '\n\nClick to retry later')
+                .text('--');
         }
 
         /**

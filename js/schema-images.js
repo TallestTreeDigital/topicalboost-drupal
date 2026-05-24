@@ -9,6 +9,9 @@
         var $status = $wrapper.find('.ttd-schema-status');
         var $formats = $wrapper.find('.ttd-schema-formats');
         var $focalPicker = $wrapper.find('.ttd-focal-picker');
+        var $focalToggle = $wrapper.find('.ttd-focal-toggle');
+        var $focalPanel = $wrapper.find('.ttd-focal-panel');
+        var $focalSummary = $wrapper.find('.ttd-focal-summary');
         var focalX = 0.5;
         var focalY = 0.5;
 
@@ -47,7 +50,8 @@
           var canPreviewSource = source && source.url && source.suitable;
 
           // Update status indicator.
-          var statusClass = imageCount === 3 ? 'ready' : (imageCount > 0 ? 'partial' : 'missing');
+          var statusClass = imageCount === 3 ? 'ready' :
+            (imageCount > 0 ? 'partial' : (canPreviewSource ? 'source' : 'missing'));
           var statusText = imageCount === 3 ? 'All formats ready' :
             (imageCount > 0 ? imageCount + '/3 formats ready' :
               (canPreviewSource ? 'Source image available' : 'No schema images'));
@@ -119,7 +123,20 @@
           $wrapper.find('.ttd-focal-coords').text(
             'x: ' + focalX.toFixed(2) + ', y: ' + focalY.toFixed(2)
           );
+          $focalSummary.text(
+            'Crop center: x ' + focalX.toFixed(2) + ', y ' + focalY.toFixed(2)
+          );
         }
+
+        $focalToggle.on('click', function () {
+          var isOpen = !$focalPanel.prop('hidden');
+          $focalPanel.prop('hidden', isOpen);
+          $focalToggle.attr('aria-expanded', isOpen ? 'false' : 'true');
+          $focalToggle.text(isOpen ? 'Adjust crop' : 'Hide crop');
+          if (!isOpen) {
+            updateFocalMarker();
+          }
+        });
 
         // Generate images button.
         $wrapper.find('.ttd-schema-generate-btn').on('click', function () {

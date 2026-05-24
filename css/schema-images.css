@@ -38,6 +38,10 @@
   background: #dba617;
 }
 
+.ttd-schema-status-source {
+  background: #2271b1;
+}
+
 .ttd-schema-status-missing {
   background: #d63638;
 }
@@ -176,6 +180,42 @@
 
 /* -- Focal point picker ------------------------------------------------- */
 
+.ttd-focal-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.ttd-focal-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.ttd-focal-summary {
+  color: #646970;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.ttd-focal-panel {
+  flex-basis: 100%;
+  margin-top: 8px;
+}
+
 .ttd-focal-picker {
   position: relative;
   display: inline-block;
@@ -206,7 +246,14 @@
 .ttd-focal-coords {
   font-size: 11px;
   color: #8c8f94;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.ttd-focal-help {
+  color: #646970;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 8px;
 }
 
 /* -- Action buttons ----------------------------------------------------- */
@@ -339,6 +386,11 @@
 }
 
 .gin--dark-mode .ttd-focal-coords {
+  color: #b8b8b8;
+}
+
+.gin--dark-mode .ttd-focal-summary,
+.gin--dark-mode .ttd-focal-help {
   color: #b8b8b8;
 }
 

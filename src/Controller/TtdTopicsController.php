@@ -17,6 +17,11 @@ use Symfony\Component\HttpFoundation\Request;
 class TtdTopicsController extends ControllerBase {
 
   /**
+   * Fallback cooldown for temporary demand metrics API outages.
+   */
+  private const DEMAND_METRICS_COOLDOWN_SECONDS = 120;
+
+  /**
    * Builds the response.
    */
   public function build() {
@@ -1503,12 +1508,42 @@ class TtdTopicsController extends ControllerBase {
     $cache_key = 'ttd_demand_' . ($term_id ?? md5($keyword));
     $cache_duration = 7 * 24 * 60 * 60; // 7 days
     $cached = $state->get($cache_key);
+    $canonical_cached = NULL;
+    if ($term_id && function_exists('ttd_get_demand_metrics')) {
+      $canonical_cached = ttd_get_demand_metrics((int) $term_id);
+    }
+    elseif ($keyword && function_exists('ttd_get_demand_metrics')) {
+      $canonical_cached = ttd_get_demand_metrics($keyword);
+    }
 
-    // Check cache unless force refresh
+    $request_cached_data = (!empty($cached['data']) && is_array($cached['data'])) ? $cached['data'] : NULL;
+    $has_valid_request_cache = $this->hasValidDemandMetricsCache($request_cached_data);
+    $has_valid_canonical_cache = $this->hasValidDemandMetricsCache($canonical_cached);
+
+    // Check cache unless force refresh.
     if (!$force_refresh) {
-      if ($cached && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
-        return $cached['data'];
+      if ($has_valid_request_cache && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
+        return $request_cached_data;
       }
+      if ($has_valid_canonical_cache) {
+        return $canonical_cached;
+      }
+    }
+
+    $cooldown_until = (int) $state->get('ttd_demand_metrics_api_cooldown_until', 0);
+    if ($cooldown_until > time()) {
+      $retry_after = max(1, $cooldown_until - time());
+      if ($has_valid_canonical_cache) {
+        return $this->markDemandMetricsUnavailable($canonical_cached, $retry_after);
+      }
+      if ($has_valid_request_cache) {
+        return $this->markDemandMetricsUnavailable($request_cached_data, $retry_after);
+      }
+      return [
+        'api_unavailable' => TRUE,
+        'cooldown' => TRUE,
+        'retry_after_seconds' => $retry_after,
+      ];
     }
 
     $ttd_id = NULL;
@@ -1554,9 +1589,11 @@ class TtdTopicsController extends ControllerBase {
 
       $data = json_decode($response->getBody(), TRUE);
       $metrics = [
+        'keyword' => $data['keyword'] ?? $keyword,
         'keyword_difficulty' => $data['keyword_difficulty'] ?? 0,
         'search_volume' => $data['search_volume'] ?? 0,
         'traffic_potential' => $data['traffic_potential'] ?? 0,
+        'traffic_potential_value' => $data['traffic_potential_value'] ?? 0,
       ];
 
       // Cache the result for this request path.
@@ -1578,12 +1615,83 @@ class TtdTopicsController extends ControllerBase {
       return $metrics;
 
     } catch (\Exception $e) {
+      $retry_after = $this->getDemandMetricsRetryAfter($e);
+      if ($retry_after !== NULL) {
+        $state->set('ttd_demand_metrics_api_cooldown_until', time() + $retry_after);
+        \Drupal::logger('ttd_topics')->notice('Demand metrics temporarily unavailable; retry after @seconds seconds.', [
+          '@seconds' => $retry_after,
+        ]);
+        if ($has_valid_canonical_cache) {
+          return $this->markDemandMetricsUnavailable($canonical_cached, $retry_after);
+        }
+        if ($has_valid_request_cache) {
+          return $this->markDemandMetricsUnavailable($request_cached_data, $retry_after);
+        }
+        return [
+          'api_unavailable' => TRUE,
+          'cooldown' => TRUE,
+          'retry_after_seconds' => $retry_after,
+        ];
+      }
+
       \Drupal::logger('ttd_topics')->error('API demand metrics error: @message', ['@message' => $e->getMessage()]);
-      if (!empty($cached['data'])) {
-        return $cached['data'];
+      if ($has_valid_request_cache) {
+        return $request_cached_data;
+      }
+      if ($has_valid_canonical_cache) {
+        return $canonical_cached;
       }
       return NULL;
     }
+  }
+
+  /**
+   * Determines whether a cached demand metric entry is usable.
+   */
+  private function hasValidDemandMetricsCache($metrics): bool {
+    if (!is_array($metrics) || !array_key_exists('traffic_potential', $metrics)) {
+      return FALSE;
+    }
+
+    // Match WordPress: old/anomalous cache with traffic_potential=0 but
+    // positive search_volume should be refetched instead of trusted.
+    return !((int) ($metrics['traffic_potential'] ?? 0) === 0
+      && !empty($metrics['search_volume'])
+      && (int) $metrics['search_volume'] > 0);
+  }
+
+  /**
+   * Annotates cached demand metrics returned during an API cooldown.
+   */
+  private function markDemandMetricsUnavailable(array $metrics, int $retry_after): array {
+    $metrics['stale'] = TRUE;
+    $metrics['api_unavailable'] = TRUE;
+    $metrics['cooldown'] = TRUE;
+    $metrics['retry_after_seconds'] = $retry_after;
+    return $metrics;
+  }
+
+  /**
+   * Extracts retry-after seconds from the expected demand metrics 503 response.
+   */
+  private function getDemandMetricsRetryAfter(\Exception $e): ?int {
+    if (!$e instanceof \GuzzleHttp\Exception\RequestException || !$e->hasResponse()) {
+      return NULL;
+    }
+
+    $response = $e->getResponse();
+    if ((int) $response->getStatusCode() !== 503) {
+      return NULL;
+    }
+
+    $data = json_decode((string) $response->getBody(), TRUE);
+    if (!is_array($data)
+      || ($data['error'] ?? '') !== 'External API error'
+      || ($data['message'] ?? '') !== 'SEO metrics temporarily unavailable') {
+      return NULL;
+    }
+
+    return max(1, (int) ($data['retry_after_seconds'] ?? self::DEMAND_METRICS_COOLDOWN_SECONDS));
   }
 
   /**

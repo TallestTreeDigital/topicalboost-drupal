@@ -734,8 +734,15 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
 
         $focal_html = '';
         if ($source_url) {
-          $focal_html = '<div class="ttd-focal-picker"><img src="' . htmlspecialchars($source_url) . '" alt="Source"><div class="ttd-focal-marker" style="left:50%;top:50%"></div></div>'
-            . '<div class="ttd-focal-coords">x: 0.50, y: 0.50</div>';
+          $focal_html = '<div class="ttd-focal-tools">'
+            . '<button type="button" class="button button-small ttd-focal-toggle" aria-expanded="false">Adjust crop</button>'
+            . ' <span class="ttd-focal-summary">Crop center: x 0.50, y 0.50</span>'
+            . '<div class="ttd-focal-panel" hidden>'
+            . '<div class="ttd-focal-picker"><img src="' . htmlspecialchars($source_url) . '" alt="Source image for crop adjustment"><div class="ttd-focal-marker" style="left:50%;top:50%"></div></div>'
+            . '<div class="ttd-focal-coords">x: 0.50, y: 0.50</div>'
+            . '<div class="ttd-focal-help">Click the source image to choose the crop center used when generating schema images.</div>'
+            . '</div>'
+            . '</div>';
         }
 
         $form['ttd_schema_images']['widget'] = [

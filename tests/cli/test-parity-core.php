@@ -704,6 +704,59 @@ try {
   $bulk_metrics = ttd_get_demand_metrics($metric_term_id);
   ttd_parity_assert(($bulk_metrics['traffic_potential'] ?? NULL) === 19900, 'Bulk-analysis apply job stores traffic_potential like WordPress');
 
+  ttd_parity_assert(
+    ttd_parity_invoke_private_method(
+      \Drupal\ttd_topics\Controller\TtdTopicsController::class,
+      'hasValidDemandMetricsCache',
+      [['keyword_difficulty' => 41, 'search_volume' => 2200, 'traffic_potential' => 19900]]
+    ) === TRUE,
+    'Demand metrics cache accepts complete traffic-potential entries like WordPress'
+  );
+  ttd_parity_assert(
+    ttd_parity_invoke_private_method(
+      \Drupal\ttd_topics\Controller\TtdTopicsController::class,
+      'hasValidDemandMetricsCache',
+      [['keyword_difficulty' => 41, 'search_volume' => 2200]]
+    ) === FALSE,
+    'Demand metrics cache rejects old partial entries like WordPress'
+  );
+  ttd_parity_assert(
+    ttd_parity_invoke_private_method(
+      \Drupal\ttd_topics\Controller\TtdTopicsController::class,
+      'hasValidDemandMetricsCache',
+      [['keyword_difficulty' => 41, 'search_volume' => 2200, 'traffic_potential' => 0]]
+    ) === FALSE,
+    'Demand metrics cache rejects anomalous zero traffic-potential entries like WordPress'
+  );
+
+  $cooldown_key = 'ttd_demand_metrics_api_cooldown_until';
+  $cooldown_sentinel = '__missing_' . $suffix;
+  $original_cooldown = \Drupal::state()->get($cooldown_key, $cooldown_sentinel);
+  try {
+    \Drupal::state()->set($cooldown_key, time() + 120);
+    $stale_metrics = ttd_parity_invoke_private_method(
+      \Drupal\ttd_topics\Controller\TtdTopicsController::class,
+      'getDemandMetricsData',
+      [$metric_term_id, NULL, 1]
+    );
+    ttd_parity_assert(!empty($stale_metrics['cooldown']) && !empty($stale_metrics['stale']) && ($stale_metrics['traffic_potential'] ?? NULL) === 19900, 'Demand metrics cooldown returns stale cached metrics like WordPress');
+
+    $cooldown_without_cache = ttd_parity_invoke_private_method(
+      \Drupal\ttd_topics\Controller\TtdTopicsController::class,
+      'getDemandMetricsData',
+      [NULL, 'TopicalBoost cooldown parity missing cache ' . $suffix, 0]
+    );
+    ttd_parity_assert(!empty($cooldown_without_cache['cooldown']) && !empty($cooldown_without_cache['api_unavailable']) && !isset($cooldown_without_cache['traffic_potential']), 'Demand metrics cooldown returns temporary unavailable when no cache exists');
+  }
+  finally {
+    if ($original_cooldown === $cooldown_sentinel) {
+      \Drupal::state()->delete($cooldown_key);
+    }
+    else {
+      \Drupal::state()->set($cooldown_key, $original_cooldown);
+    }
+  }
+
   $allowlist_ttd_id = $base_ttd_id + $i++;
   $GLOBALS['created_ttd_ids'][] = $allowlist_ttd_id;
   ttd_parity_invoke_private_method(
