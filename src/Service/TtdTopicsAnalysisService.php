@@ -220,6 +220,7 @@ class TtdTopicsAnalysisService {
     $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
       ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
       : $api_term_ids;
+    $this->deleteStalePostRelationships($post_id, $this->getTtdIdsForTermIds($final_topic_ids));
     foreach ($final_topic_ids as $term_id) {
       $topicalboost[] = ['target_id' => $term_id];
     }
@@ -232,6 +233,46 @@ class TtdTopicsAnalysisService {
         'ttd_topics.analysis_complete'
       );
     }
+  }
+
+  /**
+   * Gets TopicalBoost entity IDs for term IDs.
+   */
+  private function getTtdIdsForTermIds(array $term_ids): array {
+    $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
+    if (empty($term_ids)) {
+      return [];
+    }
+
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('taxonomy_term__field_ttd_id')) {
+      return [];
+    }
+
+    return array_values(array_unique(array_map('intval', $database->select('taxonomy_term__field_ttd_id', 'ttd')
+      ->fields('ttd', ['field_ttd_id_value'])
+      ->condition('entity_id', $term_ids, 'IN')
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /**
+   * Removes entity-post rows that no longer belong to the node after analysis.
+   */
+  private function deleteStalePostRelationships($node_id, array $final_ttd_ids): void {
+    $database = \Drupal::database();
+    if (!$node_id || !$database->schema()->tableExists('ttd_entity_post_ids')) {
+      return;
+    }
+
+    $delete = $database->delete('ttd_entity_post_ids')
+      ->condition('post_id', (string) $node_id);
+
+    if (!empty($final_ttd_ids)) {
+      $delete->condition('entity_id', $final_ttd_ids, 'NOT IN');
+    }
+
+    $delete->execute();
   }
 
   /**

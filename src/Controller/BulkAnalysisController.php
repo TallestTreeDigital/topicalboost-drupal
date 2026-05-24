@@ -171,6 +171,7 @@ class BulkAnalysisController extends ControllerBase {
   public function initiateAnalysis(Request $request) {
     // SAFEGUARD 1: Check if an analysis is already in progress
     $existing_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $clear_stale_state = !$existing_request_id;
     if ($existing_request_id) {
       // Check if the existing analysis is actually still running or just stale
       $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress');
@@ -186,6 +187,7 @@ class BulkAnalysisController extends ControllerBase {
             'message' => 'A previous analysis is still completing. Please wait a moment and try again.',
           ]);
         }
+        $clear_stale_state = TRUE;
       } else {
         // Analysis is actively running (not completed yet)
         return new JsonResponse([
@@ -193,6 +195,10 @@ class BulkAnalysisController extends ControllerBase {
           'message' => 'An analysis is currently in progress. Please wait for it to complete before starting a new one.',
         ]);
       }
+    }
+
+    if ($clear_stale_state) {
+      $this->clearStaleBulkAnalysisState();
     }
 
     $filters = $this->parseFilters($request);
@@ -722,6 +728,19 @@ class BulkAnalysisController extends ControllerBase {
   }
 
   /**
+   * Clear stale state before starting a new bulk analysis lifecycle.
+   */
+  private function clearStaleBulkAnalysisState(): void {
+    \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.content_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.apply_progress');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.completed_at');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.customer_id_page_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
+  }
+
+  /**
    * Parse filters from request.
    */
   private function parseFilters(Request $request) {
@@ -782,6 +801,11 @@ class BulkAnalysisController extends ControllerBase {
    * Clean up completed analysis state.
    */
   private function cleanupCompletedAnalysis() {
+    $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    if ($request_id) {
+      $this->clearQueuedBulkJobsForRequest($request_id);
+    }
+
     // Clear all bulk analysis state.
     \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
     \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
@@ -792,6 +816,18 @@ class BulkAnalysisController extends ControllerBase {
     \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
 
     \Drupal::logger('ttd_topics')->info('Cleaned up completed bulk analysis state');
+  }
+
+  /**
+   * Clear queued bulk jobs that are no longer needed after completion.
+   */
+  private function clearQueuedBulkJobsForRequest($request_id): void {
+    $this->database->delete('advancedqueue')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller', 'ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
+      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->execute();
   }
 
 }

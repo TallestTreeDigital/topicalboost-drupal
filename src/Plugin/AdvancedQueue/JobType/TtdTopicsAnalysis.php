@@ -56,7 +56,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
       $node->set('field_ttd_analysis_in_progress', TRUE);
       $node->save();
 
-      $this->performSingleAnalysis($node);
+      $this->performSingleAnalysis($node, $force_analysis || $is_held_for_analysis);
 
       // Clear analysis in progress.
       $node->set('field_ttd_analysis_in_progress', FALSE);
@@ -87,76 +87,11 @@ class TtdTopicsAnalysis extends JobTypeBase {
   /**
    * Perform single analysis for a node.
    */
-  private function performSingleAnalysis(NodeInterface $node) {
-    $config = \Drupal::config('ttd_topics.settings');
-    $api_key = $config->get('topicalboost_api_key');
-    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+  private function performSingleAnalysis(NodeInterface $node, bool $force_analysis = FALSE) {
+    $result = \Drupal::service('ttd_topics.analysis_service')->performSingleAnalysis($node, $force_analysis);
 
-    $client = new Client();
-
-    try {
-      // Get analysis content using field collector
-      $field_collector = \Drupal::service('ttd_topics.field_collector');
-      $analysis_text = $field_collector->collect($node);
-
-      // Step 1: Initiate analysis.
-      $response = $client->post($api_base_url . '/analyze/single', [
-        'headers' => \ttd_topics_api_headers($api_key),
-        'json' => [
-          'customer_id' => $node->id(),
-          'url' => \ttd_topics_get_node_absolute_url($node),
-          'title' => $node->getTitle(),
-          'text' => $analysis_text,
-        ],
-      ]);
-
-      $result = json_decode($response->getBody(), TRUE);
-      $request_id = $result['request_id'];
-
-      // Step 2: Poll for analysis completion.
-      $completed = FALSE;
-      $max_attempts = 30;
-      $attempt = 0;
-
-      while (!$completed && $attempt < $max_attempts) {
-        // Wait for 10 seconds between polls.
-        sleep(10);
-        $poll_response = $client->get($api_base_url . '/poll/analysis', [
-          'headers' => ['x-api-key' => $api_key],
-          'query' => ['request_id' => $request_id],
-        ]);
-
-        $poll_result = json_decode($poll_response->getBody(), TRUE);
-        if ($poll_result['ready']) {
-          $completed = TRUE;
-        }
-
-        $attempt++;
-      }
-
-      if (!$completed) {
-        throw new \Exception('Analysis timed out');
-      }
-
-      // Step 3: Get analysis results.
-      $results_response = $client->get($api_base_url . '/result/entities', [
-        'headers' => ['x-api-key' => $api_key],
-        'query' => ['request_id' => $request_id],
-      ]);
-
-      $analysis_results = json_decode($results_response->getBody(), TRUE);
-
-      // Process and save the results.
-      $this->saveAnalysisResults($node, $analysis_results);
-
-      // Update the ttd_last_analyzed field.
-      $node->set('field_ttd_last_analyzed', \Drupal::time()->getRequestTime());
-      $node->save();
-
-    }
-    catch (RequestException $e) {
-      \Drupal::logger('ttd_topics')->error('Error during TopicalBoost analysis: @error', ['@error' => $e->getMessage()]);
-      throw $e;
+    if (empty($result['success'])) {
+      throw new \Exception($result['message'] ?? 'Analysis failed');
     }
   }
 

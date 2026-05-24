@@ -210,7 +210,48 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     $final_topic_ids = function_exists('ttd_topics_merge_analysis_topic_ids_with_manual')
       ? \ttd_topics_merge_analysis_topic_ids_with_manual($node, $api_term_ids, $api_ttd_ids)
       : $api_term_ids;
+    $this->deleteStalePostRelationships($node->id(), $this->getTtdIdsForTermIds($final_topic_ids));
     $node->set('field_ttd_topics', array_map(static fn($term_id) => ['target_id' => $term_id], $final_topic_ids));
+  }
+
+  /**
+   * Gets TopicalBoost entity IDs for term IDs.
+   */
+  private function getTtdIdsForTermIds(array $term_ids): array {
+    $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
+    if (empty($term_ids)) {
+      return [];
+    }
+
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('taxonomy_term__field_ttd_id')) {
+      return [];
+    }
+
+    return array_values(array_unique(array_map('intval', $database->select('taxonomy_term__field_ttd_id', 'ttd')
+      ->fields('ttd', ['field_ttd_id_value'])
+      ->condition('entity_id', $term_ids, 'IN')
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /**
+   * Removes entity-post rows that no longer belong to the node after bulk apply.
+   */
+  private function deleteStalePostRelationships($node_id, array $final_ttd_ids): void {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('ttd_entity_post_ids')) {
+      return;
+    }
+
+    $delete = $database->delete('ttd_entity_post_ids')
+      ->condition('post_id', (string) $node_id);
+
+    if (!empty($final_ttd_ids)) {
+      $delete->condition('entity_id', $final_ttd_ids, 'NOT IN');
+    }
+
+    $delete->execute();
   }
 
   /**
@@ -289,7 +330,29 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
             ->execute()
             ->fetchAssoc();
 
-          if (!$existing_rel) {
+          if ($existing_rel) {
+            try {
+              $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;
+              $salience_category = $content['salience_category'] ?? $content['tier'] ?? $content['llm_tier'] ?? NULL;
+
+              if ($salience_category !== NULL && !in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+                $salience_category = NULL;
+              }
+
+              \Drupal::database()->update('ttd_entity_post_ids')
+                ->fields([
+                  'salience_score' => $salience_score,
+                  'salience_category' => $salience_category,
+                  'updatedAt' => date('Y-m-d H:i:s'),
+                ])
+                ->condition('entity_id', $ttd_id)
+                ->condition('post_id', (string) $customer_id)
+                ->execute();
+            } catch (\Exception $e) {
+              // Continue on error.
+            }
+          }
+          else {
             try {
               // Extract salience data if present
               $salience_score = isset($content['salience_score']) ? (float) $content['salience_score'] : NULL;

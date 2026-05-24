@@ -358,11 +358,27 @@ try {
       ],
     ],
   ];
+  ttd_parity_wp_set_salience($analysis_node, $api_ttd_id, NULL, NULL);
+  ttd_parity_wp_set_salience($analysis_node, $stale_ttd_id, NULL, NULL);
   ttd_parity_wp_invoke_private(\Drupal::service('ttd_topics.analysis_service'), 'saveAnalysisResults', [$analysis_node, $analysis_results, TRUE]);
+  $single_api_tier = \Drupal::database()->select('ttd_entity_post_ids', 'ep')
+    ->fields('ep', ['salience_category'])
+    ->condition('entity_id', $api_ttd_id)
+    ->condition('post_id', (string) $analysis_node->id())
+    ->execute()
+    ->fetchField();
   $topic_ids_after_analysis = ttd_parity_wp_node_topic_ids($analysis_node);
   $manual_ids_after_analysis = ttd_parity_wp_node_topic_ids($analysis_node, 'field_manual_topics');
+  ttd_parity_wp_assert($single_api_tier === 'mainEntity', 'Single reanalysis updates existing entity-post rows with LLM tier');
   ttd_parity_wp_assert(in_array((int) $manual_term->id(), $topic_ids_after_analysis, TRUE), 'Single reanalysis preserves manual topics');
   ttd_parity_wp_assert(!in_array((int) $stale_term->id(), $topic_ids_after_analysis, TRUE), 'Single reanalysis removes stale API topics');
+  $single_stale_rel_count = \Drupal::database()->select('ttd_entity_post_ids', 'ep')
+    ->condition('entity_id', $stale_ttd_id)
+    ->condition('post_id', (string) $analysis_node->id())
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+  ttd_parity_wp_assert((int) $single_stale_rel_count === 0, 'Single reanalysis removes stale entity-post relationship rows');
   ttd_parity_wp_assert(!in_array((int) $promoted_manual_term->id(), $manual_ids_after_analysis, TRUE), 'Single reanalysis removes promoted API topic from manual list');
   ttd_parity_wp_assert($event_seen['called'] && $event_seen['node_id'] === (int) $analysis_node->id() && $event_seen['topic_count'] >= 2, 'Analysis-complete event fires with node and applied topics');
 
@@ -373,6 +389,20 @@ try {
     [(int) $manual_term->id()]
   );
   $bulk_job = new \Drupal\ttd_topics\Plugin\AdvancedQueue\JobType\TtdBulkApplyPostsOptimized([], 'ttd_bulk_apply_posts_optimized', []);
+  ttd_parity_wp_set_salience($bulk_node, $api_ttd_id, NULL, NULL);
+  ttd_parity_wp_set_salience($bulk_node, $stale_ttd_id, NULL, NULL);
+  ttd_parity_wp_invoke_private($bulk_job, 'storeEntityMetadata', [[
+    'id' => $api_ttd_id,
+    'name' => "TB Parity API Topic {$suffix}",
+    'Contents' => [['customer_id' => $bulk_node->id(), 'salience_score' => 0.12, 'llm_tier' => 'mainEntity']],
+  ]]);
+  $bulk_api_tier = \Drupal::database()->select('ttd_entity_post_ids', 'ep')
+    ->fields('ep', ['salience_category'])
+    ->condition('entity_id', $api_ttd_id)
+    ->condition('post_id', (string) $bulk_node->id())
+    ->execute()
+    ->fetchField();
+  ttd_parity_wp_assert($bulk_api_tier === 'mainEntity', 'Bulk apply updates existing entity-post rows with LLM tier');
   ttd_parity_wp_invoke_private($bulk_job, 'applyEntitiesToNode', [$bulk_node, [
     ['id' => $api_ttd_id, 'name' => "TB Parity API Topic {$suffix}", 'Contents' => [['customer_id' => $bulk_node->id(), 'salience_score' => 0.12, 'llm_tier' => 'mainEntity']]],
   ]]);
@@ -380,6 +410,13 @@ try {
   $bulk_topic_ids = ttd_parity_wp_node_topic_ids($bulk_node);
   ttd_parity_wp_assert(in_array((int) $manual_term->id(), $bulk_topic_ids, TRUE), 'Bulk apply preserves manual topics');
   ttd_parity_wp_assert(!in_array((int) $stale_term->id(), $bulk_topic_ids, TRUE), 'Bulk apply removes stale API topics');
+  $bulk_stale_rel_count = \Drupal::database()->select('ttd_entity_post_ids', 'ep')
+    ->condition('entity_id', $stale_ttd_id)
+    ->condition('post_id', (string) $bulk_node->id())
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+  ttd_parity_wp_assert((int) $bulk_stale_rel_count === 0, 'Bulk apply removes stale entity-post relationship rows');
   $bulk_topic_ids_before = $bulk_topic_ids;
   ttd_parity_wp_invoke_private($bulk_job, 'applyEntitiesToNode', [$bulk_node, [
     ['id' => $api_ttd_id, 'name' => "TB Parity API Topic {$suffix}", 'Contents' => [['customer_id' => $bulk_node->id(), 'salience_score' => 0.12, 'llm_tier' => 'mainEntity']]],
@@ -425,6 +462,10 @@ try {
     ->save();
   \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
   $GLOBALS['created_state_keys'][] = 'topicalboost.bulk_analysis.request_id';
+  \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', ['stage' => 'complete']);
+  \Drupal::state()->set('topicalboost.bulk_analysis.completed_at', time() - 120);
+  $GLOBALS['created_state_keys'][] = 'topicalboost.bulk_analysis.apply_progress';
+  $GLOBALS['created_state_keys'][] = 'topicalboost.bulk_analysis.completed_at';
   $bulk_controller = new TtdParityBulkController(\Drupal::database(), \Drupal::configFactory(), \Drupal::entityTypeManager());
   $bulk_filter_controller = new \Drupal\ttd_topics\Controller\BulkAnalysisController(\Drupal::database(), \Drupal::configFactory(), \Drupal::entityTypeManager());
   $custom_field_filters = [
@@ -449,6 +490,7 @@ try {
   ])));
   $bulk_data = json_decode($bulk_response->getContent(), TRUE);
   ttd_parity_wp_assert(($bulk_data['success'] ?? FALSE) === TRUE, 'Bulk analysis initiation succeeds with mocked API');
+  ttd_parity_wp_assert(\Drupal::state()->get('topicalboost.bulk_analysis.apply_progress') === NULL, 'Bulk analysis initiation clears stale apply progress without active request');
   ttd_parity_wp_assert((int) ($bulk_data['data']['page_count'] ?? 0) >= 2, 'Bulk analysis schedules multiple pages when content exceeds batch size');
   $bulk_request_id = $bulk_data['data']['request_id'] ?? '';
   $batch_count = \Drupal::database()->select('advancedqueue', 'aq')
@@ -459,6 +501,16 @@ try {
     ->execute()
     ->fetchField();
   ttd_parity_wp_assert((int) $batch_count === (int) $bulk_data['data']['page_count'], 'Bulk analysis queued one batch job per page');
+  ttd_parity_wp_invoke_private($bulk_controller, 'cleanupCompletedAnalysis', []);
+  $queued_bulk_count = \Drupal::database()->select('advancedqueue', 'aq')
+    ->condition('queue_id', 'ttd_topics_analysis')
+    ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller', 'ttd_bulk_apply_posts_optimized'], 'IN')
+    ->condition('payload', '%' . $bulk_request_id . '%', 'LIKE')
+    ->condition('state', ['queued', 'processing'], 'IN')
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+  ttd_parity_wp_assert((int) $queued_bulk_count === 0, 'Bulk cleanup clears queued jobs for completed request');
 
   class TtdParitySyncService extends \Drupal\ttd_topics\Service\TtdSyncService {
     public function apiRequest(string $method, string $path, ?array $json = NULL, array $query = []) {
