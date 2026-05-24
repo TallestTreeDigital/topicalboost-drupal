@@ -21,17 +21,22 @@
 /* -- Status indicator --------------------------------------------------- */
 
 .ttd-schema-status {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 14px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: #1d2327;
 }
 
 .ttd-schema-status-icon {
   display: inline-block;
+  flex: 0 0 12px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -58,7 +63,7 @@
 .ttd-schema-formats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
@@ -73,10 +78,12 @@
 .ttd-schema-preview {
   position: relative;
   background: #f6f7f7;
-  border-bottom: 1px solid #e5e7eb;
+  border: 1px solid #c3c4c7;
+  border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
   aspect-ratio: 16 / 9;
+  margin: 10px 10px 0;
 }
 
 .ttd-schema-preview--ratio-4x3 {
@@ -101,8 +108,6 @@
   min-height: 86px;
   background: #f8fafc;
   border: 1px dashed #c3c4c7;
-  border-radius: 4px;
-  margin: 8px;
 }
 
 .ttd-schema-placeholder {
@@ -151,7 +156,7 @@
 }
 
 .ttd-schema-format-info {
-  padding: 9px 10px 10px;
+  padding: 10px 12px 12px;
 }
 
 .ttd-schema-format-info strong {
@@ -174,7 +179,8 @@
 .ttd-schema-source-info {
   font-size: 12px;
   line-height: 1.4;
-  margin: -4px 0 14px;
+  margin: -2px 0 14px;
+  padding: 0 2px;
 }
 
 .ttd-schema-source-suitable {
@@ -409,6 +415,22 @@
 
 .gin--dark-mode .ttd-schema-upload-btn:hover {
   border-color: #6db3f2;
+}
+
+.gin--dark-mode .ttd-combined-metabox .ttd-schema-images-wrap {
+  background: transparent;
+  border: 0;
+  color: #e8e8e8;
+}
+
+.gin--dark-mode .ttd-schema-status {
+  background: #1f1f1f;
+  border-color: #3a3a3a;
+}
+
+.gin--dark-mode .ttd-schema-preview--empty {
+  background: #242424;
+  border-color: #4a4a4a;
 }
 
 @media (max-width: 900px) {

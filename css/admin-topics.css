@@ -878,9 +878,12 @@
 }
 
 .ttd-combined-panel[data-panel="seo"],
-.ttd-combined-panel[data-panel="social"],
-.ttd-combined-panel[data-panel="schema"] {
+.ttd-combined-panel[data-panel="social"] {
   padding-top: 12px;
+}
+
+.ttd-combined-panel[data-panel="schema"] {
+  padding: 18px 20px 20px;
 }
 
 /* ===== WORDPRESS-PARITY WIDE TOPIC EDITOR ===== */
