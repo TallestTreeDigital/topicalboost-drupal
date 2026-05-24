@@ -1668,25 +1668,25 @@
   position: relative;
 }
 
-.button--primary {
+#ttd-bulk-analysis-form .button--primary {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
-.button--primary:hover:not(:disabled) {
+#ttd-bulk-analysis-form .button--primary:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-.button--primary:disabled {
+#ttd-bulk-analysis-form .button--primary:disabled {
   background: #9ca3af;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.button--danger {
+#ttd-bulk-analysis-form .button--danger {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #ffffff !important;
   font-weight: 600 !important;
@@ -1695,7 +1695,7 @@
   border: 1px solid #dc2626;
 }
 
-.button--danger:hover {
+#ttd-bulk-analysis-form .button--danger:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
@@ -1974,213 +1974,6 @@
   }
 }
 
-/* ==========================================================================
-   UNIVERSAL DARK MODE SUPPORT
-   Supports system-level dark mode preference for non-Gin themes
-   ========================================================================== */
-
-@media (prefers-color-scheme: dark) {
-  /* Only apply if Gin dark mode class is NOT present (avoid double-application) */
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form,
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-bulk-analysis-wrapper {
-    background: transparent !important;
-    box-shadow: none;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-bulk-analysis-section {
-    border-bottom-color: #3a3a3a;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-section-header {
-    background: transparent !important;
-    border-bottom-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-section-title {
-    color: #e8e8e8 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-selection-status {
-    background: transparent;
-    border-color: transparent;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-bulk-analysis-actions {
-    background: transparent !important;
-    border-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-date-range-buttons {
-    background: #2a2a2a !important;
-    border-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-date-range-buttons .button.ttd-date-range-btn {
-    background: #3a3a3a !important;
-    color: #e5e7eb !important;
-    border-color: #4a4a4a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-date-range-buttons .button.ttd-date-range-btn:hover {
-    background: #4a4a4a !important;
-    color: #f3f4f6 !important;
-    border-color: #5a5a5a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-date-range-buttons .button.ttd-date-range-btn.active {
-    background: #1e3a8a !important;
-    color: #bfdbfe !important;
-    border-color: #3b82f6 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-custom-date-range {
-    border-top-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-custom-date-range .description {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .modern-date-range {
-    background: transparent !important;
-    border: none !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .date-label {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .modern-date-input {
-    background: #2a2a2a !important;
-    color: #e8e8e8 !important;
-    border-color: #444444 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .modern-date-input:hover {
-    border-color: #555555 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .modern-date-input:focus {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .date-separator {
-    color: #6b7280 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-bulk-analysis-section .form-type-checkbox label {
-    color: #e8e8e8 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-bulk-analysis-section .form-type-checkbox .description {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-filter-header {
-    background: transparent !important;
-    border-bottom-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-section-label {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-content-type-card {
-    background: #2a2a2a;
-    border-color: #3a3a3a;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-content-type-card:hover {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: #3b82f6;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-content-type-card.ttd-enabled {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: #3b82f6;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-content-type-name {
-    color: #e8e8e8;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-progress-container {
-    background: transparent;
-    border-color: transparent;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-progress-section h4 {
-    color: #e8e8e8 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-progress-bar {
-    background: #3a3a3a;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-progress-text {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.success {
-    background: rgba(34, 197, 94, 0.15) !important;
-    color: #86efac !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.error {
-    background: rgba(239, 68, 68, 0.15) !important;
-    color: #fca5a5 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.info {
-    background: rgba(59, 130, 246, 0.15) !important;
-    color: #93c5fd !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.warning {
-    background: rgba(245, 158, 11, 0.15) !important;
-    color: #fcd34d !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.progress {
-    background: rgba(100, 116, 139, 0.2) !important;
-    color: #cbd5e1 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-message-container.ready {
-    background: rgba(14, 165, 233, 0.15) !important;
-    color: #7dd3fc !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-analysis-overlay {
-    background: #2a2a2a !important;
-    color: #e8e8e8 !important;
-    border-color: #3a3a3a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-analysis-disabled::before {
-    background: rgba(30, 30, 30, 0.8) !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form input[type="checkbox"] {
-    background: #2a2a2a !important;
-    border-color: #4a4a4a !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form .form-item > small,
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form .form-item > .description {
-    color: #9ca3af !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form .form-item label.option,
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form .form-item label.block {
-    color: #e8e8e8 !important;
-  }
-
-  body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-bulk-analysis-form.analysis-in-progress .ttd-progress-container {
-    background: #1e1e1e !important;
-  }
-}
 
 /* Final dark-mode hardening for Gin/admin cascade order. */
 .gin--dark-mode #ttd-bulk-analysis-form .ttd-date-range-buttons .button.ttd-date-range-btn,

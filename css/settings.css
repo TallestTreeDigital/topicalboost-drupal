@@ -26,33 +26,19 @@
   letter-spacing: -0.02em;
 }
 
-/* Move submit button into header via JS */
+/* Move submit button into header via JS while preserving Drupal admin button styling. */
 .ttd-settings-wrap .form-actions {
   margin: 0;
   padding: 0;
 }
 
-.ttd-settings-wrap .form-actions .button--primary {
-  background: #2271b1;
-  border: none;
-  color: #fff;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 3px;
-  cursor: pointer;
-  line-height: 1.5;
-  height: auto;
-  min-height: 0;
+.ttd-settings-wrap .ttd-page-header .form-actions {
+  display: flex;
+  align-items: center;
 }
 
-.ttd-settings-wrap .form-actions .button--primary:hover {
-  background: #135e96;
-}
-
-.ttd-settings-wrap .form-actions .button--primary:focus {
-  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
-  outline: none;
+.ttd-settings-wrap .ttd-page-header .form-actions .button {
+  margin: 0;
 }
 
 /* ==========================================================================
@@ -135,35 +121,23 @@
 
 .ttd-settings-search-bar .ttd-search-icon {
   position: absolute;
-  left: 9px;
+  left: 10px;
   top: 50%;
-  width: 13px;
-  height: 13px;
+  width: 18px;
+  height: 18px;
   transform: translateY(-50%);
-  border: 2px solid #8c8f94;
-  border-radius: 50%;
+  color: #6b7280;
+  stroke: currentColor;
   pointer-events: none;
-}
-
-.ttd-settings-search-bar .ttd-search-icon::after {
-  content: "";
-  position: absolute;
-  width: 6px;
-  height: 2px;
-  right: -5px;
-  bottom: -3px;
-  background: #8c8f94;
-  transform: rotate(45deg);
-  transform-origin: left center;
 }
 
 .ttd-settings-search-bar input {
   width: 100%;
-  height: 32px;
+  height: 36px;
   box-sizing: border-box;
   border: 1px solid #8c8f94;
   border-radius: 3px;
-  padding: 0 28px 0 31px;
+  padding: 0 32px 0 36px;
   font-size: 13px;
   background: #fff;
   color: #1d2327;
@@ -757,11 +731,7 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
 }
 
 .gin--dark-mode .ttd-settings-search-bar .ttd-search-icon {
-  border-color: var(--gin-color-text-light, #a0a4a8);
-}
-
-.gin--dark-mode .ttd-settings-search-bar .ttd-search-icon::after {
-  background: var(--gin-color-text-light, #a0a4a8);
+  color: var(--gin-color-text-light, #a0a4a8);
 }
 
 .gin--dark-mode .ttd-search-clear,
@@ -968,13 +938,15 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
 }
 
 /* --- Title Casing: dark mode --- */
-.gin--dark-mode #edit-meta-title-case-format label.form-item__label {
+.gin--dark-mode #edit-meta-title-case-format label.form-item__label,
+.gin--dark-mode #edit-meta-title-case-format label.option {
   background: #35373b;
   border-color: #555;
   color: #d4d4d4;
 }
 
-.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label {
+.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label,
+.gin--dark-mode #edit-meta-title-case-format input[type="radio"]:checked + label.option {
   background: #2271b1;
   border-color: #2271b1;
   color: #fff;
@@ -1133,55 +1105,6 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   cursor: grabbing;
 }
 
-/* Button-group radios (Title Case / Sentence case) */
-#edit-meta-title-case-format.form-radios {
-  display: inline-flex;
-  gap: 0;
-}
-
-#edit-meta-title-case-format .js-form-item {
-  margin: 0;
-}
-
-#edit-meta-title-case-format label.form-item__label {
-  display: inline-block;
-  padding: 8px 24px;
-  border: 1px solid #8c8f94;
-  background: #f0f0f1;
-  color: #2c3338;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.4;
-  margin: 0;
-  border-right-width: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-#edit-meta-title-case-format .js-form-item:first-child label.form-item__label {
-  border-radius: 5px 0 0 5px;
-}
-
-#edit-meta-title-case-format .js-form-item:last-child label.form-item__label {
-  border-radius: 0 5px 5px 0;
-  border-right-width: 1px;
-}
-
-#edit-meta-title-case-format input[type="radio"] {
-  display: none;
-}
-
-#edit-meta-title-case-format input[type="radio"]:checked + label {
-  background: #2271b1;
-  border-color: #2271b1;
-  color: #fff;
-}
-
-#edit-meta-title-case-format input[type="radio"]:checked + label:hover {
-  background: #135e96;
-  border-color: #135e96;
-}
-
 /* Final dark-mode hardening for Gin/admin cascade order. */
 .gin--dark-mode .ttd-settings-wrap .ttd-nav-item.active {
   background: var(--gin-bg-layer, #2e3338) !important;
@@ -1207,20 +1130,26 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   background: var(--gin-bg-layer2, #23272b) !important;
 }
 
-/* WP-parity segmented radio controls. */
+/* Drupal admin-style segmented radio controls. */
 .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
   display: inline-flex !important;
   align-items: center !important;
   gap: 0 !important;
-  width: max-content !important;
-  padding: 2px !important;
+  width: fit-content !important;
+  padding: 0 !important;
   margin: 0 !important;
-  background: #f0f0f1 !important;
-  border: 1px solid #8c8f94 !important;
+  background: #fff !important;
+  border: 1px solid #c9ced4 !important;
   border-radius: 4px !important;
+  overflow: hidden !important;
 }
 
+.ttd-settings-wrap #edit-meta-title-case-format .form-item,
 .ttd-settings-wrap #edit-meta-title-case-format .js-form-item {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  padding: 0 !important;
+  border: 0 !important;
   margin: 0 !important;
 }
 
@@ -1228,38 +1157,49 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   display: none !important;
 }
 
-.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label,
+.ttd-settings-wrap #edit-meta-title-case-format label.option {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-height: 28px !important;
-  padding: 0 14px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
   margin: 0 !important;
   border: none !important;
-  border-radius: 3px !important;
-  background: transparent !important;
+  border-radius: 0 !important;
+  border-right: 1px solid #c9ced4 !important;
+  background: #fff !important;
   color: #50575e !important;
   box-shadow: none !important;
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
   line-height: 1.4 !important;
   white-space: nowrap !important;
 }
 
-.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
-  background: #e5e5e6 !important;
+.ttd-settings-wrap #edit-meta-title-case-format .js-form-item:last-child label.form-item__label,
+.ttd-settings-wrap #edit-meta-title-case-format .js-form-item:last-child label.option {
+  border-right: 0 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover,
+.ttd-settings-wrap #edit-meta-title-case-format label.option:hover {
+  background: #f3f4f6 !important;
   color: #1d2327 !important;
 }
 
-.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label {
-  background: #2271b1 !important;
-  color: #fff !important;
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label,
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.option {
+  background: #eaf3ff !important;
+  color: #1f5ca8 !important;
   font-weight: 500 !important;
+  box-shadow: inset 0 0 0 1px #1f5ca8 !important;
 }
 
-.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label:hover {
-  background: #135e96 !important;
-  color: #fff !important;
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label:hover,
+.ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.option:hover {
+  background: #dbeafe !important;
+  color: #174a8b !important;
 }
 
 .gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
@@ -1267,30 +1207,26 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   border-color: var(--gin-border-color, #454b51) !important;
 }
 
-.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label,
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.option {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  border-right-color: var(--gin-border-color, #454b51) !important;
   color: var(--gin-color-text-light, #a7aaad) !important;
 }
 
-.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover,
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.option:hover {
   background: var(--gin-bg-layer, #2e3338) !important;
   color: var(--gin-color-text, #d4d4d4) !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
-    background: #23272b !important;
-    border-color: #454b51 !important;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label {
-    color: #a7aaad !important;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label:hover {
-    background: #2e3338 !important;
-    color: #d4d4d4 !important;
-  }
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.form-item__label,
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format input[type="radio"]:checked + label.option {
+  background: rgba(34, 113, 177, 0.25) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+  box-shadow: inset 0 0 0 1px var(--gin-color-primary, #2271b1) !important;
 }
+
 
 .ttd-settings-wrap .ttd-meta-generator-settings-title {
   margin: 22px 0 14px !important;

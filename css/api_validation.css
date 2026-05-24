@@ -508,67 +508,6 @@
   color: #6b6b6b;
 }
 
-/* ==========================================================================
-   UNIVERSAL DARK MODE SUPPORT
-   Supports system-level dark mode preference for non-Gin themes
-   ========================================================================== */
-
-@media (prefers-color-scheme: dark) {
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-success {
-    background-color: #0d3d1a;
-    color: #4ade80;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-error {
-    background-color: #3d0d10;
-    color: #f87171;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-api-loading {
-    background-color: #3d3000;
-    color: #dba617;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field {
-    border-color: #3a3a3a;
-    background: #2a2a2a;
-    color: #e8e8e8;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field:focus {
-    border-color: #6db3f2;
-    box-shadow: 0 0 0 3px rgba(109, 179, 242, 0.1);
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field.field-glow-success {
-    border-color: #00a32a !important;
-    background: #2a2a2a !important;
-    box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.35) !important;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) #ttd-topics-api-key-field.field-glow-error {
-    border-color: #d63638 !important;
-    background: #2a2a2a !important;
-    box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.35) !important;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-slider {
-    background-color: #3a3a3a;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-field label {
-    color: #e8e8e8;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-toggle-field .description {
-    color: #6b6b6b;
-  }
-
-  html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode):not([class*="gin--"]) .ttd-topics-field-group .description {
-    color: #6b6b6b;
-  }
-}
 
 /* Drupal/Gin light mode can run while the OS prefers dark colors. Keep this
    settings form readable unless Gin explicitly enables dark mode. */

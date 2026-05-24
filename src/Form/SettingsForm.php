@@ -122,9 +122,9 @@ class SettingsForm extends ConfigFormBase {
     $form['tabs_container']['content']['settings_search'] = [
       '#markup' => Markup::create('<div class="ttd-settings-content-header">
         <div class="ttd-settings-search-bar">
-          <span class="ttd-search-icon" aria-hidden="true"></span>
+          <svg class="ttd-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.5-4.5"></path></svg>
           <input type="text" id="ttd-settings-search" placeholder="' . $this->t('Search settings...') . '" autocomplete="off" aria-label="' . $this->t('Search settings') . '" />
-          <button type="button" id="ttd-settings-search-clear" class="ttd-search-clear" style="display:none;">&times;</button>
+          <button type="button" id="ttd-settings-search-clear" class="ttd-search-clear" style="display:none;" aria-label="' . $this->t('Clear settings search') . '">&times;</button>
         </div>
       </div>
       <div class="ttd-search-no-results">' . $this->t('No settings found matching your search.') . '</div>'),
