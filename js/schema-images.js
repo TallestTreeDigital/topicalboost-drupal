@@ -50,11 +50,11 @@
           var canPreviewSource = source && source.url && source.suitable;
 
           // Update status indicator.
-          var statusClass = imageCount === 3 ? 'ready' :
-            (imageCount > 0 ? 'partial' : (canPreviewSource ? 'source' : 'missing'));
+          var statusClass = (imageCount === 3 || canPreviewSource) ? 'ready' :
+            (imageCount > 0 ? 'partial' : 'missing');
           var statusText = imageCount === 3 ? 'All formats ready' :
             (imageCount > 0 ? imageCount + '/3 formats ready' :
-              (canPreviewSource ? 'Source image available' : 'No schema images'));
+              (canPreviewSource ? 'Ready (featured image)' : 'No schema images'));
           $status.html('<span class="ttd-schema-status-icon ttd-schema-status-' + statusClass + '"></span> ' + statusText);
 
           // Update format previews.
@@ -80,8 +80,7 @@
                 '</div>');
             } else if (canPreviewSource) {
               $format.append('<div class="' + previewClass + ' ttd-schema-preview--source">' +
-                '<img src="' + source.url + '" alt="Source image preview for schema ' + ratio + '">' +
-                '<span class="ttd-schema-source-badge">Source</span>' +
+                '<img src="' + source.url + '" alt="Featured image preview for schema ' + ratio + '">' +
                 '</div>');
             } else {
               $format.append('<div class="' + previewClass + ' ttd-schema-preview--empty">' +
