@@ -183,6 +183,19 @@
 .ttd-settings-wrap.ttd-searching .ttd-settings-panel > .ttd-panel-title:first-child,
 .ttd-settings-wrap.ttd-searching .ttd-settings-panel > h2:first-child {
   display: block;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel .form-item,
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel .js-form-item,
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel .ttd-topics-toggle-field .form-item,
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel .ttd-topics-toggle-field .js-form-item {
+  border-bottom: none;
+}
+
+.ttd-settings-wrap.ttd-searching .ttd-settings-panel .form-table tr + tr {
+  border-top: none;
 }
 
 /* ==========================================================================

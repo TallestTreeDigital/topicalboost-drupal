@@ -674,7 +674,7 @@ class SettingsForm extends ConfigFormBase {
     $hide_author_types = array_filter($config->get('author_hide_content_types') ?: []);
     $form['tabs_container']['content']['authors']['settings']['visibility_intro'] = [
       '#markup' => '<h3>Hide Drupal Authors</h3>
-        <p class="description">Remove the default Drupal author UI from admin screens for selected content types. This only hides the display -- it does not delete author data.</p>
+        <p class="description">Hide Drupal\'s default author controls and byline output for selected content types. The underlying node author data stays unchanged.</p>
         <table class="form-table ttd-author-manager-table">',
     ];
 
