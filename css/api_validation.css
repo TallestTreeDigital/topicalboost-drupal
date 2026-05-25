@@ -115,7 +115,8 @@
   min-width: 0;
 }
 
-.api-key-container .form-item__suffix {
+.api-key-container .form-item__suffix,
+.api-key-container #api-key-validation-indicator {
   grid-column: 3;
   grid-row: 1;
   align-self: center;
