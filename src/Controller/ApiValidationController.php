@@ -105,7 +105,7 @@ class ApiValidationController extends ControllerBase {
       ]);
 
       $response_data = json_decode($response->getBody()->getContents(), TRUE);
-      $this->persistValidationStatus($api_key, $response_data ?: []);
+      $this->persistValidationStatus($api_key, $response_data ?: [], $request->getHost());
 
       // Return the response from the external API.
       return new JsonResponse([
@@ -168,8 +168,10 @@ class ApiValidationController extends ControllerBase {
    *   API key that was validated.
    * @param array $response_data
    *   Decoded response data.
+   * @param string $current_domain
+   *   Current request host.
    */
-  protected function persistValidationStatus($api_key, array $response_data) {
+  protected function persistValidationStatus($api_key, array $response_data, $current_domain = '') {
     $config = $this->configFactory->getEditable('ttd_topics.settings');
     $valid = !empty($response_data['valid']);
 
@@ -190,16 +192,53 @@ class ApiValidationController extends ControllerBase {
     }
 
     if (!empty($response_data['domain_mismatch'])) {
-      $config->set('domain_mismatch', [
-        'registered_domain' => trim((string) ($response_data['registered_domain'] ?? '')),
-        'registered_environment' => trim((string) ($response_data['registered_environment'] ?? '')),
-      ]);
+      $registered_domain = trim((string) ($response_data['registered_domain'] ?? ''));
+      if ($registered_domain !== '' && $this->domainsMatch($registered_domain, $current_domain)) {
+        $config->set('domain_mismatch', []);
+      }
+      else {
+        $config->set('domain_mismatch', [
+          'registered_domain' => $registered_domain,
+          'registered_environment' => trim((string) ($response_data['registered_environment'] ?? '')),
+        ]);
+      }
     }
     else {
       $config->set('domain_mismatch', []);
     }
 
     $config->save();
+  }
+
+  /**
+   * Compares host names from plain domains or URLs.
+   */
+  protected function domainsMatch($left, $right) {
+    $left = $this->normalizeDomainForCompare($left);
+    $right = $this->normalizeDomainForCompare($right);
+
+    return $left !== '' && $right !== '' && $left === $right;
+  }
+
+  /**
+   * Normalizes a domain or URL for comparison.
+   */
+  protected function normalizeDomainForCompare($value) {
+    $value = strtolower(trim((string) $value));
+    if ($value === '') {
+      return '';
+    }
+
+    if (!preg_match('/^https?:\/\//i', $value)) {
+      $value = 'https://' . $value;
+    }
+
+    $host = parse_url($value, PHP_URL_HOST);
+    if (!$host) {
+      return '';
+    }
+
+    return preg_replace('/^www\./', '', strtolower($host));
   }
 
 }

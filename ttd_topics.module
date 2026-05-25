@@ -2907,7 +2907,12 @@ function ttd_topics_page_top(array &$page_top) {
     $response->send();
     exit;
   }
+}
 
+/**
+ * Implements hook_preprocess_page().
+ */
+function ttd_topics_preprocess_page(&$variables) {
   if (!\Drupal::service('router.admin_context')->isAdminRoute()) {
     return;
   }
@@ -2918,7 +2923,20 @@ function ttd_topics_page_top(array &$page_top) {
     return;
   }
 
-  $page_top['ttd_topics_admin_notices'] = [
+  $variables['page']['highlighted']['ttd_topics_admin_notices'] = ttd_topics_build_admin_notices($notices);
+}
+
+/**
+ * Builds the render array for TopicalBoost admin notices.
+ *
+ * @param array $notices
+ *   Notice definitions.
+ *
+ * @return array
+ *   Render array.
+ */
+function ttd_topics_build_admin_notices(array $notices) {
+  $build = [
     '#type' => 'container',
     '#attributes' => ['class' => ['ttd-admin-notices']],
     '#attached' => [
@@ -2941,7 +2959,7 @@ function ttd_topics_page_top(array &$page_top) {
       $markup .= '<button type="button" class="ttd-admin-notice__dismiss" data-ttd-notice-dismiss aria-label="' . t('Dismiss notice') . '">&times;</button>';
     }
 
-    $page_top['ttd_topics_admin_notices']['notice_' . $index] = [
+    $build['notice_' . $index] = [
       '#type' => 'container',
       '#attributes' => [
         'class' => $classes,
@@ -2953,6 +2971,8 @@ function ttd_topics_page_top(array &$page_top) {
       ],
     ];
   }
+
+  return $build;
 }
 
 /**
@@ -3031,9 +3051,13 @@ function ttd_topics_get_admin_notices($route_name = NULL) {
   if (is_array($mismatch) && !empty($mismatch)) {
     $domain = trim((string) ($mismatch['registered_domain'] ?? ''));
     $environment = trim((string) ($mismatch['registered_environment'] ?? ''));
-    if ($domain !== '' || $environment !== '') {
-      $label = ($domain !== '' && $environment !== '') ? $domain . ' (' . $environment . ')' : ($domain ?: $environment);
-      $current_domain = \Drupal::request()->getHost() ?: 'this site';
+    $current_domain = \Drupal::request()->getHost() ?: '';
+    if ($domain !== '' && ttd_topics_domains_match($domain, $current_domain)) {
+      $domain = '';
+    }
+    if ($domain !== '') {
+      $label = $environment !== '' ? $domain . ' (' . $environment . ')' : $domain;
+      $current_domain = $current_domain ?: 'this site';
       $lines[] = 'This API key is registered for <strong>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</strong>, but this site is <strong>' . htmlspecialchars($current_domain, ENT_QUOTES, 'UTF-8') . '</strong>. Analysis will not work from this site. Use the API key for this environment or add this domain in TopicalBoost.';
     }
   }
@@ -3151,16 +3175,54 @@ function ttd_topics_save_api_status($api_key, array $data) {
   }
 
   if (!empty($data['domain_mismatch'])) {
-    $config->set('domain_mismatch', [
-      'registered_domain' => trim((string) ($data['registered_domain'] ?? '')),
-      'registered_environment' => trim((string) ($data['registered_environment'] ?? '')),
-    ]);
+    $registered_domain = trim((string) ($data['registered_domain'] ?? ''));
+    $current_domain = \Drupal::request()->getHost() ?: '';
+    if ($registered_domain !== '' && ttd_topics_domains_match($registered_domain, $current_domain)) {
+      $config->set('domain_mismatch', []);
+    }
+    else {
+      $config->set('domain_mismatch', [
+        'registered_domain' => $registered_domain,
+        'registered_environment' => trim((string) ($data['registered_environment'] ?? '')),
+      ]);
+    }
   }
   else {
     $config->set('domain_mismatch', []);
   }
 
   $config->save();
+}
+
+/**
+ * Compares host names from plain domains or URLs.
+ */
+function ttd_topics_domains_match($left, $right) {
+  $left = ttd_topics_normalize_domain_for_compare($left);
+  $right = ttd_topics_normalize_domain_for_compare($right);
+
+  return $left !== '' && $right !== '' && $left === $right;
+}
+
+/**
+ * Normalizes a domain or URL for comparison.
+ */
+function ttd_topics_normalize_domain_for_compare($value) {
+  $value = strtolower(trim((string) $value));
+  if ($value === '') {
+    return '';
+  }
+
+  if (!preg_match('/^https?:\/\//i', $value)) {
+    $value = 'https://' . $value;
+  }
+
+  $host = parse_url($value, PHP_URL_HOST);
+  if (!$host) {
+    return '';
+  }
+
+  return preg_replace('/^www\./', '', strtolower($host));
 }
 
 /**

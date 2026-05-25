@@ -79,7 +79,7 @@
           if (response.valid) {
             const siteName = response.site_name || 'API';
             const status = response.subscription_status ? ` - ${response.subscription_status}` : '';
-            if (response.domain_mismatch) {
+            if (response.domain_mismatch && !domainsMatch(response.registered_domain, getCurrentSiteHost())) {
               Drupal.ttd_topics.debug.log('API key validated but domain mismatch was reported');
               showIndicator('warning', 'Domain mismatch');
               showFeedback('warning', buildDomainMismatchMessage(response));
@@ -153,6 +153,31 @@
 
       function getCurrentSiteHost() {
         return window.location.hostname || 'this site';
+      }
+
+      function normalizeDomain(value) {
+        if (!value) {
+          return '';
+        }
+
+        let host = String(value).trim().toLowerCase();
+        if (!/^https?:\/\//i.test(host)) {
+          host = `https://${host}`;
+        }
+
+        try {
+          return new URL(host).hostname.replace(/^www\./, '');
+        }
+        catch (e) {
+          return '';
+        }
+      }
+
+      function domainsMatch(left, right) {
+        const normalizedLeft = normalizeDomain(left);
+        const normalizedRight = normalizeDomain(right);
+
+        return normalizedLeft && normalizedRight && normalizedLeft === normalizedRight;
       }
 
       function buildDomainMismatchMessage(response) {
