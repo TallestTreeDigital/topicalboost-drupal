@@ -952,18 +952,6 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   color: #fff;
 }
 
-/* Fieldset wrapper cleanup for radios-as-buttons */
-#edit-meta-title-case-format--wrapper.fieldset {
-  border: none;
-  padding: 0;
-  margin: 0;
-}
-
-.gin--dark-mode #edit-meta-title-case-format--wrapper.fieldset {
-  border: none;
-  background: transparent;
-}
-
 /* ==========================================================================
    11. Responsive
    ========================================================================== */
@@ -1018,6 +1006,17 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
   .ttd-settings-panel .form-item .description,
   .ttd-settings-panel .js-form-item .description {
     grid-column: 1;
+  }
+
+  .ttd-settings-wrap #edit-meta-title-case-format--wrapper {
+    padding-left: 0 !important;
+  }
+
+  .ttd-settings-wrap #edit-meta-title-case-format--wrapper legend {
+    position: static !important;
+    width: auto !important;
+    padding-top: 0 !important;
+    margin-bottom: 6px !important;
   }
 }
 
@@ -1131,6 +1130,57 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
 }
 
 /* Drupal admin-style segmented radio controls. */
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper {
+  position: relative !important;
+  display: block !important;
+  min-inline-size: 0 !important;
+  padding: 10px 0 10px 214px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid #f0f0f1 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper legend {
+  position: absolute !important;
+  left: 0 !important;
+  top: 10px !important;
+  float: none !important;
+  width: 200px !important;
+  padding: 6px 0 0 !important;
+  margin: 0 !important;
+  color: #50575e !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper legend .fieldset-legend,
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper legend .fieldset__label {
+  padding: 0 !important;
+  margin: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper .fieldset-wrapper,
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper .fieldset__wrapper {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper .description,
+.ttd-settings-wrap #edit-meta-title-case-format--wrapper .form-item__description {
+  margin: 4px 0 0 !important;
+  color: #8c8f94 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
 .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
   display: inline-flex !important;
   align-items: center !important;
@@ -1205,6 +1255,20 @@ html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wra
 .gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format.form-radios {
   background: var(--gin-bg-layer2, #23272b) !important;
   border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format--wrapper {
+  border-bottom-color: var(--gin-border-color, #454b51) !important;
+  background: transparent !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format--wrapper legend {
+  color: var(--gin-color-text-light, #a0a4a8) !important;
+}
+
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format--wrapper .description,
+.gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format--wrapper .form-item__description {
+  color: var(--gin-color-text-light, #8c8f94) !important;
 }
 
 .gin--dark-mode .ttd-settings-wrap #edit-meta-title-case-format label.form-item__label,
