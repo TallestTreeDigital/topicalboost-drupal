@@ -2250,3 +2250,84 @@
   border-color: #2271b1 !important;
   background: #f0f6fc !important;
 }
+
+/* Final cleanup for the standalone Bulk Analysis screen. Keep status rows
+   aligned with the form sections and avoid nested selector frames. */
+#ttd-bulk-analysis-form #ttd-selection-status.ttd-selection-status,
+#ttd-bulk-analysis-form #ttd-bulk-analysis-message.ttd-message-container,
+#ttd-bulk-analysis-form .ttd-progress-container {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 900px !important;
+  margin: 0 0 18px !important;
+}
+
+#ttd-bulk-analysis-form #ttd-bulk-analysis-message.ttd-message-container,
+#ttd-bulk-analysis-form #ttd-selection-status.ttd-selection-status {
+  padding: 14px 18px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form #ttd-bulk-analysis-message.ttd-message-container.ready {
+  background: #fff !important;
+  color: #1d2327 !important;
+  border-left-color: #3c434a !important;
+  border-top: 1px solid #dcdcde !important;
+  border-right: 1px solid #dcdcde !important;
+  border-bottom: 1px solid #dcdcde !important;
+}
+
+#ttd-bulk-analysis-form .ttd-filter-group,
+#ttd-bulk-analysis-form .ttd-content-type-grid,
+#ttd-bulk-analysis-form .ttd-categories-selection {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-filter-group {
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+#ttd-bulk-analysis-form .ttd-filter-header {
+  margin: 0 !important;
+  padding: 0 0 12px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-content-type-grid {
+  padding: 0 !important;
+}
+
+#ttd-bulk-analysis-form .ttd-categories-section .ttd-filter-group {
+  margin: 0 !important;
+  padding: 18px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-categories-section .ttd-filter-header {
+  margin: 0 0 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-categories-section .ttd-categories-selection {
+  margin: 0 !important;
+  padding: 8px 0 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-categories-section .ttd-empty-message {
+  padding: 14px 0 18px !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form #ttd-bulk-analysis-message.ttd-message-container.ready {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+  border-left-color: var(--gin-color-primary, #6db3f2) !important;
+}
