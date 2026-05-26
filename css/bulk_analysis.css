@@ -2137,14 +2137,24 @@
 }
 
 #ttd-bulk-analysis-form .ttd-bulk-analysis-section {
+  box-sizing: border-box !important;
   display: block !important;
   max-width: 900px !important;
   margin: 0 0 22px !important;
   padding: 0 !important;
   border: 1px solid #dcdcde !important;
+  border-top: 1px solid #dcdcde !important;
+  border-right: 1px solid #dcdcde !important;
+  border-bottom: 1px solid #dcdcde !important;
+  border-left: 1px solid #dcdcde !important;
   border-radius: 4px !important;
   background: #fff !important;
   box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#ttd-bulk-analysis-form .ttd-bulk-analysis-section + .ttd-bulk-analysis-section {
+  border-top: 1px solid #dcdcde !important;
 }
 
 #ttd-bulk-analysis-form .ttd-section-header {
