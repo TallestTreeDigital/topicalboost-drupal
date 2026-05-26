@@ -223,6 +223,7 @@
 
     // Immediately hide dropdown on click - user expects it to dismiss
     jQuery('#ttd-topics-search').val('');
+    $parentContainer.find('.ttd-topics-search-container').removeClass('searching');
     $searchResults.empty().hide();
 
     // Add the topic to the post as a manual topic
@@ -300,13 +301,15 @@
    */
   window.ttdTopicsUtils.performSearch = function(query, $container) {
     const nodeId = $container.data('node-id');
+    const $searchShell = $container.find('.ttd-topics-search-container');
     const $searchResults = $container.find('#ttd-topics-search-results');
 
     // Track this as the active query so stale responses are discarded
     window.ttdTopicsUtils._currentSearchQuery = query;
 
     // Show loading
-    $searchResults.html('<div class="ttd-search-loading">Searching...</div>').show();
+    $searchShell.addClass('searching');
+    $searchResults.html('<div class="ttd-search-loading"><span class="ttd-search-loading-spinner" aria-hidden="true"></span><span>Searching topics...</span></div>').show();
 
     // Parallel AJAX calls
     const localPromise = jQuery.ajax({
@@ -346,12 +349,14 @@
         }
       });
 
+      $searchShell.removeClass('searching');
       window.ttdTopicsUtils.renderSearchResults($searchResults, mergedResults, query);
     }).catch(function(error) {
       // Discard stale error if user has typed a new query
       if (query !== window.ttdTopicsUtils._currentSearchQuery) return;
       console.error('Search error:', error);
-      $searchResults.html('<div class="ttd-search-error">Search failed</div>');
+      $searchShell.removeClass('searching');
+      $searchResults.html('<div class="ttd-search-error">Search failed. Try again.</div>').show();
     });
   };
 
@@ -370,7 +375,8 @@
 
       if (query.length < 2) {
         window.ttdTopicsUtils._currentSearchQuery = '';
-        $searchResults.hide();
+        $container.find('.ttd-topics-search-container').removeClass('searching');
+        $searchResults.empty().hide();
         return;
       }
 

@@ -4,11 +4,8 @@ namespace Drupal\ttd_topics\Plugin\Block;
 
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Block\BlockPluginInterface;
-use Drupal\Core\Form\FormState;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\taxonomy\Entity\Term;
-use Drupal\topicalboost\Form\GetTopicsForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -17,10 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @Block(
  *   id = "admin_node_topics_block",
  *   admin_label = @Translation("TopicalBoost - Admin Node Topics Block"),
- *   category = @Translation("Custom"),
- *   context_definitions = {
- *     "node" = @ContextDefinition("entity:node", label = @Translation("Node"))
- *   }
+ *   category = @Translation("Custom")
  * )
  */
 class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, ContainerFactoryPluginInterface {

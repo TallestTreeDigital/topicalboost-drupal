@@ -535,6 +535,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
       if ($meta_gen_enabled) {
         $form['#attached']['library'][] = 'ttd_topics/meta_generator';
       }
+      $form['#attached']['library'][] = 'ttd_topics/admin_topics';
       $form['#attached']['library'][] = 'ttd_topics/combined_tabs';
       if ($schema_images_available) {
         $form['#attached']['library'][] = 'ttd_topics/schema_images';
@@ -566,14 +567,16 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
     // Render the new Admin Topics Block (WP beta features).
     if ($node->id() && !$analysis_in_progress) {
       $block_manager = \Drupal::service('plugin.manager.block');
-      $plugin_block = $block_manager->createInstance('admin_node_topics_block', []);
+      if ($block_manager->hasDefinition('admin_node_topics_block')) {
+        $plugin_block = $block_manager->createInstance('admin_node_topics_block', []);
 
-      // Build the block
-      $build = $plugin_block->build();
+        // Build the block.
+        $build = $plugin_block->build();
 
-      if (!empty($build)) {
-        $form['ttd_topics']['editor'] = $build;
-        $form['ttd_topics']['editor']['#weight'] = 10;
+        if (!empty($build)) {
+          $form['ttd_topics']['editor'] = $build;
+          $form['ttd_topics']['editor']['#weight'] = 10;
+        }
       }
     }
     elseif (!$node->id() && !$analysis_in_progress) {
