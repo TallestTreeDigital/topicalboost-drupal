@@ -118,7 +118,7 @@
 .api-key-container .form-item__suffix,
 .api-key-container #api-key-validation-indicator {
   position: absolute;
-  top: 14px;
+  top: 22px;
   right: 12px;
   margin: 0;
   pointer-events: none;
