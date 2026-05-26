@@ -336,6 +336,21 @@ function ttd_topics_preprocess_node(&$variables) {
 }
 
 /**
+ * Clears request-local computed topic caches after content/topic mutations.
+ */
+function ttd_topics_reset_runtime_caches() {
+  foreach ([
+    'ttd_topics_get_filtered_topics_for_node',
+    'ttd_topics_get_topic_node_counts',
+    'ttd_get_node_salience_data',
+    'ttd_get_topic_tier:nodes',
+    'ttd_get_topic_tier:terms',
+  ] as $cache_name) {
+    drupal_static_reset($cache_name);
+  }
+}
+
+/**
  * Checks whether a node is pinned on the current TopicalBoost topic page.
  *
  * @param \Drupal\node\NodeInterface $node
@@ -902,6 +917,20 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
   $config = \Drupal::config('ttd_topics.settings');
   $min_display_count = (int) ($config->get('post_topic_minimum_display_count') ?? 0);
   $filtered_topics = [];
+  $node_id = $node->id();
+
+  $cache = &drupal_static(__FUNCTION__, []);
+  $cache_key = NULL;
+  if ($node_id) {
+    $cache_key = implode(':', [
+      (int) $node_id,
+      method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : 0,
+      $min_display_count,
+    ]);
+    if (isset($cache[$cache_key])) {
+      return $cache[$cache_key];
+    }
+  }
 
   // Load the terms from the field_ttd_topics field.
   if (!empty($node->field_ttd_topics)) {
@@ -929,7 +958,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
     $term_counts = ttd_topics_get_topic_node_counts($term_ids);
 
     // Get salience data for all entities on this node.
-    $salience_data = ttd_get_node_salience_data($node->id());
+    $salience_data = ttd_get_node_salience_data($node_id, $node);
 
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
@@ -983,6 +1012,10 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
 
       return strcasecmp($a['term']->label(), $b['term']->label());
     });
+  }
+
+  if ($cache_key !== NULL) {
+    $cache[$cache_key] = $filtered_topics;
   }
 
   return $filtered_topics;
@@ -1512,6 +1545,10 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
  * so draft URLs (e.g. /node/123) are replaced with the published path alias.
  */
 function ttd_topics_entity_update(EntityInterface $entity) {
+  if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_reset_runtime_caches();
+  }
+
   if (!($entity instanceof NodeInterface)) {
     return;
   }
@@ -1529,6 +1566,24 @@ function ttd_topics_entity_update(EntityInterface $entity) {
     /** @var \Drupal\ttd_topics\Service\TtdTopicsAnalysisService $analysis_service */
     $analysis_service = \Drupal::service('ttd_topics.analysis_service');
     $analysis_service->updateContentUrl($entity);
+  }
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function ttd_topics_entity_insert(EntityInterface $entity) {
+  if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_reset_runtime_caches();
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function ttd_topics_entity_delete(EntityInterface $entity) {
+  if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_reset_runtime_caches();
   }
 }
 
@@ -2397,19 +2452,34 @@ function ttd_topics_get_topic_node_counts(array $term_ids) {
     return [];
   }
 
-  $database = \Drupal::database();
-  $query = $database->select('taxonomy_index', 'ti')
-    ->fields('ti', ['tid'])
-    ->condition('tid', $term_ids, 'IN')
-    ->groupBy('tid');
-  $query->addExpression('COUNT(nid)', 'count');
+  $count_cache = &drupal_static(__FUNCTION__, []);
+  $term_ids = array_values(array_unique(array_map('intval', $term_ids)));
+  $missing_term_ids = [];
+  foreach ($term_ids as $tid) {
+    if (!array_key_exists($tid, $count_cache)) {
+      $missing_term_ids[] = $tid;
+    }
+  }
 
-  $results = $query->execute()->fetchAllKeyed();
+  if (!empty($missing_term_ids)) {
+    $database = \Drupal::database();
+    $query = $database->select('taxonomy_index', 'ti')
+      ->fields('ti', ['tid'])
+      ->condition('tid', $missing_term_ids, 'IN')
+      ->groupBy('tid');
+    $query->addExpression('COUNT(nid)', 'count');
+
+    $results = $query->execute()->fetchAllKeyed();
+
+    foreach ($missing_term_ids as $tid) {
+      $count_cache[$tid] = isset($results[$tid]) ? (int) $results[$tid] : 0;
+    }
+  }
 
   // Ensure all term IDs are present in the result.
   $counts = [];
   foreach ($term_ids as $tid) {
-    $counts[$tid] = isset($results[$tid]) ? (int) $results[$tid] : 0;
+    $counts[$tid] = $count_cache[$tid] ?? 0;
   }
 
   return $counts;
@@ -3497,11 +3567,20 @@ function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience
  *
  * @param int $node_id
  *   The node ID.
+ * @param \Drupal\Core\Entity\EntityInterface|null $node
+ *   Optional loaded node, used to avoid reloading during render.
  *
  * @return array
  *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null]].
  */
-function ttd_get_node_salience_data($node_id) {
+function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
+  $cache = &drupal_static(__FUNCTION__, []);
+  $node_id = (int) $node_id;
+
+  if (isset($cache[$node_id])) {
+    return $cache[$node_id];
+  }
+
   $database = \Drupal::database();
   $results = $database->select('ttd_entity_post_ids', 'ep')
     ->fields('ep', ['entity_id', 'salience_score', 'salience_category'])
@@ -3510,7 +3589,9 @@ function ttd_get_node_salience_data($node_id) {
     ->fetchAll();
 
   $overrides = [];
-  $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  if (!$node) {
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  }
   if ($node && $node->hasField('field_tier_overrides')) {
     $override_values = $node->get('field_tier_overrides')->value ?? [];
     if (is_array($override_values)) {
@@ -3563,6 +3644,8 @@ function ttd_get_node_salience_data($node_id) {
       ];
     }
   }
+
+  $cache[$node_id] = $salience_map;
 
   return $salience_map;
 }
@@ -3746,13 +3829,24 @@ function ttd_topics_modules_installed($modules) {
  *   The tier: 'mainEntity', 'about', 'mentions', or 'below-threshold'.
  */
 function ttd_get_topic_tier($term_id, $node_id) {
-  $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  $node_cache = &drupal_static(__FUNCTION__ . ':nodes', []);
+  $term_cache = &drupal_static(__FUNCTION__ . ':terms', []);
+
+  $node_id = (int) $node_id;
+  $term_id = (int) $term_id;
+  if (!array_key_exists($node_id, $node_cache)) {
+    $node_cache[$node_id] = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+  }
+  $node = $node_cache[$node_id];
   if (!$node) {
     return 'mentions';
   }
 
   // Get term's ttd_id
-  $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+  if (!array_key_exists($term_id, $term_cache)) {
+    $term_cache[$term_id] = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($term_id);
+  }
+  $term = $term_cache[$term_id];
   if (!$term || !$term->hasField('field_ttd_id')) {
     return 'mentions';
   }
@@ -3776,7 +3870,7 @@ function ttd_get_topic_tier($term_id, $node_id) {
 
   // Fall back to computed salience data from database.
   if ($ttd_id) {
-    $salience_data = ttd_get_node_salience_data($node_id);
+    $salience_data = ttd_get_node_salience_data($node_id, $node);
     if (!empty($salience_data[(int) $ttd_id]['salience_category'])) {
       return $salience_data[(int) $ttd_id]['salience_category'];
     }

@@ -547,7 +547,7 @@ class SchemaGenerator {
       : [];
     $term_aliases = $this->getTermAliasesBatch($term_ids);
     $salience_data = function_exists('ttd_get_node_salience_data')
-      ? \ttd_get_node_salience_data($node->id())
+      ? \ttd_get_node_salience_data($node->id(), $node)
       : [];
     $manual_term_ids = $node->hasField('field_manual_topics')
       ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))

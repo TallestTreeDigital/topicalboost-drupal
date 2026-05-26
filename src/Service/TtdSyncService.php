@@ -633,6 +633,10 @@ class TtdSyncService {
         ]);
       }
     }
+
+    if (function_exists('ttd_topics_reset_runtime_caches')) {
+      \ttd_topics_reset_runtime_caches();
+    }
   }
 
   /**

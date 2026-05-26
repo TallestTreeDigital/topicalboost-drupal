@@ -455,6 +455,7 @@ function ttd_topics_schema() {
       'entity_id_post_id' => ['entity_id', ['post_id', 191]],
     ],
     'indexes' => [
+      'ttd_epi_post_id' => [['post_id', 191]],
       'salience_category' => ['salience_category'],
     ],
   ];
@@ -1459,4 +1460,31 @@ function ttd_topics_update_9102() {
   }
 
   return t('Aligned TopicalBoost frontend topic ordering with tier-first alphabetical display.');
+}
+
+/**
+ * Add an index for node-to-topic relationship lookups by post_id.
+ */
+function ttd_topics_update_9103() {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->tableExists('ttd_entity_post_ids')) {
+    return t('Skipped TopicalBoost post_id index because the relationship table does not exist.');
+  }
+
+  if ($schema->indexExists('ttd_entity_post_ids', 'ttd_epi_post_id') || $schema->indexExists('ttd_entity_post_ids', 'post_id')) {
+    return t('TopicalBoost post_id relationship index already exists.');
+  }
+
+  $schema->addIndex('ttd_entity_post_ids', 'ttd_epi_post_id', [['post_id', 191]], [
+    'fields' => [
+      'post_id' => [
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => TRUE,
+      ],
+    ],
+  ]);
+
+  return t('Added TopicalBoost post_id relationship index.');
 }

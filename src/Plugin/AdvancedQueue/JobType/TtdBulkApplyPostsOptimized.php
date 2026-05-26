@@ -252,6 +252,9 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     }
 
     $delete->execute();
+    if (function_exists('ttd_topics_reset_runtime_caches')) {
+      \ttd_topics_reset_runtime_caches();
+    }
   }
 
   /**
@@ -381,6 +384,10 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
           }
         }
       }
+    }
+
+    if (function_exists('ttd_topics_reset_runtime_caches')) {
+      \ttd_topics_reset_runtime_caches();
     }
   }
 

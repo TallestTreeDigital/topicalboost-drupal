@@ -79,9 +79,17 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     $topics = array_values(array_filter($node->get('field_ttd_topics')->referencedEntities(), function ($topic) {
       return !($topic->hasField('field_hide') && !$topic->get('field_hide')->isEmpty() && (bool) $topic->get('field_hide')->value);
     }));
-    $manual_topic_ids = array_column($node->get('field_manual_topics')->getValue(), 'target_id');
-    $rejected_topic_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
-    $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
+    $manual_topic_ids = $node->hasField('field_manual_topics')
+      ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
+      : [];
+    $rejected_topic_ids = $node->hasField('field_ttd_rejected_topics')
+      ? array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'))
+      : [];
+    $tier_overrides = $node->hasField('field_tier_overrides')
+      ? ($node->get('field_tier_overrides')->value ?? [])
+      : [];
+    $tier_overrides = is_array($tier_overrides) ? $tier_overrides : [];
+    $salience_data = ttd_get_node_salience_data($node->id(), $node);
 
     // Get post counts for all topics
     $term_ids = array_map(function($topic) { return $topic->id(); }, $topics);
@@ -94,11 +102,26 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     $below_threshold_topics = [];
 
     foreach ($topics as $term) {
-      $term_id = $term->id();
-      $tier = ttd_get_topic_tier($term_id, $node->id());
+      $term_id = (int) $term->id();
+      $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+        ? (int) $term->get('field_ttd_id')->value
+        : 0;
+      $tier = 'mentions';
+      if ($ttd_id && isset($tier_overrides[(string) $ttd_id])) {
+        $tier = $tier_overrides[(string) $ttd_id];
+      }
+      elseif (isset($tier_overrides['term_' . $term_id])) {
+        $tier = $tier_overrides['term_' . $term_id];
+      }
+      elseif ($ttd_id && !empty($salience_data[$ttd_id]['salience_category'])) {
+        $tier = $salience_data[$ttd_id]['salience_category'];
+      }
+      if (!in_array($tier, ['mainEntity', 'about', 'mentions', 'below-threshold'], TRUE)) {
+        $tier = 'mentions';
+      }
       $count = $post_counts[$term_id] ?? 0;
-      $is_manual = in_array($term_id, $manual_topic_ids);
-      $is_rejected = in_array($term_id, $rejected_topic_ids);
+      $is_manual = in_array($term_id, $manual_topic_ids, TRUE);
+      $is_rejected = in_array($term_id, $rejected_topic_ids, TRUE);
       $demand = in_array($tier, ['mainEntity', 'about'], TRUE) ? $this->buildDemandBadgeData($term_id) : NULL;
 
       $topic_data = [

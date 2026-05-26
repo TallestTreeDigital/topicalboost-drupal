@@ -298,11 +298,24 @@ try {
 
   $index_specs = [
     'ttd_entities' => ['PRIMARY'],
+    'ttd_entity_post_ids' => ['ttd_epi_post_id', 'post_id'],
     'ttd_entity_schema_types' => ['entity_id'],
     'ttd_schema_types' => ['PRIMARY'],
   ];
   $schema = \Drupal::database()->schema();
   foreach ($index_specs as $table => $indexes) {
+    if ($table === 'ttd_entity_post_ids') {
+      $exists = FALSE;
+      foreach ($indexes as $index_name) {
+        if ($schema->indexExists($table, $index_name)) {
+          $exists = TRUE;
+          break;
+        }
+      }
+      ttd_perf_assert($exists, "{$table}.post_id index exists for relationship lookups");
+      continue;
+    }
+
     foreach ($indexes as $index_name) {
       $exists = $index_name === 'PRIMARY'
         ? $schema->tableExists($table)
