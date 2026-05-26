@@ -3,7 +3,7 @@ topicalboost.settings_form:
   description: Configure topic analysis, display, schema, widgets, and API settings.
   parent: system.admin_config_content
   route_name: topicalboost.settings_form
-  weight: 10
+  weight: -50
 
 topicalboost.widgets_report:
   title: 'Top Stories & Citations'
