@@ -2081,3 +2081,110 @@
 .gin--dark-mode #ttd-bulk-analysis-form .ttd-categories-section .ttd-empty-action {
   color: var(--gin-color-text-secondary, #c7c9d1) !important;
 }
+
+/* Keep the standalone Bulk Analysis page in a normal stacked form layout.
+   Earlier parity rules make sections a two-column grid, which leaves the
+   headings disconnected from their controls on Drupal's admin theme. */
+#ttd-bulk-analysis-form {
+  max-width: 1120px !important;
+  padding: 0 0 28px !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-ba-tabs {
+  margin: 0 0 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-bulk-analysis-section {
+  display: block !important;
+  max-width: 900px !important;
+  margin: 0 0 22px !important;
+  padding: 0 !important;
+  border: 1px solid #dcdcde !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-section-header {
+  padding: 14px 18px !important;
+  border-bottom: 1px solid #dcdcde !important;
+}
+
+#ttd-bulk-analysis-form .ttd-section-content {
+  padding: 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-section-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+#ttd-bulk-analysis-form .ttd-section-title .ttd-icon,
+#ttd-bulk-analysis-form .ttd-section-header svg {
+  display: inline-block !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-date-range-buttons,
+#ttd-bulk-analysis-form .ttd-filter-group,
+#ttd-bulk-analysis-form .ttd-content-type-grid,
+#ttd-bulk-analysis-form .ttd-custom-field-filter-container,
+#ttd-bulk-analysis-form .ttd-categories-selection {
+  max-width: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-date-range-buttons {
+  width: fit-content !important;
+}
+
+#ttd-bulk-analysis-form .ttd-bulk-analysis-actions {
+  max-width: 900px !important;
+  width: 100% !important;
+  margin: 24px 0 0 !important;
+}
+
+#ttd-bulk-analysis-form .ttd-custom-field-filter-section > .components-toggle-control {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-custom-field-filter-section .components-form-toggle {
+  flex: 0 0 auto !important;
+}
+
+#ttd-bulk-analysis-form .ttd-custom-field-filter-section .components-toggle-control__label {
+  margin: 0 !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+}
+
+#ttd-bulk-analysis-form .ttd-filter-group {
+  border-radius: 4px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-content-type-grid {
+  gap: 12px !important;
+  padding: 18px !important;
+}
+
+#ttd-bulk-analysis-form .ttd-content-type-card {
+  min-height: 52px !important;
+  border: 1px solid #dcdcde !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+#ttd-bulk-analysis-form .ttd-content-type-card.ttd-enabled {
+  border-color: #2271b1 !important;
+  background: #f0f6fc !important;
+}
