@@ -342,10 +342,10 @@ topicalboost.queue_status:
 topicalboost.widgets:
   path: '/admin/config/content/topicalboost/widgets'
   defaults:
-    _title: 'Widgets'
+    _title: 'Top Stories & Citations'
     _controller: '\Drupal\ttd_topics\Controller\WidgetsController::page'
   requirements:
-    _permission: 'administer topicalboost configuration'
+    _permission: 'access content overview'
 
 # Schema Images API endpoints
 topicalboost.api.schema_images.generate:
