@@ -26,7 +26,7 @@ $default_config = file_get_contents($root . '/config/install/ttd_topics.settings
 $settings_css = file_get_contents($root . '/css/settings.css');
 
 ttd_editor_placement_assert(strpos($module_file, "get('metabox_position')") === false, 'Editor placement ignores the removed metabox position setting');
-ttd_editor_placement_assert(strpos($module_file, '$use_combined_editor = ($meta_gen_enabled && $is_saved && !$analysis_in_progress);') !== false, 'Combined editor no longer depends on metabox position');
+ttd_editor_placement_assert(strpos($module_file, '$use_combined_editor = ($is_saved && !$analysis_in_progress && ($meta_gen_enabled || $schema_images_available));') !== false, 'Combined editor no longer depends on metabox position');
 ttd_editor_placement_assert(strpos($settings_form, "['metabox_position']") === false, 'Settings form no longer renders the metabox position control');
 ttd_editor_placement_assert(strpos($settings_form, "->set('metabox_position'") === false, 'Settings submit no longer saves metabox position');
 ttd_editor_placement_assert(strpos($schema_file, 'metabox_position') === false, 'Config schema no longer defines metabox position');
