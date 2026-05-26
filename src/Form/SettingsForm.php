@@ -750,7 +750,7 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['widgets']['search_clippings_enabled'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('SearchClippings'),
+      '#title' => $this->t('Top Stories'),
       '#default_value' => $config->get('search_clippings_enabled') ?: FALSE,
       '#description' => $this->t('Tracks your content appearances in Google Top Stories.'),
       '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],

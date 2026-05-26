@@ -38,7 +38,7 @@ class WidgetsController extends ControllerBase {
       '#template' => '
         <div class="ttd-widgets-page">
           <div class="ttd-widget-col">
-            <h2>Search Clippings / Top Stories</h2>
+            <h2>Top Stories</h2>
             <script src="{{ clippings_src }}"
               data-topicalboost-api-key="{{ api_key }}"
               data-limit="5"

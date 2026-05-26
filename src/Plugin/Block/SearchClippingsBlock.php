@@ -6,11 +6,11 @@ use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Cache\Cache;
 
 /**
- * Provides a Search Clippings dashboard widget block.
+ * Provides a Top Stories dashboard widget block.
  *
  * @Block(
  *   id = "topicalboost_search_clippings",
- *   admin_label = @Translation("TopicalBoost: Search Clippings"),
+ *   admin_label = @Translation("TopicalBoost: Top Stories"),
  *   category = @Translation("TopicalBoost"),
  * )
  */
@@ -29,7 +29,7 @@ class SearchClippingsBlock extends BlockBase {
     $api_key = $config->get('topicalboost_api_key');
     if (empty($api_key)) {
       return [
-        '#markup' => '<div class="topicalboost-widget-error">TopicalBoost API key is required for the Search Clippings widget.</div>',
+        '#markup' => '<div class="topicalboost-widget-error">TopicalBoost API key is required for the Top Stories widget.</div>',
       ];
     }
 
