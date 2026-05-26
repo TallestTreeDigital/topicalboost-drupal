@@ -6,8 +6,8 @@ topicalboost.settings_form:
   weight: -50
 
 topicalboost.widgets_report:
-  title: 'Top Stories & Citations'
-  description: View Top Stories and Citations.
+  title: 'TopicalBoost Reports'
+  description: View TopicalBoost Top Stories and Citations.
   parent: system.admin_reports
   route_name: topicalboost.widgets
-  weight: -20
+  weight: -100
