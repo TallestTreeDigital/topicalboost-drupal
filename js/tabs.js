@@ -206,6 +206,7 @@
       function resetSettingsSearch() {
         $wrap.removeClass('ttd-searching ttd-no-results');
         $('.ttd-settings-panel').removeClass('ttd-search-match').css('display', '');
+        $('.ttd-settings-panel .form-item, .ttd-settings-panel .js-form-item').removeClass('ttd-search-item-match');
         $('.ttd-settings-panel .form-item, .ttd-settings-panel .js-form-item, .ttd-settings-panel .ttd-topics-toggle-field').show();
         $('.ttd-settings-panel.active').show();
         $clear.hide();
@@ -228,10 +229,12 @@
         $('.ttd-settings-panel').each(function () {
           var $panel = $(this);
           var panelMatches = 0;
+          var titleMatches = ($panel.find('> .ttd-panel-title:first, > h2:first').text() || '').toLowerCase().indexOf(query) !== -1;
 
           $panel.find('.form-item, .js-form-item').each(function () {
             var $item = $(this);
-            var matched = $item.text().toLowerCase().indexOf(query) !== -1;
+            var matched = titleMatches || $item.text().toLowerCase().indexOf(query) !== -1;
+            $item.toggleClass('ttd-search-item-match', matched);
             $item.toggle(matched);
             if (matched) {
               panelMatches++;
@@ -241,10 +244,10 @@
 
           $panel.find('.ttd-topics-toggle-field').each(function () {
             var $field = $(this);
-            $field.toggle($field.find('.form-item:visible, .js-form-item:visible').length > 0);
+            $field.toggle(titleMatches || $field.find('.ttd-search-item-match').length > 0);
           });
 
-          if (panelMatches > 0) {
+          if (titleMatches || panelMatches > 0) {
             $panel.addClass('ttd-search-match').show();
           }
         });
