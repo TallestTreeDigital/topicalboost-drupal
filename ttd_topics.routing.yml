@@ -342,7 +342,7 @@ topicalboost.queue_status:
 topicalboost.widgets:
   path: '/admin/config/content/topicalboost/widgets'
   defaults:
-    _title: 'Top Stories & Citations'
+    _title: 'Top Stories and Citations'
     _controller: '\Drupal\ttd_topics\Controller\WidgetsController::page'
   requirements:
     _permission: 'access content overview'

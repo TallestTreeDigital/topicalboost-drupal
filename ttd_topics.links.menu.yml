@@ -6,7 +6,7 @@ topicalboost.settings_form:
   weight: 10
 
 topicalboost.widgets_report:
-  title: 'TopicalBoost: Top Stories & Citations'
+  title: 'TopicalBoost: Top Stories and Citations'
   description: View Search Clippings, Top Stories, and Citations.
   parent: system.admin_reports
   route_name: topicalboost.widgets
