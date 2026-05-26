@@ -2406,3 +2406,69 @@
   border-color: #6db3f2 !important;
   background: #2271b1 !important;
 }
+
+/* Dark-mode pass after the final light-mode layout cleanup. */
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tabs {
+  background: var(--gin-bg-layer2, #23272b) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab {
+  color: var(--gin-color-text-light, #a0a4a8) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab:hover {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab.active,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab.active:hover,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab.active:focus,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-ba-tab.active:active {
+  background: var(--gin-color-primary, #2271b1) !important;
+  border-color: var(--gin-color-primary, #2271b1) !important;
+  color: #fff !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-bulk-analysis-section {
+  background: var(--gin-bg-layer, #2e3338) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-bulk-analysis-section + .ttd-bulk-analysis-section,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-section-header {
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-section-content,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-filter-group,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-content-type-grid,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-categories-selection {
+  background: transparent !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-content-type-card {
+  background: var(--gin-bg-app, #1b1b1d) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-content-type-card.ttd-enabled {
+  background: rgba(34, 113, 177, 0.22) !important;
+  border-color: var(--gin-color-primary, #6db3f2) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .modern-date-input,
+.gin--dark-mode #ttd-bulk-analysis-form .ttd-custom-field-select {
+  background: var(--gin-bg-input, #1b1b1d) !important;
+  color: var(--gin-color-text, #d4d4d4) !important;
+  border-color: var(--gin-border-color, #454b51) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form .description,
+.gin--dark-mode #ttd-bulk-analysis-form .form-item__description,
+.gin--dark-mode #ttd-bulk-analysis-form .form-item > small,
+.gin--dark-mode #ttd-bulk-analysis-form .date-label {
+  color: var(--gin-color-text-light, #a0a4a8) !important;
+}

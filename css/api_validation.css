@@ -517,54 +517,54 @@
 
 /* Drupal/Gin light mode can run while the OS prefers dark colors. Keep this
    settings form readable unless Gin explicitly enables dark mode. */
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning {
   background: #fff !important;
   color: #1d2327 !important;
   -webkit-text-fill-color: #1d2327;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:not(.field-glow-success):not(.field-glow-error):not(.field-glow-warning) {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:not(.field-glow-success):not(.field-glow-error):not(.field-glow-warning) {
   border-color: #8c8f94 !important;
   box-shadow: none !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:focus,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:focus {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field:focus,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:focus {
   border-color: #2271b1 !important;
   box-shadow: 0 0 0 1px #2271b1 !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:not(:focus) {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-success:not(:focus) {
   border-color: #00a32a !important;
   box-shadow: 0 0 0 1px rgba(0, 163, 42, 0.18) !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error:not(:focus) {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-error:not(:focus) {
   border-color: #d63638 !important;
   box-shadow: 0 0 0 1px rgba(214, 54, 56, 0.18) !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning:not(:focus) {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap #ttd-topics-api-key-field.field-glow-warning:not(:focus) {
   border-color: #dba617 !important;
   box-shadow: 0 0 0 1px rgba(219, 166, 23, 0.2) !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label {
   color: #1d2327 !important;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
   color: #646970 !important;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-section-title,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-meta-generator-settings-title {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-section-title,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-meta-generator-settings-title {
   color: #1d2327 !important;
   border-color: transparent !important;
   opacity: 1;

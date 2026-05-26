@@ -278,48 +278,48 @@
 
 
 /* Keep Gin/light admin pages readable even when the OS prefers dark mode. */
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search {
   background: #fff !important;
   border-color: #8c8f94 !important;
   color: #1d2327 !important;
   -webkit-text-fill-color: #1d2327;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search::placeholder {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search::placeholder {
   color: #646970 !important;
   opacity: 1;
   -webkit-text-fill-color: #646970;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search:focus {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-search:focus {
   border-color: #2271b1 !important;
   box-shadow: 0 0 0 1px #2271b1 !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-search-results,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-item {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-search-results,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-item {
   background: #fff !important;
   border-color: #c3c4c7 !important;
   color: #1d2327 !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result:hover,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-item:hover {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result:hover,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-item:hover {
   background: #f6f7f7 !important;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-list h4,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-title,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result-title {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) #ttd-pinned-posts-list h4,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-title,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result-title {
   color: #1d2327 !important;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-empty,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-handle,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-max,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-no-results,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result-meta {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-empty,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-handle,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-max,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-no-results,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-pinned-result-meta {
   color: #646970 !important;
   opacity: 1;
 }

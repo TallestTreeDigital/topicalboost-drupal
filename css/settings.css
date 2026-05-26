@@ -487,50 +487,50 @@
 }
 
 /* Light-mode hardening: keep Gin/system dark colors from leaking into this UI. */
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-content,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-content,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel {
   color: #1d2327;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="text"],
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="number"],
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="url"],
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="email"],
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:not([multiple]),
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="text"],
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="number"],
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="url"],
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input[type="email"],
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:not([multiple]),
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input {
   background: #fff;
   color: #1d2327;
   -webkit-text-fill-color: #1d2327;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input::placeholder,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea::placeholder,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input::placeholder {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input::placeholder,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea::placeholder,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-search-bar input::placeholder {
   color: #646970;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input:disabled,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea:disabled,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:disabled {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel input:disabled,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel textarea:disabled,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-settings-panel select:disabled {
   background: #f6f7f7;
   color: #50575e;
   -webkit-text-fill-color: #50575e;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item > label,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .js-form-item > label {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field label,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item > label,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .js-form-item > label {
   color: #1d2327;
   opacity: 1;
 }
 
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item__description,
-html:not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .description,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-toggle-field .form-item__description,
+html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mode) .ttd-settings-wrap .ttd-topics-field-group .description {
   color: #646970;
   opacity: 1;
 }
