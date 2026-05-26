@@ -117,13 +117,18 @@
 
 .api-key-container .form-item__suffix,
 .api-key-container #api-key-validation-indicator {
-  grid-column: 3;
-  grid-row: 1;
-  align-self: center;
-  justify-self: end;
-  margin: 0 12px 0 0;
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  margin: 0;
   pointer-events: none;
   z-index: 2;
+}
+
+.api-key-container .form-item__suffix #api-key-validation-indicator {
+  position: static;
+  top: auto;
+  right: auto;
 }
 
 .api-key-container .form-item__description,
