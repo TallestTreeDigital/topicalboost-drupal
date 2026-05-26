@@ -2331,3 +2331,78 @@
   border-color: var(--gin-border-color, #454b51) !important;
   border-left-color: var(--gin-color-primary, #6db3f2) !important;
 }
+
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  display: inline-block !important;
+  flex: 0 0 auto !important;
+  width: 42px !important;
+  height: 22px !important;
+  min-width: 42px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 2px solid #9ca3af !important;
+  border-radius: 999px !important;
+  background: #c3c4c7 !important;
+  background-image: none !important;
+  vertical-align: middle !important;
+  cursor: pointer !important;
+}
+
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze::before,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts::before,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 2px !important;
+  display: block !important;
+  visibility: visible !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(-50%) !important;
+  transition: left 0.15s ease !important;
+}
+
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze::after,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts::after,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle::after {
+  display: none !important;
+  content: none !important;
+}
+
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze:checked,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts:checked,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle:checked {
+  border-color: #2271b1 !important;
+  background: #2271b1 !important;
+}
+
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze:checked::before,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts:checked::before,
+#ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle:checked::before {
+  left: calc(100% - 18px) !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze,
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts,
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle {
+  border-color: #7d828b !important;
+  background: #4b5563 !important;
+}
+
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-reanalyze:checked,
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-include-drafts:checked,
+.gin--dark-mode #ttd-bulk-analysis-form input#ttd-bulk-analysis-custom-field-filter-toggle:checked {
+  border-color: #6db3f2 !important;
+  background: #2271b1 !important;
+}
