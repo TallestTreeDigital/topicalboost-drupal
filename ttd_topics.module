@@ -972,24 +972,13 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       }
     }
 
-    // Match WordPress ordering: mainEntity, about, mentions, then configured sort.
-    $sort_order = $config->get('frontend_sort_order') ?: 'salience';
+    // Match WordPress ordering: mainEntity, about, mentions, then alphabetically.
     $tier_priority = ['mainEntity' => 0, 'about' => 1, 'mentions' => 2];
-    usort($filtered_topics, function ($a, $b) use ($sort_order, $tier_priority) {
+    usort($filtered_topics, function ($a, $b) use ($tier_priority) {
       $tier_a = $tier_priority[$a['salience_category'] ?? 'mentions'] ?? 2;
       $tier_b = $tier_priority[$b['salience_category'] ?? 'mentions'] ?? 2;
       if ($tier_a !== $tier_b) {
         return $tier_a <=> $tier_b;
-      }
-
-      if ($sort_order === 'alphabetical') {
-        return strcasecmp($a['term']->label(), $b['term']->label());
-      }
-
-      $score_a = $a['salience_score'] ?? -1;
-      $score_b = $b['salience_score'] ?? -1;
-      if ($score_b !== $score_a) {
-        return $score_b <=> $score_a;
       }
 
       return strcasecmp($a['term']->label(), $b['term']->label());

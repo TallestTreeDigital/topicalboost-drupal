@@ -382,9 +382,16 @@ class TopicsExtension extends AbstractExtension {
       }
     }
 
-    // Sort filtered topics by count in descending order.
-    usort($filtered_topics, function ($a, $b) {
-      return $b['count'] - $a['count'];
+    // Match WordPress ordering: mainEntity, about, mentions, then alphabetically.
+    $tier_priority = ['mainEntity' => 0, 'about' => 1, 'mentions' => 2];
+    usort($filtered_topics, function ($a, $b) use ($tier_priority) {
+      $tier_a = $tier_priority[$a['salience_tier'] ?? 'mentions'] ?? 2;
+      $tier_b = $tier_priority[$b['salience_tier'] ?? 'mentions'] ?? 2;
+      if ($tier_a !== $tier_b) {
+        return $tier_a <=> $tier_b;
+      }
+
+      return strcasecmp($a['term']->label(), $b['term']->label());
     });
     return $filtered_topics;
   }

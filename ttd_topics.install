@@ -572,7 +572,7 @@ function ttd_topics_default_settings() {
     'organization_logo_fid' => NULL,
     'organization_logo_url' => '',
     'frontend_filter_mode' => 'mentions_behind_toggle',
-    'frontend_sort_order' => 'salience',
+    'frontend_sort_order' => 'alphabetical',
     'auto_link_topics' => FALSE,
     'skeleton_style' => FALSE,
     'taxonomy_label_singular' => 'Topic',
@@ -1443,4 +1443,20 @@ function ttd_topics_update_9101() {
   return t('Replayed TopicalBoost parity update coverage for sites upgrading from 1.5.x schema 9100. @details', [
     '@details' => implode(' ', array_map('strval', $messages)),
   ]);
+}
+
+/**
+ * Align hidden frontend topic ordering with WordPress parity behavior.
+ */
+function ttd_topics_update_9102() {
+  $config_factory = \Drupal::configFactory();
+
+  foreach (['ttd_topics.settings', 'topicalboost.settings'] as $config_name) {
+    $config = $config_factory->getEditable($config_name);
+    if (!$config->isNew()) {
+      $config->set('frontend_sort_order', 'alphabetical')->save();
+    }
+  }
+
+  return t('Aligned TopicalBoost frontend topic ordering with tier-first alphabetical display.');
 }

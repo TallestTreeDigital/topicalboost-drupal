@@ -402,18 +402,6 @@ class SettingsForm extends ConfigFormBase {
       '#attributes' => ['class' => ['ttd-topics-field-group']],
     ];
 
-    $form['tabs_container']['content']['topiclist']['frontend_sort_order'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Sort Order'),
-      '#options' => [
-        'salience' => $this->t('Salience score (highest first)'),
-        'alphabetical' => $this->t('Alphabetical (A-Z)'),
-      ],
-      '#default_value' => $config->get('frontend_sort_order') ?: 'salience',
-      '#description' => $this->t('How topics are ordered in the frontend display.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group']],
-    ];
-
     $form['tabs_container']['content']['topiclist']['post_topic_minimum_display_count'] = [
       '#type' => 'number',
       '#title' => $this->t('Minimum Display Count'),
@@ -2182,7 +2170,7 @@ class SettingsForm extends ConfigFormBase {
       ->set('organization_logo_fid', $logo_fid)
       // New settings
       ->set('frontend_filter_mode', $form_state->getValue('frontend_filter_mode') ?: 'mentions_behind_toggle')
-      ->set('frontend_sort_order', $form_state->getValue('frontend_sort_order'))
+      ->set('frontend_sort_order', 'alphabetical')
       ->set('auto_link_topics', $form_state->getValue('auto_link_topics'))
       ->set('skeleton_style', $form_state->getValue('skeleton_style'))
       ->set('taxonomy_label_singular', $form_state->getValue('taxonomy_label_singular'))

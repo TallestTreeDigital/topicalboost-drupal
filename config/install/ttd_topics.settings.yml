@@ -24,7 +24,7 @@ organization_logo_method: auto
 organization_logo_fid: null
 organization_logo_url: ''
 frontend_filter_mode: mentions_behind_toggle
-frontend_sort_order: salience
+frontend_sort_order: alphabetical
 auto_link_topics: false
 skeleton_style: false
 taxonomy_label_singular: Topic
