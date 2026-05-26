@@ -173,19 +173,21 @@ class CoverageController extends ControllerBase {
    */
   protected function getContentTypeBreakdown(array $enabled_content_types = []) {
     $type_stats = [];
+    $type_entities = \Drupal::entityTypeManager()
+      ->getStorage('node_type')
+      ->loadMultiple();
 
     // Get all content types (or just enabled ones).
     $types_to_check = !empty($enabled_content_types) ? $enabled_content_types : [];
 
     if (empty($types_to_check)) {
       // If no types configured, get all types.
-      $type_entities = \Drupal::entityTypeManager()
-        ->getStorage('node_type')
-        ->loadMultiple();
       $types_to_check = array_keys($type_entities);
     }
 
     foreach ($types_to_check as $type) {
+      $type_label = isset($type_entities[$type]) ? $type_entities[$type]->label() : $type;
+
       // Count total nodes of this type.
       $total = $this->database->select('node_field_data', 'n')
         ->condition('n.type', $type)
@@ -212,6 +214,7 @@ class CoverageController extends ControllerBase {
       $bar_style = 'width: ' . min(100, (int) $coverage) . '%;';
 
       $type_stats[$type] = [
+        'label' => $type_label,
         'total' => (int) $total,
         'with_topics' => (int) $with_topics,
         'without_topics' => (int) max(0, $total - $with_topics),

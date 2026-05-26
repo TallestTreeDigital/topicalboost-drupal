@@ -26,7 +26,7 @@
         <tbody>
           {% for type_name, stats in local_data.type_stats %}
             <tr>
-              <td>{{ type_name }}</td>
+              <td>{{ stats.label|default(type_name) }}</td>
               <td><span class="ttd-count-link">{{ stats.total }}</span></td>
               <td><span class="ttd-count-link">{{ stats.with_topics }}</span></td>
               <td><span class="ttd-count-link">{{ stats.without_topics }}</span></td>
