@@ -29,6 +29,24 @@
   font-weight: 600;
 }
 
+.ttd-widgets-page select.sc-sort-select,
+.ttd-widgets-page select.sc-sort-select:hover,
+.ttd-widgets-page select.sc-sort-select:focus,
+.ttd-widgets-page select.sc-sort-select:active,
+.ttd-widgets-page select.sc-filter-input,
+.ttd-widgets-page select.sc-filter-input:hover,
+.ttd-widgets-page select.sc-filter-input:focus,
+.ttd-widgets-page select.sc-filter-input:active {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: #fff !important;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2350575e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-position: right 10px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 10px 6px !important;
+  padding-right: 30px !important;
+}
+
 /* ==========================================================================
    GIN DARK MODE
    ========================================================================== */
@@ -99,6 +117,21 @@
   background: var(--gin-bg-layer2, #23272b) !important;
   border-color: var(--gin-border-color, #454b51) !important;
   color: var(--gin-color-text, #d4d4d4) !important;
+}
+
+.gin--dark-mode .ttd-widgets-page select.sc-sort-select,
+.gin--dark-mode .ttd-widgets-page select.sc-sort-select:hover,
+.gin--dark-mode .ttd-widgets-page select.sc-sort-select:focus,
+.gin--dark-mode .ttd-widgets-page select.sc-sort-select:active,
+.gin--dark-mode .ttd-widgets-page select.sc-filter-input,
+.gin--dark-mode .ttd-widgets-page select.sc-filter-input:hover,
+.gin--dark-mode .ttd-widgets-page select.sc-filter-input:focus,
+.gin--dark-mode .ttd-widgets-page select.sc-filter-input:active {
+  background-color: var(--gin-bg-layer2, #23272b) !important;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a7aaad' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-position: right 10px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 10px 6px !important;
 }
 
 .gin--dark-mode .ttd-widgets-page .sc-title,
