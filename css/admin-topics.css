@@ -1036,28 +1036,6 @@
   max-width: 100%;
 }
 
-.ttd-wide-layout .search-spinner {
-  display: none;
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  margin-top: -7px;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #dcdcde;
-  border-top-color: #2271b1;
-  border-radius: 50%;
-  animation: ttd-spin 0.8s linear infinite;
-}
-
-.ttd-wide-layout .ttd-topics-search-container.searching #ttd-topics-search {
-  padding-right: 30px;
-}
-
-.ttd-wide-layout .ttd-topics-search-container.searching .search-spinner {
-  display: block;
-}
-
 .ttd-wide-layout #ttd-topics-list-container {
   display: flex;
   flex-wrap: wrap;
