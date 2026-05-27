@@ -1488,3 +1488,59 @@ function ttd_topics_update_9103() {
 
   return t('Added TopicalBoost post_id relationship index.');
 }
+
+/**
+ * Add indexes used by editor topic lookup.
+ */
+function ttd_topics_update_9104() {
+  $schema = \Drupal::database()->schema();
+  $table_specs = ttd_topics_schema();
+  $created = [];
+  $existing = [];
+  $skipped = [];
+
+  $lookup_indexes = [
+    'ttd_entities' => [
+      'ttd_entities_mid' => [['mid', 191]],
+      'ttd_entities_wb_qid' => [['wb_qid', 191]],
+    ],
+    'taxonomy_term__field_ttd_id' => [
+      'ttd_term_ttd_id_value' => [['field_ttd_id_value', 191]],
+    ],
+  ];
+
+  $table_specs['taxonomy_term__field_ttd_id'] = [
+    'fields' => [
+      'field_ttd_id_value' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ],
+    ],
+  ];
+
+  foreach ($lookup_indexes as $table => $indexes) {
+    if (!$schema->tableExists($table)) {
+      foreach (array_keys($indexes) as $index_name) {
+        $skipped[] = "{$table}.{$index_name}";
+      }
+      continue;
+    }
+
+    foreach ($indexes as $index_name => $fields) {
+      if ($schema->indexExists($table, $index_name)) {
+        $existing[] = "{$table}.{$index_name}";
+        continue;
+      }
+
+      $schema->addIndex($table, $index_name, $fields, $table_specs[$table]);
+      $created[] = "{$table}.{$index_name}";
+    }
+  }
+
+  return t('Added TopicalBoost lookup indexes. Created: @created. Existing: @existing. Skipped: @skipped.', [
+    '@created' => $created ? implode(', ', $created) : 'none',
+    '@existing' => $existing ? implode(', ', $existing) : 'none',
+    '@skipped' => $skipped ? implode(', ', $skipped) : 'none',
+  ]);
+}

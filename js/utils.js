@@ -303,9 +303,25 @@
     const nodeId = $container.data('node-id');
     const $searchShell = $container.find('.ttd-topics-search-container');
     const $searchResults = $container.find('#ttd-topics-search-results');
+    const cacheKey = (nodeId || 0) + ':' + query.toLowerCase();
+
+    window.ttdTopicsUtils._searchCache = window.ttdTopicsUtils._searchCache || new Map();
+    window.ttdTopicsUtils._pendingSearchRequests = window.ttdTopicsUtils._pendingSearchRequests || [];
 
     // Track this as the active query so stale responses are discarded
     window.ttdTopicsUtils._currentSearchQuery = query;
+
+    if (window.ttdTopicsUtils._searchCache.has(cacheKey)) {
+      window.ttdTopicsUtils.renderSearchResults($searchResults, window.ttdTopicsUtils._searchCache.get(cacheKey), query);
+      return;
+    }
+
+    window.ttdTopicsUtils._pendingSearchRequests.forEach(function(request) {
+      if (request && request.readyState !== 4) {
+        request.abort();
+      }
+    });
+    window.ttdTopicsUtils._pendingSearchRequests = [];
 
     // Show loading
     $searchShell.addClass('searching');
@@ -324,12 +340,35 @@
       data: { q: query, node_id: nodeId }
     });
 
-    Promise.all([localPromise, apiPromise]).then(function(responses) {
+    window.ttdTopicsUtils._pendingSearchRequests = [localPromise, apiPromise];
+
+    jQuery.when(
+      localPromise.then(
+        function(response) { return { ok: true, response: response }; },
+        function(xhr) { return { ok: false, xhr: xhr }; }
+      ),
+      apiPromise.then(
+        function(response) { return { ok: true, response: response }; },
+        function(xhr) { return { ok: false, xhr: xhr }; }
+      )
+    ).done(function(localResult, apiResult) {
       // Discard stale response if user has typed a new query
       if (query !== window.ttdTopicsUtils._currentSearchQuery) return;
 
-      const localResults = responses[0].results || [];
-      const apiResults = responses[1].results || [];
+      window.ttdTopicsUtils._pendingSearchRequests = [];
+
+      if (!localResult.ok && !apiResult.ok) {
+        console.error('Search error:', {
+          local: localResult.xhr && localResult.xhr.responseText,
+          api: apiResult.xhr && apiResult.xhr.responseText
+        });
+        $searchShell.removeClass('searching');
+        $searchResults.html('<div class="ttd-search-error">Search failed. Try again.</div>').show();
+        return;
+      }
+
+      const localResults = localResult.ok ? (localResult.response.results || []) : [];
+      const apiResults = apiResult.ok ? (apiResult.response.results || []) : [];
 
       // Merge and deduplicate by ttd_id
       const mergedResults = [];
@@ -350,13 +389,10 @@
       });
 
       $searchShell.removeClass('searching');
+      if (apiResult.ok) {
+        window.ttdTopicsUtils._searchCache.set(cacheKey, mergedResults);
+      }
       window.ttdTopicsUtils.renderSearchResults($searchResults, mergedResults, query);
-    }).catch(function(error) {
-      // Discard stale error if user has typed a new query
-      if (query !== window.ttdTopicsUtils._currentSearchQuery) return;
-      console.error('Search error:', error);
-      $searchShell.removeClass('searching');
-      $searchResults.html('<div class="ttd-search-error">Search failed. Try again.</div>').show();
     });
   };
 
@@ -373,8 +409,14 @@
 
       clearTimeout(searchTimeout);
 
-      if (query.length < 2) {
+      if (query.length < 3) {
         window.ttdTopicsUtils._currentSearchQuery = '';
+        (window.ttdTopicsUtils._pendingSearchRequests || []).forEach(function(request) {
+          if (request && request.readyState !== 4) {
+            request.abort();
+          }
+        });
+        window.ttdTopicsUtils._pendingSearchRequests = [];
         $container.find('.ttd-topics-search-container').removeClass('searching');
         $searchResults.empty().hide();
         return;

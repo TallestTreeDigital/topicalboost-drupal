@@ -297,10 +297,11 @@ try {
   ttd_perf_assert(max($warm_query_counts) <= 35, 'Warm schema generation stays below query-count ceiling');
 
   $index_specs = [
-    'ttd_entities' => ['PRIMARY'],
+    'ttd_entities' => ['PRIMARY', 'ttd_entities_mid', 'ttd_entities_wb_qid'],
     'ttd_entity_post_ids' => ['ttd_epi_post_id', 'post_id'],
     'ttd_entity_schema_types' => ['entity_id'],
     'ttd_schema_types' => ['PRIMARY'],
+    'taxonomy_term__field_ttd_id' => ['ttd_term_ttd_id_value'],
   ];
   $schema = \Drupal::database()->schema();
   foreach ($index_specs as $table => $indexes) {

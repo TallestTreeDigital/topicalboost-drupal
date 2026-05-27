@@ -1051,6 +1051,7 @@ class TtdTopicsController extends ControllerBase {
     $term_query->groupBy('ttid.field_ttd_id_value');
 
     // Limit results
+    $term_query->orderBy('post_count', 'DESC');
     $term_query->range(0, 10);
 
     $results = $term_query->execute()->fetchAll();
@@ -1100,7 +1101,7 @@ class TtdTopicsController extends ControllerBase {
     $query = $request->query->get('q', '');
     $node_id = $request->query->get('node_id', 0);
 
-    if (strlen($query) < 2) {
+    if (strlen($query) < 3) {
       return new JsonResponse(['results' => []]);
     }
 
@@ -1117,58 +1118,113 @@ class TtdTopicsController extends ControllerBase {
         'query' => [
           'q' => $query,
         ],
-        'headers' => [
-          'X-API-Key' => $api_key,
-          'Content-Type' => 'application/json',
-        ],
+        'headers' => \ttd_topics_api_headers($api_key),
       ]);
 
       $data = json_decode($response->getBody(), TRUE);
-      $api_results = $data['results'] ?? [];
+      $api_results = [];
+      if (is_array($data)) {
+        if (isset($data['results']) && is_array($data['results'])) {
+          $api_results = $data['results'];
+        }
+        elseif (isset($data[0]) && is_array($data[0])) {
+          $api_results = $data;
+        }
+      }
 
       $database = \Drupal::database();
       $formatted_results = [];
+
+      $mids = [];
+      $wb_qids = [];
+      $ttd_ids = [];
+      foreach ($api_results as $result) {
+        if (!empty($result['mid'])) {
+          $mids[] = (string) $result['mid'];
+        }
+        if (!empty($result['wb_qid'])) {
+          $wb_qids[] = (string) $result['wb_qid'];
+        }
+        if (!empty($result['ttd_id'])) {
+          $ttd_ids[] = (string) $result['ttd_id'];
+        }
+      }
+      $mids = array_values(array_unique($mids));
+      $wb_qids = array_values(array_unique($wb_qids));
+      $ttd_ids = array_values(array_unique($ttd_ids));
+
+      $entity_ttd_by_mid = [];
+      $entity_ttd_by_wb_qid = [];
+      if ($mids || $wb_qids) {
+        $entity_query = $database->select('ttd_entities', 'te');
+        $entity_query->fields('te', ['ttd_id', 'mid', 'wb_qid']);
+        $or = $entity_query->orConditionGroup();
+        if ($mids) {
+          $or->condition('te.mid', $mids, 'IN');
+        }
+        if ($wb_qids) {
+          $or->condition('te.wb_qid', $wb_qids, 'IN');
+        }
+        $entity_query->condition($or);
+
+        foreach ($entity_query->execute()->fetchAll() as $row) {
+          if (!empty($row->mid)) {
+            $entity_ttd_by_mid[(string) $row->mid] = (string) $row->ttd_id;
+          }
+          if (!empty($row->wb_qid)) {
+            $entity_ttd_by_wb_qid[(string) $row->wb_qid] = (string) $row->ttd_id;
+          }
+          if (!empty($row->ttd_id)) {
+            $ttd_ids[] = (string) $row->ttd_id;
+          }
+        }
+        $ttd_ids = array_values(array_unique($ttd_ids));
+      }
+
+      $term_id_by_ttd = [];
+      if ($ttd_ids && $database->schema()->tableExists('taxonomy_term__field_ttd_id')) {
+        $term_query = $database->select('taxonomy_term__field_ttd_id', 'ttid');
+        $term_query->fields('ttid', ['entity_id', 'field_ttd_id_value']);
+        $term_query->condition('ttid.field_ttd_id_value', $ttd_ids, 'IN');
+        foreach ($term_query->execute()->fetchAll() as $row) {
+          $term_id_by_ttd[(string) $row->field_ttd_id_value] = (int) $row->entity_id;
+        }
+      }
+
+      $existing_tids = [];
+      if ($node_id) {
+        $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+        if ($node && $node->hasField('field_ttd_topics')) {
+          $existing_tids = array_map('intval', array_column($node->get('field_ttd_topics')->getValue(), 'target_id'));
+        }
+      }
 
       foreach ($api_results as $result) {
         $exists = FALSE;
         $in_post = FALSE;
         $term_id = NULL;
-        $ttd_id = $result['ttd_id'] ?? NULL;
+        $ttd_id = !empty($result['ttd_id']) ? (string) $result['ttd_id'] : NULL;
+        $mid = !empty($result['mid']) ? (string) $result['mid'] : '';
+        $wb_qid = !empty($result['wb_qid']) ? (string) $result['wb_qid'] : '';
 
-        // Check if exists in ttd_entities
-        if (!empty($result['mid']) || !empty($result['wb_qid'])) {
-          $entity_query = $database->select('ttd_entities', 'te');
-          $entity_query->fields('te', ['ttd_id']);
-          if (!empty($result['mid'])) {
-            $entity_query->condition('te.mid', $result['mid']);
-          } elseif (!empty($result['wb_qid'])) {
-            $entity_query->condition('te.wb_qid', $result['wb_qid']);
-          }
-          $entity_result = $entity_query->execute()->fetchField();
-          if ($entity_result) {
-            $exists = TRUE;
-            $ttd_id = $entity_result;
-          }
+        if ($mid !== '' && isset($entity_ttd_by_mid[$mid])) {
+          $exists = TRUE;
+          $ttd_id = $ttd_id ?: $entity_ttd_by_mid[$mid];
+        }
+        elseif ($wb_qid !== '' && isset($entity_ttd_by_wb_qid[$wb_qid])) {
+          $exists = TRUE;
+          $ttd_id = $ttd_id ?: $entity_ttd_by_wb_qid[$wb_qid];
         }
 
-        // Check if exists in taxonomy by ttd_id
-        if ($ttd_id) {
-          $term_query = $database->select('taxonomy_term__field_ttd_id', 'ttid');
-          $term_query->fields('ttid', ['entity_id']);
-          $term_query->condition('ttid.field_ttd_id_value', $ttd_id);
-          $term_id = $term_query->execute()->fetchField();
+        if ($ttd_id && isset($term_id_by_ttd[(string) $ttd_id])) {
+          $term_id = $term_id_by_ttd[(string) $ttd_id];
           if ($term_id) {
             $exists = TRUE;
           }
         }
 
-        // Check if in current post
-        if ($node_id && $term_id) {
-          $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
-          if ($node && $node->hasField('field_ttd_topics')) {
-            $existing_tids = array_column($node->get('field_ttd_topics')->getValue(), 'target_id');
-            $in_post = in_array($term_id, $existing_tids);
-          }
+        if ($term_id) {
+          $in_post = in_array((int) $term_id, $existing_tids, TRUE);
         }
 
         $formatted_results[] = [

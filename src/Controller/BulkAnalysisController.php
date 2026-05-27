@@ -317,7 +317,7 @@ class BulkAnalysisController extends ControllerBase {
     // SAFEGUARD: Sanity check - ensure state consistency
     // If frontend sends a different request_id, it means they might be out of sync
     $frontend_request_id = $request->query->get('request_id');
-    if ($frontend_request_id && $request_id && $frontend_request_id !== $request_id) {
+    if ($frontend_request_id && $request_id && (string) $frontend_request_id !== (string) $request_id) {
       \Drupal::logger('ttd_topics')->warning('Frontend/backend request ID mismatch. Frontend: @frontend, Backend: @backend', [
         '@frontend' => $frontend_request_id,
         '@backend' => $request_id,
