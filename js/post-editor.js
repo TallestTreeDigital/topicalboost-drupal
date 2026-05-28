@@ -599,13 +599,92 @@
         /**
          * Run Analysis button.
          */
+        let analysisPollInterval = null;
+
+        function stopAnalysisPolling() {
+          if (analysisPollInterval) {
+            clearInterval(analysisPollInterval);
+            analysisPollInterval = null;
+          }
+        }
+
+        function setAnalysisStatus(message, state) {
+          $topicsStatus
+            .removeClass('analyzing success error')
+            .addClass(state || '')
+            .text(message)
+            .show();
+        }
+
+        function startAnalysisPolling($button) {
+          stopAnalysisPolling();
+
+          let attempts = 0;
+          const maxAttempts = 180; // 15 minutes at 5-second intervals.
+
+          const poll = function() {
+            attempts++;
+
+            $.ajax({
+              url: '/ttd-topics/check-analysis-status/' + nodeId,
+              type: 'GET',
+              timeout: 5000,
+              success: function(response) {
+                if (response && response.completed) {
+                  stopAnalysisPolling();
+                  window.ttdHasBeenAnalyzed = true;
+                  setAnalysisStatus(Drupal.t('Analysis complete. Refreshing topics...'), 'success');
+
+                  setTimeout(function() {
+                    window.location.reload();
+                  }, 1200);
+                  return;
+                }
+
+                if (response && response.error) {
+                  stopAnalysisPolling();
+                  setAnalysisStatus(response.message || Drupal.t('Analysis failed. You can retry.'), 'error');
+                  $button.removeClass('analyzing').prop('disabled', false);
+                  return;
+                }
+
+                setAnalysisStatus(
+                  (response && response.message) ? response.message : Drupal.t('Analysis still in progress...'),
+                  'analyzing'
+                );
+
+                if (attempts >= maxAttempts) {
+                  stopAnalysisPolling();
+                  setAnalysisStatus(Drupal.t('Analysis is taking longer than expected. Refreshing to check status...'), 'analyzing');
+                  setTimeout(function() {
+                    window.location.reload();
+                  }, 1200);
+                }
+              },
+              error: function() {
+                if (attempts >= maxAttempts) {
+                  stopAnalysisPolling();
+                  setAnalysisStatus(Drupal.t('Unable to confirm analysis status. Refreshing to check status...'), 'error');
+                  setTimeout(function() {
+                    window.location.reload();
+                  }, 1200);
+                }
+              }
+            });
+          };
+
+          poll();
+          analysisPollInterval = setInterval(poll, 5000);
+        }
+
         $getTopicsButton.on('click', function() {
           const $button = $(this);
+          let pollingStarted = false;
 
           if ($button.hasClass('analyzing')) return;
 
           $button.addClass('analyzing').prop('disabled', true);
-          $topicsStatus.text('Analyzing...').addClass('analyzing').show();
+          setAnalysisStatus(Drupal.t('Queueing analysis...'), 'analyzing');
 
           $.ajax({
             url: '/api/topicalboost/analyze-node/' + nodeId,
@@ -616,7 +695,9 @@
                 const message = response.data && response.data.message
                   ? response.data.message
                   : Drupal.t('Analysis has been queued and will run in the background.');
-                $topicsStatus.text(message).removeClass('analyzing').addClass('success');
+                setAnalysisStatus(message, 'analyzing');
+                pollingStarted = true;
+                startAnalysisPolling($button);
 
                 if (response.data && response.data.changed) {
                   const $changedField = $('input[name="changed"]');
@@ -626,15 +707,17 @@
                 }
               }
               else {
-                $topicsStatus.text(response.message || Drupal.t('Unable to queue analysis.')).removeClass('analyzing').addClass('error');
+                setAnalysisStatus(response.message || Drupal.t('Unable to queue analysis.'), 'error');
               }
             },
             error: function(xhr) {
               const response = xhr.responseJSON || {};
-              $topicsStatus.text(response.message || Drupal.t('Unable to queue analysis.')).removeClass('analyzing').addClass('error');
+              setAnalysisStatus(response.message || Drupal.t('Unable to queue analysis.'), 'error');
             },
             complete: function() {
-              $button.removeClass('analyzing').prop('disabled', false);
+              if (!pollingStarted) {
+                $button.removeClass('analyzing').prop('disabled', false);
+              }
             }
           });
         });
