@@ -920,7 +920,7 @@ class TtdTopicsController extends ControllerBase {
         $analysis_service = \Drupal::service('ttd_topics.analysis_service');
 
         try {
-          if ($analysis_service->isAnalysisReady($analysis_request['request_id'])) {
+          if ($analysis_service->isAnalysisReady($analysis_request['request_id'], 4)) {
             $analysis_service->applyAnalysisResult($node_entity, $analysis_request['request_id']);
             $node_entity->set('field_ttd_analysis_in_progress', FALSE);
             $node_entity->save();

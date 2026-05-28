@@ -127,7 +127,7 @@ class TtdTopicsAnalysisService {
   /**
    * Check whether a TopicalBoost API analysis request is ready.
    */
-  public function isAnalysisReady($request_id) {
+  public function isAnalysisReady($request_id, $timeout = 30) {
     $config = \Drupal::config('ttd_topics.settings');
     $api_key = $config->get('topicalboost_api_key');
     $api_base_url = TOPICALBOOST_API_ENDPOINT;
@@ -140,7 +140,7 @@ class TtdTopicsAnalysisService {
         'x-tb-platform' => 'drupal',
       ],
       'query' => ['request_id' => $request_id],
-      'timeout' => 30,
+      'timeout' => $timeout,
     ]);
 
     $poll_result = json_decode($poll_response->getBody(), TRUE);
