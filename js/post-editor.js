@@ -648,10 +648,7 @@
                   return;
                 }
 
-                setAnalysisStatus(
-                  (response && response.message) ? response.message : Drupal.t('Analysis still in progress...'),
-                  'analyzing'
-                );
+                setAnalysisStatus(Drupal.t('Analysis in progress. This page will refresh when topics are ready.'), 'analyzing');
 
                 if (attempts >= maxAttempts) {
                   stopAnalysisPolling();
@@ -684,7 +681,7 @@
           if ($button.hasClass('analyzing')) return;
 
           $button.addClass('analyzing').prop('disabled', true);
-          setAnalysisStatus(Drupal.t('Queueing analysis...'), 'analyzing');
+          setAnalysisStatus(Drupal.t('Analysis in progress. This page will refresh when topics are ready.'), 'analyzing');
 
           $.ajax({
             url: '/api/topicalboost/analyze-node/' + nodeId,
@@ -692,10 +689,7 @@
             contentType: 'application/json',
             success: function(response) {
               if (response.success) {
-                const message = response.data && response.data.message
-                  ? response.data.message
-                  : Drupal.t('Analysis has been queued and will run in the background.');
-                setAnalysisStatus(message, 'analyzing');
+                setAnalysisStatus(Drupal.t('Analysis in progress. This page will refresh when topics are ready.'), 'analyzing');
                 pollingStarted = true;
                 startAnalysisPolling($button);
 

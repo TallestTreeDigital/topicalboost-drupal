@@ -44,24 +44,38 @@
 /* Status message */
 #ttd-topics-status {
   margin-bottom: 15px;
-  padding: 10px;
+  padding: 12px 16px;
   background: #e8f4f8;
   border-left: 4px solid #0073aa;
   display: none;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
 }
 
 #ttd-topics-status.analyzing {
-  display: block;
+  display: flex;
+}
+
+#ttd-topics-status.analyzing::before {
+  content: "";
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(0, 115, 170, 0.22);
+  border-top-color: #0073aa;
+  border-radius: 50%;
+  animation: ttd-spin 0.8s linear infinite;
 }
 
 #ttd-topics-status.success {
-  display: block;
+  display: flex;
   background: #ecfdf3;
   border-left-color: #10b981;
 }
 
 #ttd-topics-status.error {
-  display: block;
+  display: flex;
   background: #fef2f2;
   border-left-color: #dc2626;
 }
