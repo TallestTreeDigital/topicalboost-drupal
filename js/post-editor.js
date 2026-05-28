@@ -451,8 +451,13 @@
         /**
          * Fetch demand metrics.
          */
-        function fetchDemandMetrics(termId, $badge) {
-          if (!termId) return;
+        function fetchDemandMetrics(termId, $badge, completeCallback) {
+          if (!termId) {
+            if (typeof completeCallback === 'function') {
+              completeCallback();
+            }
+            return;
+          }
 
           $badge.addClass('ttd-kd-loading').html('<span class="ttd-badge-spinner"></span>');
 
@@ -478,6 +483,11 @@
                 return;
               }
               renderNoDemandData($badge, 'Failed to load');
+            },
+            complete: function() {
+              if (typeof completeCallback === 'function') {
+                completeCallback();
+              }
             }
           });
         }
@@ -543,6 +553,38 @@
           const termId = $badge.closest('.topic-item').data('term-id');
           fetchDemandMetrics(termId, $badge);
         });
+
+        /**
+         * Auto-fetch demand metrics for focus-topic badges rendered without cached data.
+         */
+        function runAutoFetchDemandMetrics() {
+          const $noDataBadges = $container.find('.ttd-kd-badge.ttd-kd-no-data');
+          if (!$noDataBadges.length) {
+            return;
+          }
+
+          let fetchIndex = 0;
+
+          function fetchNextMetric() {
+            if (fetchIndex >= $noDataBadges.length) {
+              return;
+            }
+
+            const $badge = $noDataBadges.eq(fetchIndex);
+            fetchIndex++;
+
+            if (!$badge.length || $badge.hasClass('ttd-kd-loading')) {
+              fetchNextMetric();
+              return;
+            }
+
+            const termId = $badge.closest('.topic-item').data('term-id');
+            fetchDemandMetrics(termId, $badge, fetchNextMetric);
+          }
+
+          fetchNextMetric();
+          fetchNextMetric();
+        }
 
         /**
          * Update section counts.
@@ -747,6 +789,9 @@
         if (typeof window.ttdTopicsUtils.bindSearchHandlers === 'function') {
           window.ttdTopicsUtils.bindSearchHandlers($container);
         }
+
+        window.ttdRunAutoFetchDemandMetrics = runAutoFetchDemandMetrics;
+        runAutoFetchDemandMetrics();
       });
     }
   };
