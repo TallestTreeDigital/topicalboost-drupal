@@ -768,6 +768,7 @@ try {
       'mid' => '/m/topicalboost_parity_allowlist',
       'nl_name' => 'Allowlist NL Name',
       'kg_description' => 'Allowed description field',
+      'characters' => str_repeat('TopicalBoost long character metadata; ', 12),
       'unexpected_api_field' => 'must not be written',
     ]]
   );
@@ -778,6 +779,7 @@ try {
     ->fetchAssoc();
   ttd_parity_assert(($allowlist_row['mid'] ?? NULL) === '/m/topicalboost_parity_allowlist', 'Entity allowlist stores known metadata fields like WordPress');
   ttd_parity_assert(($allowlist_row['kg_description'] ?? NULL) === 'Allowed description field', 'Entity allowlist stores known description metadata');
+  ttd_parity_assert(strlen($allowlist_row['characters'] ?? '') > 255, 'Entity metadata stores long character lists like WordPress TEXT columns');
   ttd_parity_assert(!array_key_exists('unexpected_api_field', $allowlist_row ?: []), 'Entity allowlist rejects unknown API fields like WordPress');
 }
 finally {

@@ -152,56 +152,47 @@ function ttd_topics_schema() {
         'description' => 'Country',
       ],
       'genre' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Genre',
       ],
       'creator' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Creator',
       ],
       'author' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Author',
       ],
       'producer' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Producer',
       ],
       'director' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Director',
       ],
       'screenwriter' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Screenwriter',
       ],
       'cast_member' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Cast member',
       ],
       'characters' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Characters',
       ],
       'composer' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Composer',
       ],
@@ -242,14 +233,12 @@ function ttd_topics_schema() {
         'description' => 'Date of birth',
       ],
       'series' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Series',
       ],
       'season' => [
-        'type' => 'varchar',
-        'length' => 255,
+        'type' => 'text',
         'not null' => FALSE,
         'description' => 'Season',
       ],
@@ -1542,5 +1531,48 @@ function ttd_topics_update_9104() {
     '@created' => $created ? implode(', ', $created) : 'none',
     '@existing' => $existing ? implode(', ', $existing) : 'none',
     '@skipped' => $skipped ? implode(', ', $skipped) : 'none',
+  ]);
+}
+
+/**
+ * Match WordPress entity metadata column capacity for long list fields.
+ */
+function ttd_topics_update_9105() {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->tableExists('ttd_entities')) {
+    return t('Skipped TopicalBoost entity metadata column alignment because ttd_entities does not exist.');
+  }
+
+  $fields = [
+    'genre' => 'Genre',
+    'creator' => 'Creator',
+    'author' => 'Author',
+    'producer' => 'Producer',
+    'director' => 'Director',
+    'screenwriter' => 'Screenwriter',
+    'cast_member' => 'Cast member',
+    'characters' => 'Characters',
+    'composer' => 'Composer',
+    'series' => 'Series',
+    'season' => 'Season',
+  ];
+
+  $changed = [];
+  foreach ($fields as $field_name => $description) {
+    if (!$schema->fieldExists('ttd_entities', $field_name)) {
+      continue;
+    }
+
+    $schema->changeField('ttd_entities', $field_name, $field_name, [
+      'type' => 'text',
+      'not null' => FALSE,
+      'description' => $description,
+    ]);
+    $changed[] = $field_name;
+  }
+
+  return t('Aligned TopicalBoost long entity metadata columns with WordPress parity: @fields.', [
+    '@fields' => $changed ? implode(', ', $changed) : 'none',
   ]);
 }
