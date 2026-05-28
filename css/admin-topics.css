@@ -112,6 +112,15 @@
   border-left-color: #dc2626;
 }
 
+.ttd-topics-container.analysis-in-progress #ttd-topics-list-container,
+.ttd-topics-container.analysis-in-progress .ttd-topics-search-container {
+  display: none !important;
+}
+
+.ttd-topics-container.analysis-in-progress .ttd-topics-content {
+  pointer-events: none;
+}
+
 /* Search container */
 .ttd-topics-search-container {
   position: relative;

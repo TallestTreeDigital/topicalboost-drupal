@@ -618,17 +618,30 @@
             .css('display', '');
         }
 
-        function setAnalysisBusy(isBusy) {
+        function setAnalysisBusy(isBusy, clearTopics) {
           $container.toggleClass('analysis-in-progress', isBusy);
-          $topicsListContainer.toggle(!isBusy);
-          $topicsSearchContainer.toggle(!isBusy);
+          $container.attr('aria-busy', isBusy ? 'true' : 'false');
+
+          if (isBusy && clearTopics) {
+            $container.find('.ttd-topics-section .ttd-topics-list').empty();
+          }
+
+          if (isBusy) {
+            $topicsListContainer.hide().attr('hidden', 'hidden');
+            $topicsSearchContainer.hide().attr('hidden', 'hidden');
+          }
+          else {
+            $topicsListContainer.show().removeAttr('hidden');
+            $topicsSearchContainer.show().removeAttr('hidden');
+          }
+
           $searchInput.val('').prop('disabled', isBusy);
           $searchResults.empty().hide();
         }
 
         function startAnalysisPolling($button) {
           stopAnalysisPolling();
-          setAnalysisBusy(true);
+          setAnalysisBusy(true, true);
 
           let attempts = 0;
           const maxAttempts = 180; // 15 minutes at 5-second intervals.
@@ -694,7 +707,7 @@
 
           $button.addClass('analyzing').prop('disabled', true);
           setAnalysisStatus(Drupal.t('Analysis in progress. This page will refresh when topics are ready.'), 'analyzing');
-          setAnalysisBusy(true);
+          setAnalysisBusy(true, false);
 
           $.ajax({
             url: '/api/topicalboost/analyze-node/' + nodeId,

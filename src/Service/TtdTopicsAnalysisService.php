@@ -80,9 +80,9 @@ class TtdTopicsAnalysisService {
   }
 
   /**
-   * Execute the analysis for a node.
+   * Start a single-node analysis request with the TopicalBoost API.
    */
-  private function executeAnalysis(NodeInterface $node, $save_entity = TRUE) {
+  public function startSingleAnalysis(NodeInterface $node) {
     $config = \Drupal::config('ttd_topics.settings');
     $api_key = $config->get('topicalboost_api_key');
     $api_base_url = TOPICALBOOST_API_ENDPOINT;
@@ -112,7 +112,83 @@ class TtdTopicsAnalysisService {
       ]);
 
       $result = json_decode($response->getBody(), TRUE);
-      $request_id = $result['request_id'];
+      if (empty($result['request_id'])) {
+        throw new \Exception('Analysis request did not return a request id');
+      }
+
+      return $result['request_id'];
+    }
+    catch (RequestException $e) {
+      \Drupal::logger('ttd_topics')->error('Error starting TopicalBoost analysis: @error', ['@error' => $e->getMessage()]);
+      throw $e;
+    }
+  }
+
+  /**
+   * Check whether a TopicalBoost API analysis request is ready.
+   */
+  public function isAnalysisReady($request_id) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+
+    $client = new Client();
+    $poll_response = $client->get($api_base_url . '/poll/analysis', [
+      'headers' => [
+        'x-api-key' => $api_key,
+        'x-tb-plugin-version' => $this->getModuleVersion(),
+        'x-tb-platform' => 'drupal',
+      ],
+      'query' => ['request_id' => $request_id],
+      'timeout' => 30,
+    ]);
+
+    $poll_result = json_decode($poll_response->getBody(), TRUE);
+    return !empty($poll_result['ready']);
+  }
+
+  /**
+   * Fetch and apply single-node analysis results from the TopicalBoost API.
+   */
+  public function applyAnalysisResult(NodeInterface $node, $request_id, $save_entity = TRUE) {
+    $config = \Drupal::config('ttd_topics.settings');
+    $api_key = $config->get('topicalboost_api_key');
+    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+
+    $client = new Client();
+    $results_response = $client->get($api_base_url . '/result/entities', [
+      'headers' => [
+        'x-api-key' => $api_key,
+        'x-tb-plugin-version' => $this->getModuleVersion(),
+        'x-tb-platform' => 'drupal',
+      ],
+      'query' => [
+        'request_id' => $request_id,
+        'include_demand_metrics' => 'true',
+      ],
+      'timeout' => 30,
+    ]);
+
+    $analysis_results = json_decode($results_response->getBody(), TRUE);
+
+    // Process and save the results.
+    $this->saveAnalysisResults($node, $analysis_results, $save_entity);
+
+    // Update the ttd_last_analyzed field.
+    $node->set('field_ttd_last_analyzed', \Drupal::time()->getRequestTime());
+    if ($save_entity) {
+      $node->save();
+    }
+
+    return $analysis_results;
+  }
+
+  /**
+   * Execute the analysis for a node.
+   */
+  private function executeAnalysis(NodeInterface $node, $save_entity = TRUE) {
+    try {
+      $request_id = $this->startSingleAnalysis($node);
 
       // Step 2: Poll for analysis completion.
       $completed = FALSE;
@@ -122,18 +198,7 @@ class TtdTopicsAnalysisService {
       while (!$completed && $attempt < $max_attempts) {
         // Wait for 10 seconds between polls.
         sleep(10);
-        $poll_response = $client->get($api_base_url . '/poll/analysis', [
-          'headers' => [
-            'x-api-key' => $api_key,
-            'x-tb-plugin-version' => $this->getModuleVersion(),
-            'x-tb-platform' => 'drupal',
-          ],
-          'query' => ['request_id' => $request_id],
-          'timeout' => 30,
-        ]);
-
-        $poll_result = json_decode($poll_response->getBody(), TRUE);
-        if ($poll_result['ready']) {
+        if ($this->isAnalysisReady($request_id)) {
           $completed = TRUE;
         }
 
@@ -145,29 +210,7 @@ class TtdTopicsAnalysisService {
       }
 
       // Step 3: Get analysis results.
-      $results_response = $client->get($api_base_url . '/result/entities', [
-        'headers' => [
-          'x-api-key' => $api_key,
-          'x-tb-plugin-version' => $this->getModuleVersion(),
-          'x-tb-platform' => 'drupal',
-        ],
-        'query' => [
-          'request_id' => $request_id,
-          'include_demand_metrics' => 'true',
-        ],
-        'timeout' => 30,
-      ]);
-
-      $analysis_results = json_decode($results_response->getBody(), TRUE);
-
-      // Process and save the results.
-      $this->saveAnalysisResults($node, $analysis_results, $save_entity);
-
-      // Update the ttd_last_analyzed field.
-      $node->set('field_ttd_last_analyzed', \Drupal::time()->getRequestTime());
-      if ($save_entity) {
-        $node->save();
-      }
+      $this->applyAnalysisResult($node, $request_id, $save_entity);
 
     }
     catch (RequestException $e) {

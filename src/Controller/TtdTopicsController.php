@@ -2,7 +2,6 @@
 
 namespace Drupal\ttd_topics\Controller;
 
-use Drupal\advancedqueue\Job;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
@@ -913,6 +912,38 @@ class TtdTopicsController extends ControllerBase {
       // Check analysis status.
       $analysis_in_progress = $node_entity->get('field_ttd_analysis_in_progress')->value;
       $has_topics = !$node_entity->get('field_ttd_topics')->isEmpty();
+      $state = \Drupal::state();
+      $state_key = 'ttd_topics.single_analysis_request.' . $node_entity->id();
+      $analysis_request = $state->get($state_key);
+
+      if ($analysis_in_progress && !empty($analysis_request['request_id'])) {
+        $analysis_service = \Drupal::service('ttd_topics.analysis_service');
+
+        try {
+          if ($analysis_service->isAnalysisReady($analysis_request['request_id'])) {
+            $analysis_service->applyAnalysisResult($node_entity, $analysis_request['request_id']);
+            $node_entity->set('field_ttd_analysis_in_progress', FALSE);
+            $node_entity->save();
+            $state->delete($state_key);
+
+            return new JsonResponse([
+              'completed' => TRUE,
+              'in_progress' => FALSE,
+              'has_topics' => !$node_entity->get('field_ttd_topics')->isEmpty(),
+              'error' => FALSE,
+              'message' => $this->t('Analysis completed successfully.'),
+              'reload' => TRUE,
+            ]);
+          }
+        }
+        catch (\Exception $e) {
+          \Drupal::logger('ttd_topics')->warning('Unable to poll single analysis request @request_id for node @nid: @message', [
+            '@request_id' => $analysis_request['request_id'],
+            '@nid' => $node_entity->id(),
+            '@message' => $e->getMessage(),
+          ]);
+        }
+      }
 
       // Determine completion status.
       $completed = !$analysis_in_progress && $has_topics;
@@ -1513,45 +1544,57 @@ class TtdTopicsController extends ControllerBase {
    */
   public function runAnalysis(NodeInterface $node, Request $request) {
     try {
-      $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
-      $queue = $queue_storage->load('ttd_topics_analysis');
+      $state = \Drupal::state();
+      $state_key = 'ttd_topics.single_analysis_request.' . $node->id();
+      $existing_request = $state->get($state_key);
 
-      if (!$queue) {
+      if ($node->hasField('field_ttd_analysis_in_progress') && $node->get('field_ttd_analysis_in_progress')->value && !empty($existing_request['request_id'])) {
         return new JsonResponse([
-          'success' => FALSE,
-          'message' => 'TopicalBoost analysis queue not found.',
-        ], 500);
+          'success' => TRUE,
+          'data' => [
+            'message' => 'Analysis is already in progress.',
+            'node_id' => (int) $node->id(),
+            'request_id' => $existing_request['request_id'],
+            'changed' => $node->getChangedTime(),
+          ],
+        ]);
       }
-
-      $job = Job::create('ttd_topics_analysis', [
-        'node_id' => $node->id(),
-        'force_analysis' => TRUE,
-      ]);
-      $queue->enqueueJob($job);
 
       if ($node->hasField('field_ttd_analysis_in_progress')) {
         $node->set('field_ttd_analysis_in_progress', TRUE);
         $node->save();
       }
 
+      $request_id = \Drupal::service('ttd_topics.analysis_service')->startSingleAnalysis($node);
+      $state->set($state_key, [
+        'request_id' => $request_id,
+        'started' => \Drupal::time()->getCurrentTime(),
+      ]);
+
       return new JsonResponse([
         'success' => TRUE,
         'data' => [
-          'message' => 'Analysis has been queued and will run in the background.',
+          'message' => 'Analysis started.',
           'node_id' => (int) $node->id(),
+          'request_id' => $request_id,
           'changed' => $node->getChangedTime(),
         ],
       ]);
     }
     catch (\Exception $e) {
-      \Drupal::logger('topicalboost')->error('Error queueing analysis for node @nid: @message', [
+      if ($node->hasField('field_ttd_analysis_in_progress')) {
+        $node->set('field_ttd_analysis_in_progress', FALSE);
+        $node->save();
+      }
+
+      \Drupal::logger('topicalboost')->error('Error starting analysis for node @nid: @message', [
         '@nid' => $node->id(),
         '@message' => $e->getMessage(),
       ]);
 
       return new JsonResponse([
         'success' => FALSE,
-        'message' => 'Error queueing TopicalBoost analysis: ' . $e->getMessage(),
+        'message' => 'Error starting TopicalBoost analysis: ' . $e->getMessage(),
       ], 500);
     }
   }
