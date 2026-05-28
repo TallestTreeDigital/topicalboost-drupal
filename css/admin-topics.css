@@ -39,6 +39,38 @@
 #get-topics-button.analyzing {
   opacity: 0.6;
   cursor: not-allowed;
+  position: relative;
+  padding-left: 38px;
+  padding-right: 24px;
+}
+
+#get-topics-button.analyzing::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ttd-spin 0.8s linear infinite;
+}
+
+#get-topics-button.analyzing span {
+  visibility: hidden;
+}
+
+#get-topics-button.analyzing span::after {
+  content: "Analyzing";
+  visibility: visible;
+  position: absolute;
+  left: 38px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
 }
 
 /* Status message */
@@ -54,7 +86,7 @@
 }
 
 #ttd-topics-status.analyzing {
-  display: flex;
+  display: none;
 }
 
 #ttd-topics-status.analyzing::before {

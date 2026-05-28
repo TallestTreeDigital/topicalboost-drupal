@@ -18,6 +18,8 @@
         const $searchResults = $container.find('#ttd-topics-search-results');
         const $getTopicsButton = $container.find('#get-topics-button');
         const $topicsStatus = $container.find('#ttd-topics-status');
+        const $topicsListContainer = $container.find('#ttd-topics-list-container');
+        const $topicsSearchContainer = $container.find('.ttd-topics-search-container');
         const hasBeenAnalyzed = !!(settings.ttdTopics && settings.ttdTopics.hasBeenAnalyzed);
 
         $container.on('click', '.ttd-wide-rejected-toggle', function(e) {
@@ -613,11 +615,20 @@
             .removeClass('analyzing success error')
             .addClass(state || '')
             .text(message)
-            .show();
+            .css('display', '');
+        }
+
+        function setAnalysisBusy(isBusy) {
+          $container.toggleClass('analysis-in-progress', isBusy);
+          $topicsListContainer.toggle(!isBusy);
+          $topicsSearchContainer.toggle(!isBusy);
+          $searchInput.val('').prop('disabled', isBusy);
+          $searchResults.empty().hide();
         }
 
         function startAnalysisPolling($button) {
           stopAnalysisPolling();
+          setAnalysisBusy(true);
 
           let attempts = 0;
           const maxAttempts = 180; // 15 minutes at 5-second intervals.
@@ -644,6 +655,7 @@
                 if (response && response.error) {
                   stopAnalysisPolling();
                   setAnalysisStatus(response.message || Drupal.t('Analysis failed. You can retry.'), 'error');
+                  setAnalysisBusy(false);
                   $button.removeClass('analyzing').prop('disabled', false);
                   return;
                 }
@@ -682,6 +694,7 @@
 
           $button.addClass('analyzing').prop('disabled', true);
           setAnalysisStatus(Drupal.t('Analysis in progress. This page will refresh when topics are ready.'), 'analyzing');
+          setAnalysisBusy(true);
 
           $.ajax({
             url: '/api/topicalboost/analyze-node/' + nodeId,
@@ -710,6 +723,7 @@
             },
             complete: function() {
               if (!pollingStarted) {
+                setAnalysisBusy(false);
                 $button.removeClass('analyzing').prop('disabled', false);
               }
             }
