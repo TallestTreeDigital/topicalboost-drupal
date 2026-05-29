@@ -618,6 +618,152 @@ function ttd_topics_ensure_default_settings() {
 }
 
 /**
+ * Get node field definitions managed by TopicalBoost.
+ */
+function ttd_topics_node_field_definitions() {
+  return [
+    'field_ttd_rejected_topics' => [
+      'type' => 'entity_reference',
+      'label' => 'Rejected Topics',
+      'cardinality' => -1,
+      'storage_settings' => [
+        'target_type' => 'taxonomy_term',
+      ],
+      'settings' => [
+        'handler' => 'default:taxonomy_term',
+        'handler_settings' => [
+          'target_bundles' => ['ttd_topics' => 'ttd_topics'],
+          'auto_create' => FALSE,
+        ],
+      ],
+    ],
+    'field_ttd_last_analyzed' => [
+      'type' => 'datetime',
+      'label' => 'TopicalBoost Last Analyzed',
+      'storage_settings' => [
+        'datetime_type' => 'datetime',
+      ],
+    ],
+    'field_ttd_topics' => [
+      'type' => 'entity_reference',
+      'label' => 'TopicalBoost Topics',
+      'cardinality' => -1,
+      'storage_settings' => [
+        'target_type' => 'taxonomy_term',
+      ],
+      'settings' => [
+        'handler' => 'default:taxonomy_term',
+        'handler_settings' => [
+          'target_bundles' => ['ttd_topics' => 'ttd_topics'],
+          'auto_create' => FALSE,
+        ],
+      ],
+    ],
+    'field_ttd_analysis_in_progress' => [
+      'type' => 'boolean',
+      'label' => 'TopicalBoost Analysis In Progress',
+    ],
+    'field_ttd_generated_meta_title' => [
+      'type' => 'string',
+      'label' => 'TopicalBoost Generated Meta Title',
+    ],
+    'field_ttd_generated_meta_desc' => [
+      'type' => 'string_long',
+      'label' => 'TopicalBoost Generated Meta Description',
+    ],
+    'field_ttd_generated_og_title' => [
+      'type' => 'string',
+      'label' => 'TopicalBoost Generated OG Title',
+    ],
+    'field_ttd_generated_og_desc' => [
+      'type' => 'string_long',
+      'label' => 'TopicalBoost Generated OG Description',
+    ],
+    'field_tier_overrides' => [
+      'type' => 'map',
+      'label' => 'Topic Tier Overrides',
+    ],
+    'field_manual_topics' => [
+      'type' => 'entity_reference',
+      'label' => 'Manual Topics',
+      'cardinality' => -1,
+      'storage_settings' => [
+        'target_type' => 'taxonomy_term',
+      ],
+      'settings' => [
+        'handler' => 'default:taxonomy_term',
+        'handler_settings' => [
+          'target_bundles' => ['ttd_topics' => 'ttd_topics'],
+          'auto_create' => FALSE,
+        ],
+      ],
+    ],
+    'field_ttd_schema_16x9' => [
+      'type' => 'image',
+      'label' => 'Schema Image (16:9)',
+    ],
+    'field_ttd_schema_4x3' => [
+      'type' => 'image',
+      'label' => 'Schema Image (4:3)',
+    ],
+    'field_ttd_schema_1x1' => [
+      'type' => 'image',
+      'label' => 'Schema Image (1:1)',
+    ],
+    'field_ttd_schema_focal_point' => [
+      'type' => 'string',
+      'label' => 'Schema Image Focal Point',
+    ],
+  ];
+}
+
+/**
+ * Ensure TopicalBoost node field storage exists.
+ */
+function ttd_topics_ensure_node_field_storage() {
+  foreach (ttd_topics_node_field_definitions() as $field_name => $field_info) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $field_info['type'],
+        'cardinality' => $field_info['cardinality'] ?? 1,
+        'settings' => $field_info['storage_settings'] ?? [],
+      ])->save();
+    }
+  }
+}
+
+/**
+ * Ensure enabled content types have TopicalBoost node field instances.
+ */
+function ttd_topics_ensure_enabled_content_type_fields($content_types = NULL) {
+  ttd_topics_ensure_node_field_storage();
+
+  if ($content_types === NULL) {
+    $content_types = array_filter(\Drupal::config('ttd_topics.settings')->get('enabled_content_types') ?: []);
+  }
+
+  foreach ($content_types as $content_type) {
+    if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($content_type)) {
+      continue;
+    }
+
+    foreach (ttd_topics_node_field_definitions() as $field_name => $field_info) {
+      if (!FieldConfig::loadByName('node', $content_type, $field_name)) {
+        FieldConfig::create([
+          'field_name' => $field_name,
+          'entity_type' => 'node',
+          'bundle' => $content_type,
+          'label' => $field_info['label'],
+          'settings' => $field_info['settings'] ?? [],
+        ])->save();
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_install().
  */
 function ttd_topics_install() {
@@ -1574,5 +1720,23 @@ function ttd_topics_update_9105() {
 
   return t('Aligned TopicalBoost long entity metadata columns with WordPress parity: @fields.', [
     '@fields' => $changed ? implode(', ', $changed) : 'none',
+  ]);
+}
+
+/**
+ * Ensure enabled content types have the complete TopicalBoost field set.
+ */
+function ttd_topics_update_9106() {
+  $enabled_content_types = array_filter(\Drupal::config('ttd_topics.settings')->get('enabled_content_types') ?: []);
+
+  if (empty($enabled_content_types)) {
+    ttd_topics_ensure_node_field_storage();
+    return t('Ensured TopicalBoost node field storage. No enabled content types are configured.');
+  }
+
+  ttd_topics_ensure_enabled_content_type_fields($enabled_content_types);
+
+  return t('Ensured TopicalBoost field instances for enabled content types: @types.', [
+    '@types' => implode(', ', $enabled_content_types),
   ]);
 }
