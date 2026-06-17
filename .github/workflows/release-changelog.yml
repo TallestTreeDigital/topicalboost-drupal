@@ -25,15 +25,13 @@ jobs:
           fi
 
       - name: Checkout Drupal module
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
 
       - name: Prepare release tag
         id: release
-        env:
-          RELEASE_TOKEN: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -71,7 +69,7 @@ jobs:
               git config user.name "topicalboost-release-bot"
               git config user.email "einar.johannsson+topicalboost-release-bot@hey.com"
               git tag "$tag"
-              git push "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$tag"
+              git push origin "refs/tags/$tag"
               echo "Created release tag $tag"
               echo "dispatch=false" >> "$GITHUB_OUTPUT"
             else
