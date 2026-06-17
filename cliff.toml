@@ -12,7 +12,7 @@ trim = true
 
 [git]
 conventional_commits = true
-filter_unconventional = true
+filter_unconventional = false
 split_commits = false
 commit_parsers = [
     { message = "^feat", group = "Features" },
@@ -23,6 +23,10 @@ commit_parsers = [
     { message = "^docs", group = "Documentation" },
     { message = "^style", group = "Styling" },
     { message = "^test", group = "Testing" },
+    { message = "^(Add|Added|Auto-fetch|Expose|Move|Moved)", group = "Features" },
+    { message = "^(Fix|Fixed|Guard|Harden|Normalize|Align|Clarify|Prevent|Stop)", group = "Bug Fixes" },
+    { message = "^(Improve|Improved|Optimize|Prioritize|Simplify)", group = "Performance" },
+    { message = "^(Center|Polish|Sharpen)", group = "Styling" },
     { message = ".*", skip = true },
 ]
 filter_commits = false
