@@ -651,6 +651,7 @@ class SchemaGenerator {
 
     // Exclude rejected topics.
     if (!empty($rejected_ttd_ids)) {
+      $rejected_ttd_ids = array_values(array_unique(array_map('strval', $rejected_ttd_ids)));
       $query->condition('ttd.field_ttd_id_value', $rejected_ttd_ids, 'NOT IN');
     }
 

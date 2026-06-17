@@ -1872,7 +1872,7 @@ class TtdTopicsController extends ControllerBase {
       }
 
       $ttd_ids = array_map(static function ($row) {
-        return (int) $row->ttd_id;
+        return (string) $row->ttd_id;
       }, $results);
 
       $term_map = [];
@@ -2098,7 +2098,7 @@ class TtdTopicsController extends ControllerBase {
       // Look up by field_ttd_id.
       $terms = $term_storage->loadByProperties([
         'vid' => 'ttd_topics',
-        'field_ttd_id' => $ttd_id,
+        'field_ttd_id' => (string) $ttd_id,
       ]);
 
       if (!empty($terms)) {
@@ -2117,7 +2117,7 @@ class TtdTopicsController extends ControllerBase {
           $term_id = $term->id();
           // Link it if not already.
           if ($term->hasField('field_ttd_id') && empty($term->get('field_ttd_id')->value)) {
-            $term->set('field_ttd_id', $ttd_id);
+            $term->set('field_ttd_id', (string) $ttd_id);
             $term->save();
           }
         }
@@ -2127,7 +2127,7 @@ class TtdTopicsController extends ControllerBase {
             'vid' => 'ttd_topics',
             'name' => $name,
             'description' => ['value' => $topic_data['wb_description'] ?? '', 'format' => 'plain_text'],
-            'field_ttd_id' => $ttd_id,
+            'field_ttd_id' => (string) $ttd_id,
           ]);
           $term->save();
           $term_id = $term->id();
@@ -2193,7 +2193,7 @@ class TtdTopicsController extends ControllerBase {
     // Look up by field_ttd_id.
     $terms = $term_storage->loadByProperties([
       'vid' => 'ttd_topics',
-      'field_ttd_id' => $ttd_id,
+      'field_ttd_id' => (string) $ttd_id,
     ]);
 
     if (!empty($terms)) {
@@ -2241,7 +2241,7 @@ class TtdTopicsController extends ControllerBase {
         $term = reset($existing);
         // Link it.
         if ($term->hasField('field_ttd_id')) {
-          $term->set('field_ttd_id', $ttd_id);
+          $term->set('field_ttd_id', (string) $ttd_id);
           $term->save();
         }
       }
@@ -2250,7 +2250,7 @@ class TtdTopicsController extends ControllerBase {
           'vid' => 'ttd_topics',
           'name' => $name,
           'description' => ['value' => $description, 'format' => 'plain_text'],
-          'field_ttd_id' => $ttd_id,
+          'field_ttd_id' => (string) $ttd_id,
         ]);
         $term->save();
       }

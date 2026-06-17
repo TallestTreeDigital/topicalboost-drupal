@@ -78,7 +78,7 @@ class FixTtdTopicsCommand extends DrushCommands {
     if (!empty($existing_terms)) {
       $term = reset($existing_terms);
       // Update term with the correct ttd_id.
-              $term->set('field_ttd_id', $entity->ttd_id);
+      $term->set('field_ttd_id', (string) $entity->ttd_id);
       $term->save();
     }
   }

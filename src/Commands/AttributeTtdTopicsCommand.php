@@ -215,6 +215,8 @@ class AttributeTtdTopicsCommand extends DrushCommands {
    */
   protected function loadTermsForBatch($ttd_ids) {
     try {
+      $ttd_ids = array_values(array_unique(array_map('strval', $ttd_ids)));
+
       /** @var \Drupal\taxonomy\TermInterface[] $terms */
       $terms = \Drupal::entityTypeManager()
         ->getStorage('taxonomy_term')

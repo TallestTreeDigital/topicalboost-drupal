@@ -83,7 +83,7 @@ class CreateTtdTopicsCommand extends DrushCommands {
   protected function processBatch($entities, &$stats, $progress_bar) {
     // Load existing terms for the batch.
     $ttd_ids = array_map(function ($entity) {
-      return $entity->ttd_id;
+      return (string) $entity->ttd_id;
     }, $entities);
 
     /** @var \Drupal\taxonomy\TermInterface[] $existing_terms */
@@ -106,8 +106,9 @@ class CreateTtdTopicsCommand extends DrushCommands {
       try {
         $name = $entity->name ?? $entity->nl_name ?? $entity->kg_name ?? $entity->wb_name ?? 'Unnamed Entity';
 
-        if (isset($term_map[$entity->ttd_id])) {
-          $term = $term_map[$entity->ttd_id];
+        $ttd_id = (string) $entity->ttd_id;
+        if (isset($term_map[$ttd_id])) {
+          $term = $term_map[$ttd_id];
           if ($term->label() !== $name) {
             $term->setName($name);
             $term->save();
@@ -118,7 +119,7 @@ class CreateTtdTopicsCommand extends DrushCommands {
           Term::create([
             'vid' => 'ttd_topics',
             'name' => $name,
-            'field_ttd_id' => $entity->ttd_id,
+            'field_ttd_id' => $ttd_id,
             'description' => [
               'value' => $entity->wb_description ?? '',
               'format' => 'plain_text',

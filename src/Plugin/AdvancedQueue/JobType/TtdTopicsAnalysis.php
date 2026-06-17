@@ -199,7 +199,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
     // Now, try to load the term by the TTD ID.
     $terms = $term_storage->loadByProperties([
       'vid' => 'ttd_topics',
-      'field_ttd_id' => $ttd_id,
+      'field_ttd_id' => (string) $ttd_id,
     ]);
 
     if (!empty($terms)) {
@@ -218,7 +218,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
 
       // Update the term with TTD ID if it's missing.
               if ($term->get('field_ttd_id')->isEmpty()) {
-          $term->set('field_ttd_id', $ttd_id);
+          $term->set('field_ttd_id', (string) $ttd_id);
         $term->save();
       }
       return $term->id();
@@ -229,7 +229,7 @@ class TtdTopicsAnalysis extends JobTypeBase {
       $term = Term::create([
         'vid' => 'ttd_topics',
         'name' => $name,
-        'field_ttd_id' => $ttd_id,
+        'field_ttd_id' => (string) $ttd_id,
       ]);
 
       $term->save();

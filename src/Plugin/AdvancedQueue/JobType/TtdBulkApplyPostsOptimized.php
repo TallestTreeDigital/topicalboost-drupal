@@ -407,7 +407,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     // Always check by TTD ID first - this is the unique identifier
     $terms = $term_storage->loadByProperties([
       'vid' => 'ttd_topics',
-      'field_ttd_id' => $ttd_id,
+      'field_ttd_id' => (string) $ttd_id,
     ]);
 
     if (!empty($terms)) {
@@ -420,7 +420,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
         $term = Term::create([
           'vid' => 'ttd_topics',
           'name' => $name,
-          'field_ttd_id' => $ttd_id,
+          'field_ttd_id' => (string) $ttd_id,
         ]);
         $term->save();
         $term_id = $term->id();
