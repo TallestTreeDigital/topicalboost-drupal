@@ -1,0 +1,98 @@
+name: Release Changelog
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require release token
+        env:
+          RELEASE_TOKEN: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "::error::Missing TOPICALBOOST_RELEASE_TOKEN secret"
+            exit 1
+          fi
+
+      - name: Checkout Drupal module
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
+
+      - name: Prepare release tag
+        id: release
+        env:
+          RELEASE_TOKEN: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          version="$(awk -F':' '/^version:/{print $2; exit}' ttd_topics.info.yml | tr -d '[:space:]\"')"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid Drupal version: $version"
+            exit 1
+          fi
+
+          tag="$version"
+          head_sha="$(git rev-parse HEAD)"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            if [ "$GITHUB_REF_NAME" != "$tag" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match Drupal version $tag"
+              exit 1
+            fi
+            echo "dispatch=true" >> "$GITHUB_OUTPUT"
+          else
+            before="$(jq -r '.before // empty' "$GITHUB_EVENT_PATH")"
+            if [ -z "$before" ] || [[ "$before" =~ ^0+$ ]]; then
+              before="${head_sha}^"
+            fi
+            changed="$(git diff --name-only "$before" "$head_sha" -- ttd_topics.info.yml || true)"
+
+            if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+              tag_sha="$(git rev-list -n 1 "$tag")"
+              if [ "$tag_sha" = "$head_sha" ]; then
+                echo "Tag $tag already points at HEAD."
+              else
+                echo "Tag $tag already exists at $tag_sha; no new release tag needed."
+              fi
+              echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            elif [ -n "$changed" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              git config user.name "topicalboost-release-bot"
+              git config user.email "einar.johannsson+topicalboost-release-bot@hey.com"
+              git tag "$tag"
+              git push "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$tag"
+              echo "Created release tag $tag"
+              echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "No Drupal version file changed; skipping release tag."
+              echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch API changelog update
+        if: steps.release.outputs.dispatch == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.TOPICALBOOST_RELEASE_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          jq -n \
+            --arg product "drupal" \
+            --arg version "$VERSION" \
+            --arg source_repo "$GITHUB_REPOSITORY" \
+            --arg sha "$GITHUB_SHA" \
+            '{event_type:"cms-release", client_payload:{product:$product, version:$version, package_version:$version, source_repo:$source_repo, sha:$sha}}' \
+          | gh api repos/TallestTreeDigital/search-clippings/dispatches --input -
