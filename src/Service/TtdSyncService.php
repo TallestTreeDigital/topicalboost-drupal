@@ -14,9 +14,12 @@ class TtdSyncService {
   const QUEUE_ID = 'ttd_topics_analysis';
   const SYNC_JOB_TYPE = 'ttd_sync_pull';
   const HIDDEN_SYNC_JOB_TYPE = 'ttd_sync_hidden_entities';
+  const CURATION_SYNC_JOB_TYPE = 'ttd_sync_curation_scores';
   const SYNC_STATE_KEY = 'ttd_active_sync';
   const LAST_SYNC_KEY = 'ttd_last_sync_at';
   const API_HIDDEN_STATE_KEY = 'ttd_api_hidden_entity_ids';
+  const CURATION_SCORE_COLLECTION = 'ttd_topics.curation_scores';
+  const CURATION_LAST_SYNC_KEY = 'ttd_curation_scores_sync_last_run';
   const TOPIC_PAGE_SIZE = 25;
 
   /**
@@ -529,6 +532,111 @@ class TtdSyncService {
     $state->set('ttd_hidden_entities_sync_last_run', \Drupal::time()->getRequestTime());
 
     return $stats;
+  }
+
+  /**
+   * Fetch curation scores from the API and cache render decisions locally.
+   */
+  public function syncCurationScores() {
+    $collection = \Drupal::keyValue(static::CURATION_SCORE_COLLECTION);
+    $threshold = function_exists('ttd_topics_curation_score_threshold') ? \ttd_topics_curation_score_threshold() : 2.0;
+    $page = 1;
+    $page_size = 1000;
+    $has_more = TRUE;
+    $seen = [];
+    $stats = ['updated' => 0, 'unchanged' => 0, 'not_found' => 0, 'removed' => 0, 'pages' => 0, 'scores' => 0];
+
+    while ($has_more && $page <= 1000) {
+      $response = $this->apiRequest('GET', '/result/curation-scores', NULL, [
+        'page' => $page,
+        'page_size' => $page_size,
+        'threshold' => $threshold,
+      ]);
+
+      if (!$response || !isset($response['scores']) || !is_array($response['scores'])) {
+        \Drupal::logger('ttd_topics')->warning('Failed to fetch curation scores page @page.', ['@page' => $page]);
+        return $stats;
+      }
+
+      $scores = $response['scores'];
+      $stats['pages']++;
+      $stats['scores'] += count($scores);
+
+      $values = [];
+      foreach ($scores as $score) {
+        $entity_id = (int) ($score['entity_id'] ?? 0);
+        if ($entity_id <= 0) {
+          continue;
+        }
+
+        $key = (string) $entity_id;
+        $seen[$key] = TRUE;
+        $values[$key] = [
+          'entity_id' => $entity_id,
+          'score' => isset($score['score']) ? (float) $score['score'] : NULL,
+          'score_int' => isset($score['score_int']) ? (int) $score['score_int'] : NULL,
+          'should_curate' => !empty($score['should_curate']),
+          'recommendation' => (string) ($score['recommendation'] ?? 'neutral'),
+          'seed_source' => (string) ($score['seed_source'] ?? 'cooccurrence'),
+          'force_show' => !empty($score['force_show']),
+          'force_hide' => !empty($score['force_hide']),
+          'last_computed_at' => (string) ($score['last_computed_at'] ?? ''),
+          'last_synced_at' => \Drupal::time()->getRequestTime(),
+        ];
+      }
+
+      if (!empty($values)) {
+        $existing = $collection->getMultiple(array_keys($values));
+        foreach ($values as $key => $value) {
+          $existing_value = $existing[$key] ?? NULL;
+          if (is_array($existing_value)) {
+            unset($existing_value['last_synced_at']);
+          }
+          $compare_value = $value;
+          unset($compare_value['last_synced_at']);
+
+          if ($existing_value === $compare_value) {
+            $stats['unchanged']++;
+          }
+          else {
+            $stats['updated']++;
+          }
+        }
+        $collection->setMultiple($values);
+      }
+
+      $has_more = !empty($response['has_more']);
+      $page++;
+    }
+
+    foreach ($collection->getAll() as $key => $_value) {
+      if (!isset($seen[(string) $key])) {
+        $collection->delete((string) $key);
+        $stats['removed']++;
+      }
+    }
+
+    \Drupal::state()->set(static::CURATION_LAST_SYNC_KEY, \Drupal::time()->getRequestTime());
+    \Drupal\Core\Cache\Cache::invalidateTags(['ttd_topics:curation_scores']);
+
+    return $stats;
+  }
+
+  /**
+   * Load cached curation scores by TopicalBoost entity ID.
+   */
+  public function getCurationScores(array $entity_ids): array {
+    $keys = array_values(array_unique(array_filter(array_map('strval', array_map('intval', $entity_ids)))));
+    if (empty($keys)) {
+      return [];
+    }
+
+    $rows = \Drupal::keyValue(static::CURATION_SCORE_COLLECTION)->getMultiple($keys);
+    $scores = [];
+    foreach ($rows as $key => $row) {
+      $scores[(int) $key] = is_array($row) ? $row : [];
+    }
+    return $scores;
   }
 
   /**

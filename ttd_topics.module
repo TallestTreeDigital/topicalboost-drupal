@@ -61,6 +61,70 @@ function ttd_topics_api_headers($api_key) {
 }
 
 /**
+ * Whether cached API curation scores should affect public rendering.
+ */
+function ttd_topics_curation_scores_enabled() {
+  $value = \Drupal::config('ttd_topics.settings')->get('curation_scores_enabled');
+  return $value === NULL ? FALSE : (bool) $value;
+}
+
+/**
+ * Score threshold used when asking the API for should_curate decisions.
+ */
+function ttd_topics_curation_score_threshold() {
+  $threshold = (float) (\Drupal::config('ttd_topics.settings')->get('curation_score_threshold') ?? 2);
+  if (!is_finite($threshold)) {
+    return 2.0;
+  }
+  return max(0.0, min(5.0, $threshold));
+}
+
+/**
+ * Load cached curation scores keyed by TopicalBoost entity ID.
+ */
+function ttd_topics_get_curation_scores(array $entity_ids) {
+  if (!ttd_topics_curation_scores_enabled() || empty($entity_ids)) {
+    return [];
+  }
+  /** @var \Drupal\ttd_topics\Service\TtdSyncService $sync_service */
+  $sync_service = \Drupal::service('ttd_topics.sync_service');
+  return $sync_service->getCurationScores($entity_ids);
+}
+
+/**
+ * Determine whether a local topic term should be rendered after score sync.
+ */
+function ttd_topics_term_should_curate(\Drupal\taxonomy\Entity\Term $term, array $scores_by_entity = []) {
+  if (!ttd_topics_curation_scores_enabled()) {
+    return TRUE;
+  }
+
+  if ($term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value) {
+    return TRUE;
+  }
+
+  if ($term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value) {
+    return FALSE;
+  }
+
+  $entity_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+    ? (int) $term->get('field_ttd_id')->value
+    : 0;
+  if ($entity_id <= 0) {
+    return TRUE;
+  }
+
+  if (!isset($scores_by_entity[$entity_id])) {
+    $scores_by_entity = ttd_topics_get_curation_scores([$entity_id]);
+  }
+  if (!isset($scores_by_entity[$entity_id])) {
+    return TRUE;
+  }
+
+  return !empty($scores_by_entity[$entity_id]['should_curate']);
+}
+
+/**
  * Returns a stable public site base URL for background API requests.
  */
 function ttd_topics_get_site_base_url() {
@@ -944,6 +1008,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
       : [];
     $term_ids = [];
+    $term_entity_ids = [];
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
       if (!$term) {
@@ -953,7 +1018,10 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       $is_manual = in_array($tid, $manual_term_ids, TRUE);
       $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
       if (!$is_hidden && ($is_manual || !in_array($tid, $rejected_term_ids, TRUE))) {
-        $term_ids[] = $term->id();
+        $term_ids[] = $tid;
+        if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+          $term_entity_ids[$tid] = (int) $term->get('field_ttd_id')->value;
+        }
       }
     }
 
@@ -962,6 +1030,9 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
 
     // Get salience data for all entities on this node.
     $salience_data = ttd_get_node_salience_data($node_id, $node);
+    $curation_scores = function_exists('ttd_topics_get_curation_scores')
+      ? ttd_topics_get_curation_scores(array_values($term_entity_ids))
+      : [];
 
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
@@ -989,6 +1060,10 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
         }
         $is_force_show = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
         $is_high_salience = in_array($tier, ['mainEntity', 'about'], TRUE);
+        $is_drag_promoted = !empty($entity_salience['is_user_override']) && $is_high_salience;
+        if (!$is_manual && !$is_force_show && !$is_drag_promoted && function_exists('ttd_topics_term_should_curate') && !ttd_topics_term_should_curate($term, $curation_scores)) {
+          continue;
+        }
 
         // Match WordPress: manual, forced, and main/about topics bypass threshold.
         if ($is_manual || $is_force_show || $is_high_salience || $count >= $min_display_count) {
@@ -999,6 +1074,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
             'salience_category' => $tier,
             'salience_tier' => $tier,
             'is_manual' => $is_manual,
+            'curation' => $curation_scores[$ttd_id] ?? NULL,
           ];
         }
       }
@@ -1087,7 +1163,7 @@ function ttd_topics_build_frontend_topics_display(NodeInterface $node, bool $res
       $cache_tags = \Drupal\Core\Cache\Cache::mergeTags($cache_tags, $topic['term']->getCacheTags());
     }
   }
-  $cache_tags = \Drupal\Core\Cache\Cache::mergeTags($cache_tags, ['config:ttd_topics.settings']);
+  $cache_tags = \Drupal\Core\Cache\Cache::mergeTags($cache_tags, ['config:ttd_topics.settings', 'ttd_topics:curation_scores']);
 
   return [
     '#theme' => 'topicalboost_display',
@@ -1212,6 +1288,7 @@ function ttd_topics_preprocess_field(&$variables) {
       $item['content']['#text'] = ttd_topics_auto_link_content($item['content']['#text'], $entity);
     }
   }
+  $variables['element']['#cache']['tags'] = Cache::mergeTags($variables['element']['#cache']['tags'] ?? [], ['ttd_topics:curation_scores']);
 }
 
 /**
@@ -1699,6 +1776,29 @@ function ttd_topics_cron() {
     }
   }
 
+  // Keep curation scores cached locally so rendering never calls the API.
+  $curation_sync_queued = FALSE;
+  if (\Drupal::database()->schema()->tableExists('advancedqueue')) {
+    $curation_sync_queued = (bool) \Drupal::database()->select('advancedqueue', 'aq')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', 'ttd_sync_curation_scores')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+  if (ttd_topics_curation_scores_enabled() && $queue && !$curation_sync_queued && ($now - (int) $state->get('ttd_curation_scores_sync_last_queued', 0)) >= 6 * 60 * 60) {
+    try {
+      $queue->enqueueJob(Job::create('ttd_sync_curation_scores', ['trigger' => 'cron']));
+      $state->set('ttd_curation_scores_sync_last_queued', $now);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue curation scores sync: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
   // Let cron finalize a completed sync even if the admin UI is not open.
   if ($state->get('ttd_active_sync')) {
     try {
@@ -2090,10 +2190,22 @@ function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountIn
           ->addCacheContexts(['user.permissions']);
       }
 
-      // Return 404 if hidden OR below minimum count for anonymous users.
-      if (($entity->get('field_hide')->value || $count < $min_display_count) && $account->isAnonymous()) {
-        return AccessResult::forbidden()->addCacheableDependency($entity);
+      $is_force_show = $entity->hasField('field_force_show') && !$entity->get('field_force_show')->isEmpty() && (bool) $entity->get('field_force_show')->value;
+      $blocked_by_curation = !$is_force_show
+        && $entity instanceof Term
+        && function_exists('ttd_topics_term_should_curate')
+        && !ttd_topics_term_should_curate($entity);
+
+      // Return 404 if hidden, suppressed by curation, or below minimum count for anonymous users.
+      if (($entity->get('field_hide')->value || $blocked_by_curation || (!$is_force_show && $count < $min_display_count)) && $account->isAnonymous()) {
+        return AccessResult::forbidden()
+          ->addCacheableDependency($entity)
+          ->addCacheTags(['ttd_topics:curation_scores']);
       }
+
+      return AccessResult::neutral()
+        ->addCacheableDependency($entity)
+        ->addCacheTags(['ttd_topics:curation_scores']);
     }
   }
   return AccessResult::neutral();
@@ -3636,6 +3748,7 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
     $salience_map[(int) $row->entity_id] = [
       'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
       'salience_category' => $computed_tiers[$entity_id] ?? ($row->salience_category ?: 'mentions'),
+      'is_user_override' => isset($overrides[$entity_id]),
     ];
   }
 
@@ -3644,6 +3757,7 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
       $salience_map[$entity_id] = [
         'salience_score' => NULL,
         'salience_category' => $computed_tiers[$entity_id] ?? $tier,
+        'is_user_override' => TRUE,
       ];
     }
   }

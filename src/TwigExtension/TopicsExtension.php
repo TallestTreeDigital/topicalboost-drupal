@@ -119,6 +119,9 @@ class TopicsExtension extends AbstractExtension {
       '#attached' => [
         'library' => ['ttd_topics/topics_display'],
       ],
+      '#cache' => [
+        'tags' => ['ttd_topics:curation_scores'],
+      ],
     ];
 
     return $this->renderer->render($build);
@@ -314,6 +317,7 @@ class TopicsExtension extends AbstractExtension {
       'salience_category' => $tier,
       'salience_tier' => $tier,
       'is_manual' => !empty($topic['is_manual']),
+      'curation' => $topic['curation'] ?? NULL,
       'hidden' => FALSE,
     ];
   }
@@ -337,14 +341,29 @@ class TopicsExtension extends AbstractExtension {
 
     $rejected_term_ids = [];
     if ($node->hasField('field_ttd_rejected_topics')) {
-      $rejected_term_ids = array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id');
+      $rejected_term_ids = array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'));
     }
+    $manual_term_ids = $node->hasField('field_manual_topics')
+      ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
+      : [];
 
     $term_ids = [];
+    $term_entity_ids = [];
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
-      if ($term && !$term->get('field_hide')->value && !in_array($term->id(), $rejected_term_ids)) {
-        $term_ids[] = $term->id();
+      if (!$term) {
+        continue;
+      }
+      $tid = (int) $term->id();
+      $is_manual = in_array($tid, $manual_term_ids, TRUE);
+      $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+      if ($is_hidden || (!$is_manual && in_array($tid, $rejected_term_ids, TRUE))) {
+        continue;
+      }
+
+      $term_ids[] = $tid;
+      if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+        $term_entity_ids[$tid] = (int) $term->get('field_ttd_id')->value;
       }
     }
 
@@ -354,29 +373,51 @@ class TopicsExtension extends AbstractExtension {
 
     // Get the count of nodes for each term.
     $term_counts = $this->getTopicNodeCounts($term_ids);
+    $curation_scores = function_exists('ttd_topics_get_curation_scores')
+      ? \ttd_topics_get_curation_scores(array_values($term_entity_ids))
+      : [];
+    $salience_data = function_exists('ttd_get_node_salience_data')
+      ? \ttd_get_node_salience_data($node->id(), $node)
+      : [];
 
     $filtered_topics = [];
     foreach ($node->field_ttd_topics as $term_ref) {
       $term = $term_ref->entity;
-      if ($term && !$term->get('field_hide')->value) {
-        $tid = $term->id();
+      if ($term) {
+        $tid = (int) $term->id();
+        $is_manual = in_array($tid, $manual_term_ids, TRUE);
+        $is_hidden = $term->hasField('field_hide') && !$term->get('field_hide')->isEmpty() && (bool) $term->get('field_hide')->value;
+        if ($is_hidden) {
+          continue;
+        }
 
-        // Skip rejected topics.
-        if (in_array($tid, $rejected_term_ids)) {
+        // Skip rejected automatic topics.
+        if (!$is_manual && in_array($tid, $rejected_term_ids, TRUE)) {
           continue;
         }
 
         $count = $term_counts[$tid] ?? 0;
+        $ttd_id = (int) ($term_entity_ids[$tid] ?? 0);
+        $is_forced = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
+        $salience_category = $salience_data[$ttd_id]['salience_category'] ?? 'mentions';
+        if (!in_array($salience_category, ['mainEntity', 'about', 'mentions'], TRUE)) {
+          $salience_category = 'mentions';
+        }
+        $is_drag_promoted = !empty($salience_data[$ttd_id]['is_user_override']) && in_array($salience_category, ['mainEntity', 'about'], TRUE);
+        if (!$is_manual && !$is_forced && !$is_drag_promoted && function_exists('ttd_topics_term_should_curate') && !\ttd_topics_term_should_curate($term, $curation_scores)) {
+          continue;
+        }
 
-        // Only include terms associated with at least the minimum display count.
-        if ($count >= $min_display_count) {
+        // Manual, force-show, and high-salience topics bypass the count floor.
+        if ($is_manual || $count >= $min_display_count || $is_forced || in_array($salience_category, ['mainEntity', 'about'], TRUE)) {
           $filtered_topics[] = [
             'term' => $term,
             'count' => $count,
-            'salience_score' => NULL,
-            'salience_category' => 'mentions',
-            'salience_tier' => 'mentions',
-            'is_manual' => FALSE,
+            'salience_score' => $salience_data[$ttd_id]['salience_score'] ?? NULL,
+            'salience_category' => $salience_category,
+            'salience_tier' => $salience_category,
+            'is_manual' => $is_manual,
+            'curation' => $curation_scores[$ttd_id] ?? NULL,
           ];
         }
       }

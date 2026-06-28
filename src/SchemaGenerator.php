@@ -583,6 +583,11 @@ class SchemaGenerator {
 
       $is_forced = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
       $is_high_salience = in_array($tier, ['mainEntity', 'about'], TRUE);
+      $is_drag_promoted = !empty($salience_data[$ttd_id]['is_user_override']) && $is_high_salience;
+      if (!$is_manual && !$is_forced && !$is_drag_promoted && function_exists('ttd_topics_term_should_curate') && !\ttd_topics_term_should_curate($term)) {
+        continue;
+      }
+
       if (!$is_manual && !$is_forced && !$is_high_salience && $count < $min_display_count) {
         continue;
       }

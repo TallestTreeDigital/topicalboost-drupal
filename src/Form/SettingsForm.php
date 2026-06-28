@@ -412,6 +412,16 @@ class SettingsForm extends ConfigFormBase {
       '#attributes' => ['class' => ['ttd-topics-field-group']],
     ];
 
+    $form['tabs_container']['content']['topiclist']['curation_scores_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Apply Curation Scores'),
+      '#default_value' => $config->get('curation_scores_enabled') ?: FALSE,
+      '#description' => $this->t('Use synced TopicalBoost curation scores to suppress off-topic entities from public topic lists, topic pages, and schema output. Default off; enable only after reviewing scores for this site.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
+      '#prefix' => '<div class="ttd-topics-toggle-field">',
+      '#suffix' => '</div>',
+    ];
+
     // =========================================================================
     // Behavior Tab
     // =========================================================================
@@ -2153,6 +2163,7 @@ class SettingsForm extends ConfigFormBase {
       ->set('enable_meta_generator', $form_state->getValue('enable_meta_generator'))
       ->set('maximum_visible_post_topics', $form_state->getValue('maximum_visible_post_topics'))
       ->set('post_topic_minimum_display_count', $form_state->getValue('post_topic_minimum_display_count'))
+      ->set('curation_scores_enabled', (bool) $form_state->getValue('curation_scores_enabled'))
       ->set('analysis_custom_fields', array_filter($form_state->getValue('analysis_custom_fields') ?: []))
       ->set('topics_list_label', $form_state->getValue('topics_list_label'))
       ->set('topic_url_path_prefix', $new_path_prefix)

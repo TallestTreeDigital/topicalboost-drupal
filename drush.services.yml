@@ -24,6 +24,11 @@ services:
     tags:
       - { name: drush.command }
 
+  ttd_topics.sync_curation_scores_commands:
+    class: \Drupal\ttd_topics\Commands\SyncCurationScoresCommand
+    tags:
+      - { name: drush.command }
+
   ttd_topics.maintenance_commands:
     class: \Drupal\ttd_topics\Commands\TopicalBoostMaintenanceCommands
     tags:

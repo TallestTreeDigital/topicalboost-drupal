@@ -23,6 +23,12 @@ ttd_topics.settings:
     post_topic_minimum_display_count:
       type: integer
       label: 'Minimum post frequency'
+    curation_scores_enabled:
+      type: boolean
+      label: 'Apply curation scores to topic rendering'
+    curation_score_threshold:
+      type: float
+      label: 'Curation score threshold'
     analysis_custom_fields:
       type: sequence
       label: 'Custom fields for analysis'

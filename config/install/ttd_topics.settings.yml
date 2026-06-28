@@ -4,6 +4,8 @@ enable_automatic_mentions: true
 enable_meta_generator: false
 maximum_visible_post_topics: 5
 post_topic_minimum_display_count: 10
+curation_scores_enabled: false
+curation_score_threshold: 2
 analysis_custom_fields: []
 topics_list_label: 'Topics on this page'
 topic_url_path_prefix: topics
