@@ -95,7 +95,8 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
         return JobResult::success('Processed posts page ' . $page . ' with ' . $processed_count . ' posts');
       } else {
-        return JobResult::success('No posts found for page ' . $page);
+        $this->markApplyComplete($page);
+        return JobResult::success('No posts found for page ' . $page . ' - marked apply complete');
       }
 
     } catch (RequestException $e) {
@@ -105,6 +106,28 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       ]);
       return JobResult::failure('Error applying posts for page ' . $page . ': ' . $e->getMessage());
     }
+  }
+
+  /**
+   * Mark apply progress complete when the API has no more posts to return.
+   */
+  private function markApplyComplete($page) {
+    $content_count = \Drupal::state()->get('topicalboost.bulk_analysis.content_count', 0);
+    $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress', [
+      'stage' => 'posts',
+      'posts' => ['completed' => 0, 'total' => $content_count, 'current_page' => 1],
+    ]);
+
+    $completed = isset($apply_progress['posts']['completed'])
+      ? (int) $apply_progress['posts']['completed']
+      : 0;
+    $apply_progress['stage'] = 'complete';
+    $apply_progress['posts']['completed'] = max($completed, max(0, ((int) $page) - 1));
+    $apply_progress['posts']['current_page'] = (int) $page;
+    $apply_progress['posts']['total'] = $apply_progress['posts']['total'] ?? $content_count;
+
+    \Drupal::state()->set('topicalboost.bulk_analysis.apply_progress', $apply_progress);
+    \Drupal::state()->set('topicalboost.bulk_analysis.completed_at', time());
   }
 
   /**

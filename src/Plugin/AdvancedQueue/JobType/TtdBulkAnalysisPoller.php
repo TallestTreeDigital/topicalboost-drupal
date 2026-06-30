@@ -41,8 +41,13 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
 
       $analysis_status = json_decode($response->getBody(), TRUE);
 
+      if ($this->shouldClearStaleRequest($request_id, $analysis_status ?: [])) {
+        $this->cleanupStaleRequest($request_id);
+        return JobResult::success('Cleared stale bulk analysis request ' . $request_id);
+      }
+
       // Check if analysis is complete.
-      if (isset($analysis_status['message']) && $analysis_status['message'] === 'Analysis complete') {
+      if ($this->isAnalysisComplete($analysis_status ?: [])) {
         $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress', NULL);
 
         // If no apply progress exists yet, automatically start applying results.
@@ -59,27 +64,8 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
         // Analysis not complete yet - check if we should continue polling.
         $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
         if ($current_request_id === $request_id) {
-          // Schedule a new polling job for 3 minutes in the future.
-          // AdvancedQueue doesn't properly handle JobResult::failure() with requeue,
-          // so we schedule a new job instead.
-          try {
-            $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
-            $queue = $queue_storage->load('ttd_topics_analysis');
-
-            $next_job = Job::create('ttd_bulk_analysis_poller', [
-              'request_id' => $request_id,
-            ]);
-            $queue->enqueueJob($next_job, 180); // 180 second delay = 3 minutes
-
-            $status_message = $analysis_status['message'] ?? 'In progress';
-            return JobResult::success('Analysis status: ' . $status_message . ' - scheduled next poll in 3 minutes');
-          } catch (\Exception $e) {
-            \Drupal::logger('ttd_topics')->error('Failed to schedule next poller job: @error', [
-              '@error' => $e->getMessage(),
-            ]);
-            $status_message = $analysis_status['message'] ?? 'In progress';
-            return JobResult::failure('Failed to schedule next poll: ' . $e->getMessage());
-          }
+          $status_message = $analysis_status['message'] ?? 'In progress';
+          return $this->scheduleNextPoll($request_id, 'Analysis status: ' . $status_message . ' - scheduled next poll in 3 minutes');
         }
         else {
           // Request ID changed - stop polling this old request.
@@ -96,6 +82,11 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
         return JobResult::success('Request ID changed - stopping poll for old request ' . $request_id);
       }
 
+      if ($this->isRequestNotFoundException($e) && !$this->hasActiveLocalWork($request_id)) {
+        $this->cleanupStaleRequest($request_id);
+        return JobResult::success('API returned not found; cleared stale bulk analysis request ' . $request_id);
+      }
+
       // Only continue polling if the request is still active.
       if ($current_request_id === $request_id) {
         \Drupal::logger('ttd_topics')->warning('Error polling analysis status for @request_id: @error - will retry in 3 minutes', [
@@ -103,23 +94,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
           '@error' => $e->getMessage(),
         ]);
 
-        // Schedule a new polling job for 3 minutes in the future instead of using failure with requeue.
-        try {
-          $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
-          $queue = $queue_storage->load('ttd_topics_analysis');
-
-          $next_job = Job::create('ttd_bulk_analysis_poller', [
-            'request_id' => $request_id,
-          ]);
-          $queue->enqueueJob($next_job, 180); // 180 second delay = 3 minutes
-
-          return JobResult::success('API error occurred, scheduled next poll in 3 minutes: ' . $e->getMessage());
-        } catch (\Exception $schedule_error) {
-          \Drupal::logger('ttd_topics')->error('Failed to schedule next poller job after API error: @error', [
-            '@error' => $schedule_error->getMessage(),
-          ]);
-          return JobResult::failure('API error with failed retry scheduling: ' . $e->getMessage());
-        }
+        return $this->scheduleNextPoll($request_id, 'API error occurred, scheduled next poll in 3 minutes: ' . $e->getMessage());
       }
       else {
         // Request ID changed - stop polling.
@@ -165,6 +140,165 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
         '@error' => $e->getMessage(),
       ]);
     }
+  }
+
+  /**
+   * Schedule a new poller job for a request.
+   */
+  private function scheduleNextPoll($request_id, string $success_message) {
+    try {
+      $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
+      $queue = $queue_storage->load('ttd_topics_analysis');
+
+      $next_job = Job::create('ttd_bulk_analysis_poller', [
+        'request_id' => $request_id,
+      ]);
+      $queue->enqueueJob($next_job, 180);
+
+      return JobResult::success($success_message);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->error('Failed to schedule next poller job: @error', [
+        '@error' => $e->getMessage(),
+      ]);
+      return JobResult::failure('Failed to schedule next poll: ' . $e->getMessage());
+    }
+  }
+
+  /**
+   * Determine whether a poll response represents a completed request.
+   */
+  private function isAnalysisComplete(array $analysis_status): bool {
+    return !empty($analysis_status['ready'])
+      || (isset($analysis_status['message']) && $analysis_status['message'] === 'Analysis complete');
+  }
+
+  /**
+   * Determine whether a stale request should be cleared.
+   */
+  private function shouldClearStaleRequest(string $request_id, array $analysis_status): bool {
+    if ($this->hasActiveLocalWork($request_id)) {
+      return FALSE;
+    }
+
+    return $this->isNoRequestFoundStatus($analysis_status)
+      || $this->isEmptyCompletedAnalysis($analysis_status);
+  }
+
+  /**
+   * Determine whether an API poll response means the request no longer exists.
+   */
+  private function isNoRequestFoundStatus(array $analysis_status): bool {
+    $message = strtolower((string) ($analysis_status['message'] ?? ''));
+    if (str_contains($message, 'no request found')) {
+      return TRUE;
+    }
+
+    return array_key_exists('request_id', $analysis_status)
+      && empty($analysis_status['request_id'])
+      && str_contains($message, 'request');
+  }
+
+  /**
+   * Determine whether a completed request has no uploaded content.
+   */
+  private function isEmptyCompletedAnalysis(array $analysis_status): bool {
+    if (!$this->isAnalysisComplete($analysis_status)) {
+      return FALSE;
+    }
+
+    if (!empty($analysis_status['empty_upload'])) {
+      return TRUE;
+    }
+
+    $message = strtolower((string) ($analysis_status['message'] ?? ''));
+    if (str_contains($message, 'no content was received') || str_contains($message, 'no content received')) {
+      return TRUE;
+    }
+
+    $content_total = $analysis_status['content_total'] ?? $analysis_status['content_count'] ?? NULL;
+    $analyzed = $analysis_status['analyzed'] ?? NULL;
+    $posts_page_count = $analysis_status['posts_page_count'] ?? NULL;
+
+    if ($content_total !== NULL && (int) $content_total === 0 && $analyzed !== NULL && (int) $analyzed === 0) {
+      return TRUE;
+    }
+
+    return $content_total !== NULL
+      && (int) $content_total === 0
+      && $posts_page_count !== NULL
+      && (int) $posts_page_count === 0;
+  }
+
+  /**
+   * Determine whether local batch or apply jobs still exist for a request.
+   */
+  private function hasActiveLocalWork(string $request_id): bool {
+    $database = \Drupal::database();
+
+    $batch_count = (int) $database->select('advancedqueue', 'aq')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', 'ttd_bulk_batch_send')
+      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+
+    $apply_count = (int) $database->select('advancedqueue', 'aq')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
+      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+
+    return $batch_count > 0 || $apply_count > 0;
+  }
+
+  /**
+   * Determine whether a request exception means the bulk request is gone.
+   */
+  private function isRequestNotFoundException(RequestException $e): bool {
+    $response = $e->getResponse();
+    if ($response && $response->getStatusCode() === 404) {
+      return TRUE;
+    }
+
+    $body = $response ? (string) $response->getBody() : '';
+    return str_contains(strtolower($body), 'no request found');
+  }
+
+  /**
+   * Clean up local state and queued jobs for a stale request.
+   */
+  private function cleanupStaleRequest(string $request_id): void {
+    $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    if ($current_request_id !== $request_id) {
+      return;
+    }
+
+    $database = \Drupal::database();
+    $database->delete('advancedqueue')
+      ->condition('queue_id', 'ttd_topics_analysis')
+      ->condition('type', ['ttd_bulk_analysis_poller', 'ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
+      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->execute();
+
+    \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.content_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.started_at');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.apply_progress');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.completed_at');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.customer_id_page_count');
+    \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
+
+    \Drupal::logger('ttd_topics')->warning('Cleaned up stale bulk analysis request @request_id.', [
+      '@request_id' => $request_id,
+    ]);
   }
 
   /**
