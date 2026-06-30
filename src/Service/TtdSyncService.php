@@ -535,6 +535,103 @@ class TtdSyncService {
   }
 
   /**
+   * Push local Drupal curation overrides to the API as editorial signals.
+   *
+   * Hidden topics win if a term is both hidden and force-shown.
+   */
+  public function syncLocalCurationOverrides(bool $dry_run = FALSE): array {
+    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+    $hidden_terms = $term_storage->loadByProperties([
+      'vid' => 'ttd_topics',
+      'field_hide' => TRUE,
+    ]);
+    $force_show_terms = $term_storage->loadByProperties([
+      'vid' => 'ttd_topics',
+      'field_force_show' => TRUE,
+    ]);
+
+    $hidden_rows = $this->normalizeLocalOverrideTerms($hidden_terms);
+    $hidden_ids = array_fill_keys(array_keys($hidden_rows), TRUE);
+    $force_show_rows = array_filter(
+      $this->normalizeLocalOverrideTerms($force_show_terms),
+      static fn(array $row): bool => empty($hidden_ids[$row['entity_id']])
+    );
+
+    $stats = [
+      'hidden' => count($hidden_rows),
+      'force_show' => count($force_show_rows),
+      'sent' => 0,
+      'failed' => 0,
+      'dry_run' => $dry_run,
+      'samples' => [
+        'hidden' => array_slice(array_values($hidden_rows), 0, 20),
+        'force_show' => array_slice(array_values($force_show_rows), 0, 20),
+      ],
+    ];
+
+    if ($dry_run) {
+      return $stats;
+    }
+
+    foreach ($hidden_rows as $row) {
+      $ok = $this->sendLocalEditorialSignal('force_hide', $row, 'Backfilled from Drupal hidden topic', 'localHiddenBackfill');
+      $ok ? $stats['sent']++ : $stats['failed']++;
+    }
+
+    foreach ($force_show_rows as $row) {
+      $ok = $this->sendLocalEditorialSignal('force_show', $row, 'Backfilled from Drupal Force Show topic', 'localForceShowBackfill');
+      $ok ? $stats['sent']++ : $stats['failed']++;
+    }
+
+    return $stats;
+  }
+
+  /**
+   * Normalize topic terms into API entity rows keyed by TopicalBoost entity ID.
+   */
+  private function normalizeLocalOverrideTerms(array $terms): array {
+    $rows = [];
+
+    foreach ($terms as $term) {
+      if (!$term instanceof Term || !$term->hasField('field_ttd_id') || $term->get('field_ttd_id')->isEmpty()) {
+        continue;
+      }
+
+      $entity_id = (int) $term->get('field_ttd_id')->value;
+      if ($entity_id <= 0) {
+        continue;
+      }
+
+      $rows[$entity_id] = [
+        'entity_id' => $entity_id,
+        'entity_name' => $term->label(),
+        'term_id' => (int) $term->id(),
+      ];
+    }
+
+    ksort($rows);
+    return $rows;
+  }
+
+  /**
+   * Send one local editorial signal to the API.
+   */
+  private function sendLocalEditorialSignal(string $action, array $row, string $reason, string $metadata_flag): bool {
+    $response = $this->apiRequest('POST', '/telemetry/editorial-signals', [
+      'action' => $action,
+      'entityId' => (int) $row['entity_id'],
+      'entityName' => (string) $row['entity_name'],
+      'reason' => $reason,
+      'metadata' => [
+        'termId' => (int) $row['term_id'],
+        $metadata_flag => TRUE,
+      ],
+    ]);
+
+    return is_array($response) && !empty($response['logged']);
+  }
+
+  /**
    * Fetch curation scores from the API and cache render decisions locally.
    */
   public function syncCurationScores() {
