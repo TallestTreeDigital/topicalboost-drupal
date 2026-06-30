@@ -14,6 +14,16 @@ use GuzzleHttp\Exception\RequestException;
 class TtdTopicsAnalysisService {
 
   /**
+   * Drupal state key prefix for editor-triggered single analysis requests.
+   */
+  private const SINGLE_ANALYSIS_STATE_PREFIX = 'ttd_topics.single_analysis_request.';
+
+  /**
+   * Maximum time to keep a single analysis marked in progress.
+   */
+  private const SINGLE_ANALYSIS_TIMEOUT_SECONDS = 900;
+
+  /**
    * Perform single analysis for a node.
    *
    * @param \Drupal\node\NodeInterface $node
@@ -41,19 +51,11 @@ class TtdTopicsAnalysisService {
     }
 
     try {
-      // Set analysis in progress.
-      $node->set('field_ttd_analysis_in_progress', TRUE);
-      if ($save_entity) {
-        $node->save();
-      }
+      $this->markSingleAnalysisStarted($node, NULL, $save_entity);
 
       $this->executeAnalysis($node, $save_entity);
 
-      // Clear analysis in progress.
-      $node->set('field_ttd_analysis_in_progress', FALSE);
-      if ($save_entity) {
-        $node->save();
-      }
+      $this->clearSingleAnalysisState($node, $save_entity);
 
       return [
         'success' => TRUE,
@@ -61,11 +63,7 @@ class TtdTopicsAnalysisService {
       ];
     }
     catch (\Exception $e) {
-      // Clear analysis in progress in case of error.
-      $node->set('field_ttd_analysis_in_progress', FALSE);
-      if ($save_entity) {
-        $node->save();
-      }
+      $this->clearSingleAnalysisState($node, $save_entity);
 
       \Drupal::logger('ttd_topics')->error('Error processing node @id: @message', [
         '@id' => $identifier,
@@ -77,6 +75,211 @@ class TtdTopicsAnalysisService {
         'message' => 'Error processing node ' . $identifier . ': ' . $e->getMessage(),
       ];
     }
+  }
+
+  /**
+   * Gets the state key used to track a node's current single-analysis request.
+   */
+  public function getSingleAnalysisStateKey(NodeInterface $node) {
+    return self::SINGLE_ANALYSIS_STATE_PREFIX . $node->id();
+  }
+
+  /**
+   * Gets the stored single-analysis request state for a node.
+   */
+  public function getSingleAnalysisRequest(NodeInterface $node) {
+    if (!$node->id()) {
+      return NULL;
+    }
+
+    $request = \Drupal::state()->get($this->getSingleAnalysisStateKey($node));
+    return is_array($request) ? $request : NULL;
+  }
+
+  /**
+   * Marks a node as having single analysis in progress.
+   */
+  public function markSingleAnalysisStarted(NodeInterface $node, $request_id = NULL, $save_entity = TRUE) {
+    if ($node->hasField('field_ttd_analysis_in_progress')) {
+      $node->set('field_ttd_analysis_in_progress', TRUE);
+      if ($save_entity) {
+        $node->save();
+      }
+    }
+
+    if (!$node->id()) {
+      return;
+    }
+
+    $state = \Drupal::state();
+    $existing = $this->getSingleAnalysisRequest($node) ?: [];
+    $existing['started'] = !empty($existing['started'])
+      ? (int) $existing['started']
+      : \Drupal::time()->getRequestTime();
+    $existing['changed'] = $node->getChangedTime();
+
+    if ($request_id !== NULL && $request_id !== '') {
+      $existing['request_id'] = (string) $request_id;
+    }
+
+    $state->set($this->getSingleAnalysisStateKey($node), $existing);
+  }
+
+  /**
+   * Clears single-analysis progress flags and request state for a node.
+   */
+  public function clearSingleAnalysisState(NodeInterface $node, $save_entity = TRUE) {
+    if ($node->hasField('field_ttd_analysis_in_progress')) {
+      $node->set('field_ttd_analysis_in_progress', FALSE);
+      if ($save_entity) {
+        $node->save();
+      }
+    }
+
+    if ($node->id()) {
+      \Drupal::state()->delete($this->getSingleAnalysisStateKey($node));
+    }
+  }
+
+  /**
+   * Recovers or clears a single-analysis request that may be stuck.
+   */
+  public function recoverSingleAnalysis(NodeInterface $node, ?array $analysis_request = NULL, $save_entity = TRUE) {
+    $analysis_request = $analysis_request ?: $this->getSingleAnalysisRequest($node);
+    $in_progress = $node->hasField('field_ttd_analysis_in_progress') && (bool) $node->get('field_ttd_analysis_in_progress')->value;
+    $request_id = is_array($analysis_request) ? (string) ($analysis_request['request_id'] ?? '') : '';
+
+    if (!$in_progress) {
+      if ($analysis_request && $node->id()) {
+        \Drupal::state()->delete($this->getSingleAnalysisStateKey($node));
+      }
+      return [
+        'status' => 'idle',
+        'in_progress' => FALSE,
+      ];
+    }
+
+    if ($request_id === '') {
+      if ($this->singleAnalysisTimedOut($node, $analysis_request)) {
+        $this->clearSingleAnalysisState($node, $save_entity);
+        return [
+          'status' => 'timeout',
+          'in_progress' => FALSE,
+          'message' => 'Analysis timed out without a recoverable request id.',
+        ];
+      }
+
+      return [
+        'status' => 'pending',
+        'in_progress' => TRUE,
+      ];
+    }
+
+    try {
+      if ($this->isAnalysisReady($request_id, 4)) {
+        $this->applyAnalysisResult($node, $request_id, $save_entity);
+        $this->clearSingleAnalysisState($node, $save_entity);
+
+        \Drupal::logger('ttd_topics')->info('Recovered completed single analysis request @request_id for node @nid.', [
+          '@request_id' => $request_id,
+          '@nid' => $node->id(),
+        ]);
+
+        return [
+          'status' => 'completed',
+          'in_progress' => FALSE,
+          'request_id' => $request_id,
+        ];
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Unable to recover single analysis request @request_id for node @nid: @message', [
+        '@request_id' => $request_id,
+        '@nid' => $node->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
+
+    if ($this->singleAnalysisTimedOut($node, $analysis_request)) {
+      $this->clearSingleAnalysisState($node, $save_entity);
+      return [
+        'status' => 'timeout',
+        'in_progress' => FALSE,
+        'request_id' => $request_id,
+        'message' => 'Analysis timed out. You can retry.',
+      ];
+    }
+
+    return [
+      'status' => 'pending',
+      'in_progress' => TRUE,
+      'request_id' => $request_id,
+    ];
+  }
+
+  /**
+   * Recovers stale single-analysis requests from cron.
+   */
+  public function recoverStaleSingleAnalyses($limit = 25) {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('key_value')) {
+      return [
+        'checked' => 0,
+        'completed' => 0,
+        'timed_out' => 0,
+      ];
+    }
+
+    $names = $database->select('key_value', 'kv')
+      ->fields('kv', ['name'])
+      ->condition('collection', 'state')
+      ->condition('name', self::SINGLE_ANALYSIS_STATE_PREFIX . '%', 'LIKE')
+      ->range(0, max(1, (int) $limit))
+      ->execute()
+      ->fetchCol();
+
+    $node_storage = \Drupal::entityTypeManager()->getStorage('node');
+    $state = \Drupal::state();
+    $summary = [
+      'checked' => 0,
+      'completed' => 0,
+      'timed_out' => 0,
+      'cleared_missing_node' => 0,
+    ];
+
+    foreach ($names as $name) {
+      $summary['checked']++;
+      $nid = substr($name, strlen(self::SINGLE_ANALYSIS_STATE_PREFIX));
+      $node = is_numeric($nid) ? $node_storage->load($nid) : NULL;
+
+      if (!$node instanceof NodeInterface) {
+        $state->delete($name);
+        $summary['cleared_missing_node']++;
+        continue;
+      }
+
+      $result = $this->recoverSingleAnalysis($node, $state->get($name));
+      if (($result['status'] ?? '') === 'completed') {
+        $summary['completed']++;
+      }
+      elseif (($result['status'] ?? '') === 'timeout') {
+        $summary['timed_out']++;
+      }
+    }
+
+    return $summary;
+  }
+
+  /**
+   * Determines whether the current single-analysis request has timed out.
+   */
+  private function singleAnalysisTimedOut(NodeInterface $node, ?array $analysis_request = NULL) {
+    $started = is_array($analysis_request) ? (int) ($analysis_request['started'] ?? 0) : 0;
+    if ($started <= 0) {
+      $started = (int) $node->getChangedTime();
+    }
+
+    return $started > 0 && (\Drupal::time()->getRequestTime() - $started) > self::SINGLE_ANALYSIS_TIMEOUT_SECONDS;
   }
 
   /**
@@ -189,6 +392,7 @@ class TtdTopicsAnalysisService {
   private function executeAnalysis(NodeInterface $node, $save_entity = TRUE) {
     try {
       $request_id = $this->startSingleAnalysis($node);
+      $this->markSingleAnalysisStarted($node, $request_id, $save_entity);
 
       // Step 2: Poll for analysis completion.
       $completed = FALSE;

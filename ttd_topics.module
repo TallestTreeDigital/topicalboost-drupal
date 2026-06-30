@@ -1811,6 +1811,23 @@ function ttd_topics_cron() {
     }
   }
 
+  // Recover editor-triggered single-analysis requests if browser polling stops.
+  try {
+    $recovered = \Drupal::service('ttd_topics.analysis_service')->recoverStaleSingleAnalyses();
+    if (!empty($recovered['completed']) || !empty($recovered['timed_out'])) {
+      \Drupal::logger('ttd_topics')->info('Single-analysis recovery checked @checked requests; completed @completed and timed out @timed_out.', [
+        '@checked' => $recovered['checked'] ?? 0,
+        '@completed' => $recovered['completed'] ?? 0,
+        '@timed_out' => $recovered['timed_out'] ?? 0,
+      ]);
+    }
+  }
+  catch (\Exception $e) {
+    \Drupal::logger('ttd_topics')->warning('Single-analysis recovery failed: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+  }
+
   // Hourly auto-sync check. The service only starts a pull when the API has
   // materially more data and the site setting is enabled.
   if (($now - (int) $state->get('ttd_auto_sync_last_checked', 0)) >= 60 * 60) {

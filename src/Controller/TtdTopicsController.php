@@ -916,33 +916,36 @@ class TtdTopicsController extends ControllerBase {
       $state_key = 'ttd_topics.single_analysis_request.' . $node_entity->id();
       $analysis_request = $state->get($state_key);
 
-      if ($analysis_in_progress && !empty($analysis_request['request_id'])) {
+      if ($analysis_in_progress) {
         $analysis_service = \Drupal::service('ttd_topics.analysis_service');
+        $recovery = $analysis_service->recoverSingleAnalysis(
+          $node_entity,
+          is_array($analysis_request) ? $analysis_request : NULL
+        );
 
-        try {
-          if ($analysis_service->isAnalysisReady($analysis_request['request_id'], 4)) {
-            $analysis_service->applyAnalysisResult($node_entity, $analysis_request['request_id']);
-            $node_entity->set('field_ttd_analysis_in_progress', FALSE);
-            $node_entity->save();
-            $state->delete($state_key);
-
-            return new JsonResponse([
-              'completed' => TRUE,
-              'in_progress' => FALSE,
-              'has_topics' => !$node_entity->get('field_ttd_topics')->isEmpty(),
-              'error' => FALSE,
-              'message' => $this->t('Analysis completed successfully.'),
-              'reload' => TRUE,
-            ]);
-          }
-        }
-        catch (\Exception $e) {
-          \Drupal::logger('ttd_topics')->warning('Unable to poll single analysis request @request_id for node @nid: @message', [
-            '@request_id' => $analysis_request['request_id'],
-            '@nid' => $node_entity->id(),
-            '@message' => $e->getMessage(),
+        if (($recovery['status'] ?? '') === 'completed') {
+          return new JsonResponse([
+            'completed' => TRUE,
+            'in_progress' => FALSE,
+            'has_topics' => !$node_entity->get('field_ttd_topics')->isEmpty(),
+            'error' => FALSE,
+            'message' => $this->t('Analysis completed successfully.'),
+            'reload' => TRUE,
           ]);
         }
+
+        if (($recovery['status'] ?? '') === 'timeout') {
+          return new JsonResponse([
+            'completed' => FALSE,
+            'in_progress' => FALSE,
+            'has_topics' => !$node_entity->get('field_ttd_topics')->isEmpty(),
+            'error' => TRUE,
+            'message' => $this->t('Analysis timed out. You can retry.'),
+            'reload' => FALSE,
+          ]);
+        }
+
+        $analysis_in_progress = $recovery['in_progress'] ?? $analysis_in_progress;
       }
 
       // Determine completion status.
@@ -1544,32 +1547,54 @@ class TtdTopicsController extends ControllerBase {
    */
   public function runAnalysis(NodeInterface $node, Request $request) {
     try {
-      $state = \Drupal::state();
-      $state_key = 'ttd_topics.single_analysis_request.' . $node->id();
-      $existing_request = $state->get($state_key);
+      $analysis_service = \Drupal::service('ttd_topics.analysis_service');
+      $existing_request = $analysis_service->getSingleAnalysisRequest($node);
 
       if ($node->hasField('field_ttd_analysis_in_progress') && $node->get('field_ttd_analysis_in_progress')->value && !empty($existing_request['request_id'])) {
-        return new JsonResponse([
-          'success' => TRUE,
-          'data' => [
-            'message' => 'Analysis is already in progress.',
-            'node_id' => (int) $node->id(),
-            'request_id' => $existing_request['request_id'],
-            'changed' => $node->getChangedTime(),
-          ],
-        ]);
+        $recovery = $analysis_service->recoverSingleAnalysis($node, $existing_request);
+        if (($recovery['status'] ?? '') === 'completed') {
+          return new JsonResponse([
+            'success' => TRUE,
+            'data' => [
+              'message' => 'Analysis completed.',
+              'node_id' => (int) $node->id(),
+              'request_id' => $existing_request['request_id'],
+              'changed' => $node->getChangedTime(),
+              'completed' => TRUE,
+              'reload' => TRUE,
+            ],
+          ]);
+        }
+
+        if (($recovery['status'] ?? '') === 'pending') {
+          return new JsonResponse([
+            'success' => TRUE,
+            'data' => [
+              'message' => 'Analysis is already in progress.',
+              'node_id' => (int) $node->id(),
+              'request_id' => $existing_request['request_id'],
+              'changed' => $node->getChangedTime(),
+            ],
+          ]);
+        }
+      }
+      elseif ($node->hasField('field_ttd_analysis_in_progress') && $node->get('field_ttd_analysis_in_progress')->value) {
+        $recovery = $analysis_service->recoverSingleAnalysis($node, $existing_request);
+        if (($recovery['status'] ?? '') === 'pending') {
+          return new JsonResponse([
+            'success' => TRUE,
+            'data' => [
+              'message' => 'Analysis is already in progress.',
+              'node_id' => (int) $node->id(),
+              'changed' => $node->getChangedTime(),
+            ],
+          ]);
+        }
       }
 
-      if ($node->hasField('field_ttd_analysis_in_progress')) {
-        $node->set('field_ttd_analysis_in_progress', TRUE);
-        $node->save();
-      }
-
-      $request_id = \Drupal::service('ttd_topics.analysis_service')->startSingleAnalysis($node);
-      $state->set($state_key, [
-        'request_id' => $request_id,
-        'started' => \Drupal::time()->getCurrentTime(),
-      ]);
+      $analysis_service->markSingleAnalysisStarted($node);
+      $request_id = $analysis_service->startSingleAnalysis($node);
+      $analysis_service->markSingleAnalysisStarted($node, $request_id);
 
       return new JsonResponse([
         'success' => TRUE,
@@ -1582,7 +1607,10 @@ class TtdTopicsController extends ControllerBase {
       ]);
     }
     catch (\Exception $e) {
-      if ($node->hasField('field_ttd_analysis_in_progress')) {
+      if (isset($analysis_service)) {
+        $analysis_service->clearSingleAnalysisState($node);
+      }
+      elseif ($node->hasField('field_ttd_analysis_in_progress')) {
         $node->set('field_ttd_analysis_in_progress', FALSE);
         $node->save();
       }
