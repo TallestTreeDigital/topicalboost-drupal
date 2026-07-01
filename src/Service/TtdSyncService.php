@@ -68,14 +68,15 @@ class TtdSyncService {
     $config = \Drupal::config('ttd_topics.settings');
 
     try {
+      $curation_metrics = $this->getLocalCurationMetrics();
       $enabled_types = array_filter($config->get('enabled_content_types') ?: ['article']);
       if (empty($enabled_types)) {
-        return [
+        return array_merge([
           'postCount' => 0,
           'topicCount' => 0,
           'relationshipCount' => 0,
           'avgTopicsPerPost' => 0.0,
-        ];
+        ], $curation_metrics);
       }
 
       $post_count = (int) $database->select('node_field_data', 'n')
@@ -109,12 +110,12 @@ class TtdSyncService {
         $posts_with_topics = (int) $posts_query->execute()->fetchField();
       }
 
-      return [
+      return array_merge([
         'postCount' => $post_count,
         'topicCount' => $topic_count,
         'relationshipCount' => $relationship_count,
         'avgTopicsPerPost' => $posts_with_topics > 0 ? round($relationship_count / $posts_with_topics, 1) : 0.0,
-      ];
+      ], $curation_metrics);
     }
     catch (\Exception $e) {
       \Drupal::logger('ttd_topics')->error('Failed to gather local sync metrics: @message', [
@@ -122,6 +123,60 @@ class TtdSyncService {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Report local site metrics to TopicalBoost.
+   */
+  public function reportSiteMetrics() {
+    $metrics = $this->getLocalMetrics();
+    if (!$metrics) {
+      return NULL;
+    }
+
+    return $this->apiRequest('POST', '/telemetry/site-metrics', $metrics);
+  }
+
+  /**
+   * Get local curation rollout metrics for the internal admin checklist.
+   */
+  private function getLocalCurationMetrics(): array {
+    $config = \Drupal::config('ttd_topics.settings');
+    $scores = \Drupal::keyValue(static::CURATION_SCORE_COLLECTION)->getAll();
+    $suppressed = 0;
+
+    foreach ($scores as $score) {
+      if (is_array($score) && array_key_exists('should_curate', $score) && empty($score['should_curate'])) {
+        $suppressed++;
+      }
+    }
+
+    return [
+      'curationScoresEnabled' => function_exists('ttd_topics_curation_scores_enabled')
+        ? \ttd_topics_curation_scores_enabled()
+        : (bool) ($config->get('curation_scores_enabled') ?? FALSE),
+      'curationScoreThreshold' => function_exists('ttd_topics_curation_score_threshold')
+        ? \ttd_topics_curation_score_threshold()
+        : max(0.0, min(5.0, (float) ($config->get('curation_score_threshold') ?? 2))),
+      'curationScoresLastSyncedAt' => $this->formatTimestampForApi(\Drupal::state()->get(static::CURATION_LAST_SYNC_KEY)),
+      'curationScoreTerms' => count($scores),
+      'curationSuppressedTerms' => $suppressed,
+    ];
+  }
+
+  private function formatTimestampForApi($value): ?string {
+    if (is_numeric($value)) {
+      return gmdate('Y-m-d\TH:i:s\Z', (int) $value);
+    }
+
+    if (is_string($value) && trim($value) !== '') {
+      $timestamp = strtotime($value);
+      if ($timestamp !== FALSE) {
+        return gmdate('Y-m-d\TH:i:s\Z', $timestamp);
+      }
+    }
+
+    return NULL;
   }
 
   /**
@@ -684,6 +739,7 @@ class TtdSyncService {
 
       if (!empty($values)) {
         $existing = $collection->getMultiple(array_keys($values));
+        $changed_values = [];
         foreach ($values as $key => $value) {
           $existing_value = $existing[$key] ?? NULL;
           if (is_array($existing_value)) {
@@ -697,9 +753,12 @@ class TtdSyncService {
           }
           else {
             $stats['updated']++;
+            $changed_values[$key] = $value;
           }
         }
-        $collection->setMultiple($values);
+        if (!empty($changed_values)) {
+          $collection->setMultiple($changed_values);
+        }
       }
 
       $has_more = !empty($response['has_more']);
@@ -715,6 +774,7 @@ class TtdSyncService {
 
     \Drupal::state()->set(static::CURATION_LAST_SYNC_KEY, \Drupal::time()->getRequestTime());
     \Drupal\Core\Cache\Cache::invalidateTags(['ttd_topics:curation_scores']);
+    $this->reportSiteMetrics();
 
     return $stats;
   }
@@ -1156,6 +1216,7 @@ class TtdSyncService {
 
     if ($failed === 0) {
       $this->syncHiddenEntities();
+      $this->reportSiteMetrics();
     }
 
     $this->cleanupSyncJobs();
