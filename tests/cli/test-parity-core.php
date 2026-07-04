@@ -390,7 +390,8 @@ try {
     echo "\n";
   }
   ttd_parity_assert(!empty($article), 'Schema contains Article graph item');
-  ttd_parity_assert(($article['mainEntity']['name'] ?? NULL) === $topics['override_main']['name'], 'Schema mainEntity uses overridden topic');
+  ttd_parity_assert(empty($article['mainEntity']), 'Article schema does not emit mainEntity');
+  ttd_parity_assert(in_array($topics['override_main']['name'], ttd_parity_schema_names($article['about'] ?? []), TRUE), 'Schema about includes overridden main-tier topic');
 
   $schema_names = array_merge(
     ttd_parity_schema_names($article['about'] ?? []),
@@ -647,8 +648,10 @@ try {
 
   $computed_schema = \Drupal::service('ttd_topics.schema_generator')->getNodeTopicsSchema($computed_node->id());
   $computed_article = ttd_parity_schema_article($computed_schema);
-  ttd_parity_assert(($computed_article['mainEntity']['name'] ?? NULL) === $computed_topics['computed_main']['name'], 'Schema mainEntity uses computed salience tier');
-  ttd_parity_assert(in_array($computed_topics['computed_about']['name'], ttd_parity_schema_names($computed_article['about'] ?? []), TRUE), 'Schema about uses computed salience tier');
+  $computed_about_names = ttd_parity_schema_names($computed_article['about'] ?? []);
+  ttd_parity_assert(empty($computed_article['mainEntity']), 'Computed Article schema does not emit mainEntity');
+  ttd_parity_assert(in_array($computed_topics['computed_main']['name'], $computed_about_names, TRUE), 'Schema about includes computed main-tier topic');
+  ttd_parity_assert(in_array($computed_topics['computed_about']['name'], $computed_about_names, TRUE), 'Schema about uses computed salience tier');
 
   $schema_files = [
     '16x9' => ttd_parity_create_schema_image_file("tb-parity-16x9-{$suffix}.png"),

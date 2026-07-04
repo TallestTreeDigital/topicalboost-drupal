@@ -173,8 +173,7 @@ class SchemaGenerator {
     $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
 
     // Create Article schema with proper schema.org properties:
-    // - "mainEntity": the primary topic.
-    // - "about": high-salience topics (what the article IS about).
+    // - internal "mainEntity" and "about" tiers -> schema.org "about".
     // - "mentions": low-salience and untiered topics (what the article references).
     $article = $node instanceof NodeInterface
       ? $this->buildNodeArticleSchema($node, $base_url)
@@ -188,11 +187,8 @@ class SchemaGenerator {
     $schema_types_by_id = $this->getEntitySchemaTypesBatch($schema_topic_ttd_ids);
 
     $main_entity_items = $this->formatTopicsForSchema($schema_topics['mainEntity'], $base_url, $entity_data_by_id, $schema_types_by_id);
-    if (!empty($main_entity_items)) {
-      $article['mainEntity'] = reset($main_entity_items);
-    }
-
     $about_items = $this->formatTopicsForSchema($schema_topics['about'], $base_url, $entity_data_by_id, $schema_types_by_id);
+    $about_items = array_merge($main_entity_items, $about_items);
     if (!empty($about_items)) {
       $article['about'] = $about_items;
     }
@@ -216,7 +212,7 @@ class SchemaGenerator {
     }
 
     // Only add the Article schema if it has TopicalBoost-enhanced data.
-    if (!empty($article['mainEntity']) || !empty($article['about']) || !empty($article['mentions']) || !empty($article['image']) || !empty($article['author'])) {
+    if (!empty($article['about']) || !empty($article['mentions']) || !empty($article['image']) || !empty($article['author'])) {
       $data['@graph'][] = $article;
     }
 

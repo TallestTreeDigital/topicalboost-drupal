@@ -661,8 +661,9 @@ try {
   $article_b = ttd_parity_wp_schema_article($schema_b);
   ttd_parity_wp_assert(($schema_a['@context'] ?? '') === 'https://schema.org', 'Schema uses schema.org context');
   ttd_parity_wp_assert(($article_a['@type'] ?? '') !== '', 'Schema contains Article graph item');
-  ttd_parity_wp_assert(($article_a['mainEntity']['name'] ?? NULL) === $schema_topic_a->label(), 'Schema A has its own mainEntity');
-  ttd_parity_wp_assert(($article_b['mainEntity']['name'] ?? NULL) === $schema_topic_b->label(), 'Schema B has its own mainEntity without batch cross-contamination');
+  ttd_parity_wp_assert(empty($article_a['mainEntity']) && empty($article_b['mainEntity']), 'Article schema does not emit mainEntity');
+  ttd_parity_wp_assert(in_array($schema_topic_a->label(), ttd_parity_wp_schema_names($article_a['about'] ?? []), TRUE), 'Schema A has its own main-tier topic in about');
+  ttd_parity_wp_assert(in_array($schema_topic_b->label(), ttd_parity_wp_schema_names($article_b['about'] ?? []), TRUE), 'Schema B has its own main-tier topic in about without batch cross-contamination');
 
   $image_file = ttd_parity_wp_create_image_file("tb-parity-featured-{$suffix}.jpg");
   if ($image_file && $schema_node_a->hasField('field_image')) {
