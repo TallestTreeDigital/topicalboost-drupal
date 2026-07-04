@@ -117,6 +117,32 @@ class TtdTopicsController extends ControllerBase {
   }
 
   /**
+   * Record a manual topic editorial signal without blocking editor actions.
+   */
+  private function recordManualTopicSignal($action, $node_id, $term_id) {
+    if ($action !== 'manual_add' && $action !== 'manual_remove') {
+      return;
+    }
+
+    try {
+      $topic = $this->getEditorialSignalTopic($term_id);
+      if (!$topic) {
+        return;
+      }
+
+      $this->recordEditorialSignal($action, $topic, [
+        'postId' => $node_id,
+        'metadata' => [
+          'ttdId' => (int) $topic['entityId'],
+        ],
+      ]);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->debug('Manual topic editorial signal failed: @message', ['@message' => $e->getMessage()]);
+    }
+  }
+
+  /**
    * Simple WordPress-like overview of topics with post counts.
    */
   public function overviewPage() {
@@ -1447,6 +1473,7 @@ class TtdTopicsController extends ControllerBase {
     $add_manual = $data['add_manual'] ?? FALSE;
     $remove_manual = $data['remove_manual'] ?? FALSE;
     $is_accepted = $data['is_accepted'] ?? NULL;
+    $manual_signals = [];
 
     if (!$node_id || !$topic_id) {
       return new JsonResponse(['success' => FALSE, 'message' => 'Missing required parameters'], 400);
@@ -1458,24 +1485,53 @@ class TtdTopicsController extends ControllerBase {
         return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
       }
 
+      $topic_id_int = (int) $topic_id;
+
       // Handle add manual topic
       if ($add_manual) {
         $manual_topics = $node->get('field_manual_topics')->getValue();
-        $manual_tids = array_column($manual_topics, 'target_id');
-        if (!in_array($topic_id, $manual_tids)) {
-          $manual_tids[] = $topic_id;
+        $manual_tids = array_map('intval', array_column($manual_topics, 'target_id'));
+        if (!in_array($topic_id_int, $manual_tids, TRUE)) {
+          $manual_tids[] = $topic_id_int;
           $node->set('field_manual_topics', $manual_tids);
+
+          $topic_values = $node->get('field_ttd_topics')->getValue();
+          $topic_tids = array_map('intval', array_column($topic_values, 'target_id'));
+          if (!in_array($topic_id_int, $topic_tids, TRUE)) {
+            $topic_tids[] = $topic_id_int;
+            $node->set('field_ttd_topics', $topic_tids);
+          }
+
+          $manual_signals[] = [
+            'action' => 'manual_add',
+            'termId' => $topic_id_int,
+          ];
         }
       }
 
       // Handle remove manual topic
       if ($remove_manual) {
         $manual_topics = $node->get('field_manual_topics')->getValue();
-        $manual_tids = array_column($manual_topics, 'target_id');
-        $manual_tids = array_filter($manual_tids, function($tid) use ($topic_id) {
-          return $tid != $topic_id;
+        $manual_tids = array_map('intval', array_column($manual_topics, 'target_id'));
+        $was_manual = in_array($topic_id_int, $manual_tids, TRUE);
+        $manual_tids = array_filter($manual_tids, function($tid) use ($topic_id_int) {
+          return (int) $tid !== $topic_id_int;
         });
         $node->set('field_manual_topics', array_values($manual_tids));
+
+        $topic_values = $node->get('field_ttd_topics')->getValue();
+        $topic_tids = array_map('intval', array_column($topic_values, 'target_id'));
+        $topic_tids = array_filter($topic_tids, function($tid) use ($topic_id_int) {
+          return (int) $tid !== $topic_id_int;
+        });
+        $node->set('field_ttd_topics', array_values($topic_tids));
+
+        if ($was_manual) {
+          $manual_signals[] = [
+            'action' => 'manual_remove',
+            'termId' => $topic_id_int,
+          ];
+        }
       }
 
       // Handle accept/reject
@@ -1502,6 +1558,10 @@ class TtdTopicsController extends ControllerBase {
       }
 
       $node->save();
+
+      foreach ($manual_signals as $manual_signal) {
+        $this->recordManualTopicSignal($manual_signal['action'], $node_id, $manual_signal['termId']);
+      }
 
       if (!empty($signal_action)) {
         $topic = $this->getEditorialSignalTopic($topic_id);
@@ -2075,8 +2135,11 @@ class TtdTopicsController extends ControllerBase {
         ->fetchField();
 
       if (!$existing) {
+        $now = date('Y-m-d H:i:s');
         $fields = [
           'ttd_id' => $ttd_id,
+          'createdAt' => $now,
+          'updatedAt' => $now,
           'name' => $topic_data['name'] ?? NULL,
           'mid' => $topic_data['mid'] ?? NULL,
           'kg_name' => $topic_data['kg_name'] ?? NULL,
@@ -2137,19 +2200,38 @@ class TtdTopicsController extends ControllerBase {
       // Optionally add to node.
       if ($add_to_post && $node_id) {
         $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
-        if ($node && $node->hasField('field_ttd_topics')) {
-          $current_values = $node->get('field_ttd_topics')->getValue();
-          $already_assigned = FALSE;
-          foreach ($current_values as $val) {
-            if ((int) $val['target_id'] === (int) $term_id) {
-              $already_assigned = TRUE;
-              break;
+        if ($node) {
+          $added_to_post = FALSE;
+
+          if ($node->hasField('field_ttd_topics')) {
+            $current_values = $node->get('field_ttd_topics')->getValue();
+            $already_assigned = FALSE;
+            foreach ($current_values as $val) {
+              if ((int) $val['target_id'] === (int) $term_id) {
+                $already_assigned = TRUE;
+                break;
+              }
+            }
+            if (!$already_assigned) {
+              $current_values[] = ['target_id' => $term_id];
+              $node->set('field_ttd_topics', $current_values);
+              $added_to_post = TRUE;
             }
           }
-          if (!$already_assigned) {
-            $current_values[] = ['target_id' => $term_id];
-            $node->set('field_ttd_topics', $current_values);
+
+          if ($node->hasField('field_manual_topics')) {
+            $manual_values = $node->get('field_manual_topics')->getValue();
+            $manual_tids = array_map('intval', array_column($manual_values, 'target_id'));
+            if (!in_array((int) $term_id, $manual_tids, TRUE)) {
+              $manual_tids[] = (int) $term_id;
+              $node->set('field_manual_topics', $manual_tids);
+              $added_to_post = TRUE;
+            }
+          }
+
+          if ($added_to_post) {
             $node->save();
+            $this->recordManualTopicSignal('manual_add', $node_id, $term_id);
           }
         }
       }

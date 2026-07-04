@@ -404,6 +404,73 @@ try {
   ttd_parity_wp_assert(!in_array((int) $promoted_manual_term->id(), $manual_ids_after_analysis, TRUE), 'Single reanalysis removes promoted API topic from manual list');
   ttd_parity_wp_assert($event_seen['called'] && $event_seen['node_id'] === (int) $analysis_node->id() && $event_seen['topic_count'] >= 2, 'Analysis-complete event fires with node and applied topics');
 
+  // Manual topic editor actions mirror WordPress state changes and use TTD IDs for signals.
+  $manual_endpoint_ttd_id = $base_ttd_id + 5;
+  $manual_endpoint_name = "TB Parity Manual Endpoint {$suffix}";
+  ttd_parity_wp_insert_entity($manual_endpoint_ttd_id, $manual_endpoint_name, $schema_type_id);
+  $manual_endpoint_term = ttd_parity_wp_create_topic($manual_endpoint_name, $manual_endpoint_ttd_id);
+  $manual_endpoint_node = ttd_parity_wp_create_node("TB Parity Manual Endpoint {$suffix}");
+  $manual_controller = new \Drupal\ttd_topics\Controller\TtdTopicsController();
+  $original_api_key_for_manual_test = \Drupal::config('ttd_topics.settings')->get('topicalboost_api_key');
+
+  try {
+    \Drupal::configFactory()->getEditable('ttd_topics.settings')
+      ->set('topicalboost_api_key', '')
+      ->save();
+
+    $signal_topic = ttd_parity_wp_invoke_private($manual_controller, 'getEditorialSignalTopic', [(int) $manual_endpoint_term->id()]);
+    ttd_parity_wp_assert((int) ($signal_topic['entityId'] ?? 0) === $manual_endpoint_ttd_id, 'Manual signal resolver uses TopicalBoost entity ID');
+    ttd_parity_wp_assert((int) ($signal_topic['termId'] ?? 0) === (int) $manual_endpoint_term->id(), 'Manual signal resolver keeps Drupal term ID in metadata');
+    ttd_parity_wp_assert(($signal_topic['entityName'] ?? '') === $manual_endpoint_name, 'Manual signal resolver includes entity name');
+
+    $add_response = $manual_controller->updateTopics(new Request([], [], [], [], [], [], json_encode([
+      'node_id' => (int) $manual_endpoint_node->id(),
+      'topic_id' => (int) $manual_endpoint_term->id(),
+      'add_manual' => TRUE,
+    ])));
+    $add_data = json_decode($add_response->getContent(), TRUE);
+    ttd_parity_wp_assert(!empty($add_data['success']), 'Manual add endpoint succeeds when telemetry is disabled');
+    ttd_parity_wp_assert(in_array((int) $manual_endpoint_term->id(), ttd_parity_wp_node_topic_ids($manual_endpoint_node), TRUE), 'Manual add stores topic relationship');
+    ttd_parity_wp_assert(in_array((int) $manual_endpoint_term->id(), ttd_parity_wp_node_topic_ids($manual_endpoint_node, 'field_manual_topics'), TRUE), 'Manual add stores manual marker');
+
+    $remove_response = $manual_controller->updateTopics(new Request([], [], [], [], [], [], json_encode([
+      'node_id' => (int) $manual_endpoint_node->id(),
+      'topic_id' => (int) $manual_endpoint_term->id(),
+      'remove_manual' => TRUE,
+    ])));
+    $remove_data = json_decode($remove_response->getContent(), TRUE);
+    ttd_parity_wp_assert(!empty($remove_data['success']), 'Manual remove endpoint succeeds when telemetry is disabled');
+    ttd_parity_wp_assert(!in_array((int) $manual_endpoint_term->id(), ttd_parity_wp_node_topic_ids($manual_endpoint_node), TRUE), 'Manual remove clears topic relationship');
+    ttd_parity_wp_assert(!in_array((int) $manual_endpoint_term->id(), ttd_parity_wp_node_topic_ids($manual_endpoint_node, 'field_manual_topics'), TRUE), 'Manual remove clears manual marker');
+
+    $created_manual_ttd_id = $base_ttd_id + 6;
+    $created_manual_name = "TB Parity Created Manual {$suffix}";
+    $GLOBALS['created_ttd_ids'][] = $created_manual_ttd_id;
+    $created_manual_node = ttd_parity_wp_create_node("TB Parity Created Manual Node {$suffix}");
+    $create_response = $manual_controller->createTopicTerm(new Request([], [], [], [], [], [], json_encode([
+      'topic_data' => [
+        'name' => $created_manual_name,
+        'kg_name' => $created_manual_name,
+        'ttd_id' => $created_manual_ttd_id,
+      ],
+      'post_id' => (int) $created_manual_node->id(),
+      'add_to_post' => TRUE,
+    ])));
+    $create_data = json_decode($create_response->getContent(), TRUE);
+    $created_manual_term_id = (int) ($create_data['data']['term_id'] ?? 0);
+    if ($created_manual_term_id) {
+      $GLOBALS['created_terms'][] = $created_manual_term_id;
+    }
+    ttd_parity_wp_assert(!empty($create_data['success']) && $created_manual_term_id > 0, 'Create topic term succeeds with add_to_post');
+    ttd_parity_wp_assert(in_array($created_manual_term_id, ttd_parity_wp_node_topic_ids($created_manual_node), TRUE), 'Create topic term add_to_post stores topic relationship');
+    ttd_parity_wp_assert(in_array($created_manual_term_id, ttd_parity_wp_node_topic_ids($created_manual_node, 'field_manual_topics'), TRUE), 'Create topic term add_to_post stores manual marker');
+  }
+  finally {
+    \Drupal::configFactory()->getEditable('ttd_topics.settings')
+      ->set('topicalboost_api_key', $original_api_key_for_manual_test)
+      ->save();
+  }
+
   // Bulk apply and sync re-apply preserve manual topics and are idempotent.
   $bulk_node = ttd_parity_wp_create_node(
     "TB Parity Bulk Apply {$suffix}",
