@@ -1430,7 +1430,7 @@
   color: var(--gin-color-text-light);
 }
 
-/* Match the WordPress editor panel: Main Topic, Also About, and Mentions are stacked rows. */
+/* Match the WordPress editor panel: Main Topic, About, and Mentions are stacked rows. */
 .ttd-wide-layout #ttd-topics-list-container {
   display: block !important;
   margin-top: 0 !important;

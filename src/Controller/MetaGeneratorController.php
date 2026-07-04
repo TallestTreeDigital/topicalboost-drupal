@@ -17,7 +17,7 @@ class MetaGeneratorController extends ControllerBase {
   /**
    * Get keywords/topics for a node with demand metrics.
    *
-   * Only returns "Also About" (focus topics), not "Mentions".
+   * Only returns "About" focus topics, not "Mentions".
    *
    * @param \Drupal\node\NodeInterface $node
    *   The node entity.

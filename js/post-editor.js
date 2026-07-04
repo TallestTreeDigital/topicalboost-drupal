@@ -114,7 +114,7 @@
           const tier = $section.data('section');
           const message = tier === 'mainEntity'
             ? Drupal.t('Main Topic is full. Move the current main topic before adding another one.')
-            : Drupal.t('Also About is full. Move one topic out before adding another one.');
+            : Drupal.t('About is full. Move one topic out before adding another one.');
 
           $topicsStatus
             .text(message)

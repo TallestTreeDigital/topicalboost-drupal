@@ -653,7 +653,7 @@ body:not(.ttd-skeleton-style) .mention-tag {
   opacity: 0.6;
 }
 
-/* Topic sections - Main Topic, Also About, Below Threshold */
+/* Topic sections - Main Topic, About, Below Threshold */
 .ttd-topic-section-wrapper,
 .ttd-main-topic-section,
 .ttd-also-about-section,

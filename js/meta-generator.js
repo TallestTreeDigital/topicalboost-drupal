@@ -164,7 +164,7 @@
                 <div class="ttd-meta-generator">
                     <!-- Keywords Row -->
                     <div class="ttd-meta-keywords-row${hideKeywords ? ' ttd-keywords-hidden' : ''}"${hideKeywords ? ' style="display:none"' : ''}>
-                        <span class="ttd-meta-keywords-label">${Drupal.t('MAIN & ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your Main Topic and Also About tiers. Social meta generates from the article content directly.')}">[?]</span></span>
+                        <span class="ttd-meta-keywords-label">${Drupal.t('MAIN & ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your Main Topic and About tiers. Social meta generates from the article content directly.')}">[?]</span></span>
                         <div class="ttd-meta-keywords-chips" id="ttd-keywords-list">
                             <span class="ttd-meta-loading-inline">${Drupal.t('Loading...')}</span>
                         </div>
