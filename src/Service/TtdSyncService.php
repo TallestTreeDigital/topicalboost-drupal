@@ -203,6 +203,11 @@ class TtdSyncService {
     $result = [
       'local' => $local,
       'api' => $api,
+      'aliasCleanup' => $response['aliasCleanup'] ?? $response['alias_cleanup'] ?? [
+        'required' => FALSE,
+        'pending' => 0,
+        'pending_count' => 0,
+      ],
       'diff' => [
         'topics' => max(0, ($api['topics'] ?? 0) - $local['topicCount']),
         'relationships' => max(0, ($api['relationships'] ?? 0) - $local['relationshipCount']),
@@ -253,10 +258,14 @@ class TtdSyncService {
     $sync_posts = $is_incremental
       ? (int) ($status['sinceCounts']['posts'] ?? 0)
       : (int) ($status['api']['posts'] ?? 0);
+    $alias_cleanup = $status['aliasCleanup'] ?? [];
+    $sync_aliases = (int) ($alias_cleanup['pending_count'] ?? $alias_cleanup['pending'] ?? 0);
 
     $topic_page_size = static::TOPIC_PAGE_SIZE;
+    $alias_page_size = 100;
     $topic_pages = $sync_topics > 0 ? (int) ceil($sync_topics / $topic_page_size) : 0;
     $rel_pages = $sync_posts > 0 ? (int) ceil($sync_posts / $batch_size) : 0;
+    $alias_pages = $sync_aliases > 0 ? (int) ceil($sync_aliases / $alias_page_size) : 0;
     $jobs_scheduled = 0;
 
     $start_response = $this->apiRequest('POST', '/sync/start', [
@@ -267,13 +276,15 @@ class TtdSyncService {
 
     $sync_state = [
       'started_at' => \Drupal::time()->getRequestTime(),
-      'total_jobs' => ($sync_topics > 0 ? 1 : 0) + ($sync_posts > 0 ? 1 : 0),
+      'total_jobs' => ($sync_topics > 0 ? 1 : 0) + ($sync_posts > 0 ? 1 : 0) + ($sync_aliases > 0 ? 1 : 0),
       'completed_jobs' => 0,
       'failed_jobs' => 0,
       'topic_pages' => $topic_pages,
       'rel_pages' => $rel_pages,
+      'alias_pages' => $alias_pages,
       'posts_applied' => 0,
       'posts_skipped' => 0,
+      'alias_cleanups' => 0,
       'incremental' => $is_incremental,
       'since' => $last_sync ?: NULL,
       'api_request_id' => $start_response['request_id'] ?? NULL,
@@ -282,7 +293,7 @@ class TtdSyncService {
     \Drupal::state()->set(static::SYNC_STATE_KEY, $sync_state);
 
     $queue = $this->getQueue();
-    if (!$queue && ($topic_pages + $rel_pages) > 0) {
+    if (!$queue && ($topic_pages + $rel_pages + $alias_pages) > 0) {
       \Drupal::state()->delete(static::SYNC_STATE_KEY);
       throw new \RuntimeException('TopicalBoost analysis queue is not available');
     }
@@ -308,6 +319,16 @@ class TtdSyncService {
         ]));
         $jobs_scheduled++;
       }
+      if ($sync_aliases > 0) {
+        $queue->enqueueJob(Job::create(static::SYNC_JOB_TYPE, [
+          'type' => 'entity_aliases',
+          'page' => 1,
+          'page_size' => $alias_page_size,
+          'since' => NULL,
+          'after_id' => 0,
+        ]));
+        $jobs_scheduled++;
+      }
     }
 
     if ($jobs_scheduled === 0) {
@@ -315,10 +336,11 @@ class TtdSyncService {
       return array_merge($sync_state, ['active' => FALSE, 'status' => 'complete']);
     }
 
-    \Drupal::logger('ttd_topics')->info('Started @mode sync: estimated @topics topic pages, @rels relationship pages.', [
+    \Drupal::logger('ttd_topics')->info('Started @mode sync: estimated @topics topic pages, @rels relationship pages, @aliases alias pages.', [
       '@mode' => $is_incremental ? 'incremental' : 'full',
       '@topics' => $topic_pages,
       '@rels' => $rel_pages,
+      '@aliases' => $alias_pages,
     ]);
 
     return $sync_state;
@@ -346,7 +368,7 @@ class TtdSyncService {
       return FALSE;
     }
 
-    if ($this->shouldAutoSync($status['local'], $status['api'])) {
+    if ($this->shouldAutoSync($status['local'], $status['api'], $status['aliasCleanup'] ?? [])) {
       $this->startSync($status);
       return TRUE;
     }
@@ -357,7 +379,7 @@ class TtdSyncService {
   /**
    * Check whether count differences warrant an API-to-site pull.
    */
-  private function shouldAutoSync(array $local, array $api) {
+  private function shouldAutoSync(array $local, array $api, array $alias_cleanup = []) {
     $tolerance = 0.05;
     $topics_synced = $this->withinTolerance($local['topicCount'], $api['topics'] ?? 0, $tolerance);
     $relationships_synced = $this->withinTolerance($local['relationshipCount'], $api['relationships'] ?? 0, $tolerance);
@@ -365,7 +387,9 @@ class TtdSyncService {
     $api_has_more_topics = ($api['topics'] ?? 0) > $local['topicCount'];
     $api_has_more_relationships = ($api['relationships'] ?? 0) > $local['relationshipCount'];
 
-    return ((!$topics_synced && $api_has_more_topics) || (!$relationships_synced && $api_has_more_relationships));
+    return ((!$topics_synced && $api_has_more_topics) || (!$relationships_synced && $api_has_more_relationships))
+      || !empty($alias_cleanup['required'])
+      || (int) ($alias_cleanup['pending'] ?? 0) > 0;
   }
 
   /**
@@ -413,6 +437,59 @@ class TtdSyncService {
         'topics' => count($response['entities']),
         'posts_applied' => 0,
         'posts_skipped' => 0,
+      ];
+    }
+
+    if ($type === 'entity_aliases') {
+      $response = $this->apiRequest('GET', '/sync/pull/entity-aliases', NULL, $query);
+      if (!$response || !isset($response['aliases']) || !is_array($response['aliases'])) {
+        throw new \RuntimeException('Failed to fetch entity aliases page ' . $page);
+      }
+
+      $applied_alias_ids = [];
+      $skipped_alias_ids = [];
+      foreach ($response['aliases'] as $alias_cleanup) {
+        $canonical = $alias_cleanup['canonical'] ?? NULL;
+        $canonical_id = (int) ($alias_cleanup['canonical_id'] ?? ($canonical['id'] ?? 0));
+        $alias_id = (int) ($alias_cleanup['alias_id'] ?? 0);
+        $cleanup_version = (int) ($alias_cleanup['cleanup_version'] ?? 1);
+
+        if ($canonical_id <= 0 || $alias_id <= 0 || !is_array($canonical)) {
+          $skipped_alias_ids[] = [
+            'alias_id' => $alias_id,
+            'reason' => 'invalid_alias_payload',
+          ];
+          continue;
+        }
+
+        $result = $this->applyEntityAliasCleanup($canonical_id, $alias_id, $canonical, $cleanup_version);
+        if ($result['applied']) {
+          $applied_alias_ids[] = $alias_id;
+        }
+        else {
+          $skipped_alias_ids[] = [
+            'alias_id' => $alias_id,
+            'reason' => $result['reason'] ?? 'cleanup_error',
+          ];
+        }
+      }
+
+      if (!empty($applied_alias_ids) || !empty($skipped_alias_ids)) {
+        $this->apiRequest('POST', '/sync/alias-cleanup/complete', [
+          'applied_alias_ids' => array_values(array_unique(array_map('intval', $applied_alias_ids))),
+          'skipped_alias_ids' => $skipped_alias_ids,
+        ]);
+      }
+
+      $this->scheduleNextSyncPullIfNeeded($type, $page, $page_size, NULL, $response);
+      $this->recordPullResult([
+        'alias_cleanups' => count($applied_alias_ids),
+      ]);
+      return [
+        'topics' => 0,
+        'posts_applied' => 0,
+        'posts_skipped' => 0,
+        'alias_cleanups' => count($applied_alias_ids),
       ];
     }
 
@@ -492,6 +569,7 @@ class TtdSyncService {
       'started_at' => $active['started_at'] ?? NULL,
       'posts_applied' => $active['posts_applied'] ?? 0,
       'posts_skipped' => $active['posts_skipped'] ?? 0,
+      'alias_cleanups' => $active['alias_cleanups'] ?? 0,
     ];
 
     if ($is_complete) {
@@ -794,6 +872,188 @@ class TtdSyncService {
       $scores[(int) $key] = is_array($row) ? $row : [];
     }
     return $scores;
+  }
+
+  /**
+   * Apply one canonical alias cleanup instruction locally.
+   */
+  private function applyEntityAliasCleanup(int $canonical_id, int $alias_id, array $canonical_entity, int $cleanup_version = 1): array {
+    try {
+      $canonical_term_id = $this->mergeEntity($canonical_entity);
+      if (!$canonical_term_id) {
+        return ['applied' => FALSE, 'reason' => 'canonical_term_missing'];
+      }
+
+      $alias_term = $this->findTermByTtdId($alias_id);
+      $alias_term_id = $alias_term ? (int) $alias_term->id() : NULL;
+
+      $this->storeEntityAlias($canonical_id, $alias_id, $canonical_term_id, $alias_term_id, $cleanup_version);
+      $this->moveCustomRelationshipsToCanonical($canonical_id, $alias_id);
+
+      if ($alias_term instanceof Term) {
+        $this->moveNodeTopicReferencesToCanonical($canonical_term_id, (int) $alias_term->id());
+        if ($alias_term->hasField('field_hide')) {
+          $alias_term->set('field_hide', TRUE);
+          $alias_term->save();
+        }
+      }
+
+      if (function_exists('ttd_topics_reset_runtime_caches')) {
+        \ttd_topics_reset_runtime_caches();
+      }
+
+      return ['applied' => TRUE];
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Entity alias cleanup failed for @alias: @message', [
+        '@alias' => $alias_id,
+        '@message' => $e->getMessage(),
+      ]);
+      return ['applied' => FALSE, 'reason' => 'cleanup_error'];
+    }
+  }
+
+  /**
+   * Find a local topic term by TopicalBoost entity ID.
+   */
+  private function findTermByTtdId(int $ttd_id): ?Term {
+    $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+      'vid' => 'ttd_topics',
+      'field_ttd_id' => (string) $ttd_id,
+    ]);
+    $term = !empty($terms) ? reset($terms) : NULL;
+    return $term instanceof Term ? $term : NULL;
+  }
+
+  /**
+   * Upsert the local alias row used by redirects and schema filters.
+   */
+  private function storeEntityAlias(int $canonical_id, int $alias_id, ?int $canonical_term_id, ?int $alias_term_id, int $cleanup_version): void {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('ttd_entity_aliases')) {
+      return;
+    }
+
+    $now = \Drupal::time()->getRequestTime();
+    $existing = $database->select('ttd_entity_aliases', 'ea')
+      ->fields('ea', ['id'])
+      ->condition('alias_entity_id', $alias_id)
+      ->execute()
+      ->fetchField();
+
+    $fields = [
+      'canonical_entity_id' => $canonical_id,
+      'alias_entity_id' => $alias_id,
+      'canonical_term_id' => $canonical_term_id,
+      'alias_term_id' => $alias_term_id,
+      'cleanup_version' => $cleanup_version,
+      'updated' => $now,
+    ];
+
+    if ($existing) {
+      $database->update('ttd_entity_aliases')
+        ->fields($fields)
+        ->condition('id', $existing)
+        ->execute();
+      return;
+    }
+
+    $fields['created'] = $now;
+    $database->insert('ttd_entity_aliases')
+      ->fields($fields)
+      ->execute();
+  }
+
+  /**
+   * Move rows in ttd_entity_post_ids from alias entity ID to canonical ID.
+   */
+  private function moveCustomRelationshipsToCanonical(int $canonical_id, int $alias_id): void {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('ttd_entity_post_ids')) {
+      return;
+    }
+
+    $rows = $database->select('ttd_entity_post_ids', 'ep')
+      ->fields('ep')
+      ->condition('entity_id', $alias_id)
+      ->execute()
+      ->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+      $existing = $database->select('ttd_entity_post_ids', 'ep')
+        ->fields('ep')
+        ->condition('entity_id', $canonical_id)
+        ->condition('post_id', $row['post_id'])
+        ->execute()
+        ->fetchAssoc();
+
+      if ($existing) {
+        $fields = [
+          'updatedAt' => date('Y-m-d H:i:s'),
+        ];
+        if ((float) ($row['salience_score'] ?? 0) > (float) ($existing['salience_score'] ?? 0)) {
+          $fields['salience_score'] = (float) $row['salience_score'];
+        }
+        if (empty($existing['salience_category']) && !empty($row['salience_category'])) {
+          $fields['salience_category'] = $row['salience_category'];
+        }
+        $database->update('ttd_entity_post_ids')
+          ->fields($fields)
+          ->condition('id', $existing['id'])
+          ->execute();
+        $database->delete('ttd_entity_post_ids')
+          ->condition('id', $row['id'])
+          ->execute();
+      }
+      else {
+        $database->update('ttd_entity_post_ids')
+          ->fields([
+            'entity_id' => $canonical_id,
+            'updatedAt' => date('Y-m-d H:i:s'),
+          ])
+          ->condition('id', $row['id'])
+          ->execute();
+      }
+    }
+  }
+
+  /**
+   * Replace alias topic term references on nodes with the canonical term.
+   */
+  private function moveNodeTopicReferencesToCanonical(int $canonical_term_id, int $alias_term_id): void {
+    if ($canonical_term_id === $alias_term_id || !\Drupal::database()->schema()->tableExists('node__field_ttd_topics')) {
+      return;
+    }
+
+    $node_ids = \Drupal::database()->select('node__field_ttd_topics', 'ft')
+      ->fields('ft', ['entity_id'])
+      ->condition('field_ttd_topics_target_id', $alias_term_id)
+      ->condition('deleted', 0)
+      ->execute()
+      ->fetchCol();
+
+    if (empty($node_ids)) {
+      return;
+    }
+
+    $node_storage = \Drupal::entityTypeManager()->getStorage('node');
+    foreach ($node_storage->loadMultiple(array_unique(array_map('intval', $node_ids))) as $node) {
+      if (!$node instanceof NodeInterface || !$node->hasField('field_ttd_topics')) {
+        continue;
+      }
+
+      $target_ids = [];
+      foreach ($node->get('field_ttd_topics') as $item) {
+        $target_id = (int) $item->target_id;
+        if ($target_id === $alias_term_id) {
+          $target_id = $canonical_term_id;
+        }
+        $target_ids[$target_id] = ['target_id' => $target_id];
+      }
+
+      $node->set('field_ttd_topics', array_values($target_ids));
+      $node->save();
+    }
   }
 
   /**
@@ -1137,6 +1397,7 @@ class TtdSyncService {
     $active['completed_jobs'] = (int) ($active['completed_jobs'] ?? 0) + 1;
     $active['posts_applied'] = (int) ($active['posts_applied'] ?? 0) + (int) ($stats['posts_applied'] ?? 0);
     $active['posts_skipped'] = (int) ($active['posts_skipped'] ?? 0) + (int) ($stats['posts_skipped'] ?? 0);
+    $active['alias_cleanups'] = (int) ($active['alias_cleanups'] ?? 0) + (int) ($stats['alias_cleanups'] ?? 0);
     $state->set(static::SYNC_STATE_KEY, $active);
 
     if ((int) $active['completed_jobs'] >= (int) ($active['total_jobs'] ?? 0)) {
@@ -1167,7 +1428,7 @@ class TtdSyncService {
       'after_id' => (int) $response['next_after_id'],
     ]));
 
-    $this->expandActiveSyncTotalJobs(1);
+    $this->expandActiveSyncTotalJobs(1, $type);
   }
 
   /**
@@ -1190,6 +1451,9 @@ class TtdSyncService {
     }
     elseif ($type === 'topics') {
       $active['topic_pages'] = (int) ($active['topic_pages'] ?? 0) + $additional_jobs;
+    }
+    elseif ($type === 'entity_aliases') {
+      $active['alias_pages'] = (int) ($active['alias_pages'] ?? 0) + $additional_jobs;
     }
     $state->set(static::SYNC_STATE_KEY, $active);
   }

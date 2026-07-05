@@ -449,6 +449,61 @@ function ttd_topics_schema() {
     ],
   ];
 
+  $schema['ttd_entity_aliases'] = [
+    'description' => 'Stores API-approved canonical entity aliases for local cleanup and redirects.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary key: Auto-increment ID',
+      ],
+      'canonical_entity_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Canonical TopicalBoost entity ID.',
+      ],
+      'alias_entity_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Alias TopicalBoost entity ID.',
+      ],
+      'canonical_term_id' => [
+        'type' => 'int',
+        'not null' => FALSE,
+        'description' => 'Local canonical taxonomy term ID.',
+      ],
+      'alias_term_id' => [
+        'type' => 'int',
+        'not null' => FALSE,
+        'description' => 'Local alias taxonomy term ID.',
+      ],
+      'cleanup_version' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+        'description' => 'API cleanup version last applied locally.',
+      ],
+      'created' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Created timestamp.',
+      ],
+      'updated' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Updated timestamp.',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'alias_entity_id' => ['alias_entity_id'],
+    ],
+    'indexes' => [
+      'canonical_entity_id' => ['canonical_entity_id'],
+      'alias_term_id' => ['alias_term_id'],
+    ],
+  ];
+
   // Entity to schema types relationship table.
   $schema['ttd_entity_schema_types'] = [
     'description' => 'Maps entities to schema types',
@@ -1741,4 +1796,19 @@ function ttd_topics_update_9106() {
   return t('Ensured TopicalBoost field instances for enabled content types: @types.', [
     '@types' => implode(', ', $enabled_content_types),
   ]);
+}
+
+/**
+ * Add local entity alias table for API-approved canonical merges.
+ */
+function ttd_topics_update_9107() {
+  $schema = \Drupal::database()->schema();
+  $table_specs = ttd_topics_schema();
+
+  if ($schema->tableExists('ttd_entity_aliases')) {
+    return t('TopicalBoost entity alias table already exists.');
+  }
+
+  $schema->createTable('ttd_entity_aliases', $table_specs['ttd_entity_aliases']);
+  return t('Added TopicalBoost entity alias table.');
 }

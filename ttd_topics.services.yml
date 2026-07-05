@@ -23,6 +23,12 @@ services:
   ttd_topics.sync_service:
     class: Drupal\ttd_topics\Service\TtdSyncService
 
+  ttd_topics.topic_alias_redirect_subscriber:
+    class: Drupal\ttd_topics\EventSubscriber\TopicAliasRedirectSubscriber
+    arguments: ['@database', '@entity_type.manager']
+    tags:
+      - { name: event_subscriber }
+
   ttd_topics.error_telemetry:
     class: Drupal\ttd_topics\Service\ErrorTelemetryService
     arguments: ['@config.factory', '@state']

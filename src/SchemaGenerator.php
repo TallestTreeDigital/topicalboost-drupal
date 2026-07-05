@@ -66,6 +66,23 @@ class SchemaGenerator {
   }
 
   /**
+   * Format a Google Knowledge Graph / Freebase identifier for schema @id.
+   */
+  protected function formatKgId(?string $identifier): ?string {
+    $identifier = is_string($identifier) ? trim($identifier) : '';
+    if ($identifier === '') {
+      return NULL;
+    }
+
+    $identifier = preg_replace('/^kg:/i', '', $identifier);
+    if (preg_match('#^/?(m|g)/#i', $identifier)) {
+      return 'kg:/' . ltrim($identifier, '/');
+    }
+
+    return NULL;
+  }
+
+  /**
    * Gets schema.org metadata for a node's TopicalBoost topics.
    *
    * @param int $nid
@@ -628,6 +645,9 @@ class SchemaGenerator {
     $query->leftJoin('taxonomy_term__field_ttd_id', 'ttd', 'ttd.entity_id = t.tid');
     $query->leftJoin('taxonomy_term__field_hide', 'h', 'h.entity_id = t.tid');
     $query->leftJoin('path_alias', 'pa', "pa.path = CONCAT('/taxonomy/term/', t.tid) AND pa.status = 1");
+    if ($this->database->schema()->tableExists('ttd_entity_aliases')) {
+      $query->leftJoin('ttd_entity_aliases', 'ea', 'ea.alias_entity_id = ttd.field_ttd_id_value');
+    }
 
     // Join with ttd_entity_post_ids to filter by salience category.
     $query->join('ttd_entity_post_ids', 'ep', 'ep.entity_id = ttd.field_ttd_id_value AND ep.post_id = ti.entity_id');
@@ -649,6 +669,10 @@ class SchemaGenerator {
       ->condition('t.vid', 'ttd_topics')
       ->condition('ti.deleted', 0)
       ->condition('ep.salience_category', $salience_category);
+
+    if ($this->database->schema()->tableExists('ttd_entity_aliases')) {
+      $query->isNull('ea.alias_entity_id');
+    }
 
     // Exclude rejected topics.
     if (!empty($rejected_ttd_ids)) {
@@ -711,7 +735,10 @@ class SchemaGenerator {
       ];
 
       if (!empty($entity['mid'])) {
-        $output_data['@id'] = 'kg:/g/' . ltrim($entity['mid'], '/m/');
+        $kg_id = $this->formatKgId($entity['mid']);
+        if ($kg_id) {
+          $output_data['@id'] = $kg_id;
+        }
       }
       elseif (!empty($entity['wb_qid'])) {
         $output_data['@id'] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
@@ -897,7 +924,10 @@ class SchemaGenerator {
     $this->addSchemaTypeProperties($output_data, $entity, $schema_type);
 
     // Add sameAs links.
-    $output_data['sameAs'] = $this->getSameAsLinks($entity);
+    $same_as_links = $this->getSameAsLinks($entity);
+    if (!empty($same_as_links)) {
+      $output_data['sameAs'] = $same_as_links;
+    }
 
     return $output_data;
   }
@@ -1065,23 +1095,14 @@ class SchemaGenerator {
   protected function getSameAsLinks($entity) {
     $links = [];
 
-    // Google Knowledge Graph links - handle all variants.
-    if (!empty($entity['mid'])) {
-      $links[] = 'https://www.google.com/search?kgmid=' . $entity['mid'];
-    }
-    elseif (!empty($entity['freebase_id'])) {
-      $links[] = 'https://www.google.com/search?kgmid=' . $entity['freebase_id'];
-    }
-    elseif (!empty($entity['google_knowledge_graph_id'])) {
-      $links[] = 'https://www.google.com/search?kgmid=' . $entity['google_knowledge_graph_id'];
+    $this->addEntityIdentifierLinks($links, $entity);
+    foreach ($this->getAliasEntitiesForSchema($entity) as $alias_entity) {
+      $this->addEntityIdentifierLinks($links, $alias_entity);
     }
 
     // Add missing links.
     if (!empty($entity['rotten_tomatoes_id'])) {
       $links[] = 'https://www.rottentomatoes.com/' . $entity['rotten_tomatoes_id'];
-    }
-    if (!empty($entity['wb_qid'])) {
-      $links[] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
     }
     if (!empty($entity['wikipedia_url'])) {
       $links[] = $entity['wikipedia_url'];
@@ -1105,7 +1126,51 @@ class SchemaGenerator {
       $links[] = 'https://open.spotify.com/album/' . $entity['spotify_album_id'];
     }
 
-    return array_values(array_unique($links));
+    return array_values(array_unique(array_filter($links)));
+  }
+
+  /**
+   * Adds KG/Freebase/Wikidata links for an entity row to a sameAs list.
+   */
+  protected function addEntityIdentifierLinks(array &$links, array $entity): void {
+    if (!empty($entity['mid'])) {
+      $links[] = 'https://www.google.com/search?kgmid=' . $entity['mid'];
+    }
+    if (!empty($entity['freebase_id'])) {
+      $links[] = 'https://www.google.com/search?kgmid=' . $entity['freebase_id'];
+    }
+    if (!empty($entity['google_knowledge_graph_id'])) {
+      $links[] = 'https://www.google.com/search?kgmid=' . $entity['google_knowledge_graph_id'];
+    }
+    if (!empty($entity['wb_qid'])) {
+      $links[] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
+    }
+  }
+
+  /**
+   * Loads local alias entity rows so canonical schema can preserve duplicate IDs.
+   */
+  protected function getAliasEntitiesForSchema(array $entity): array {
+    if (!$this->database->schema()->tableExists('ttd_entity_aliases')) {
+      return [];
+    }
+
+    $canonical_id = (int) ($entity['ttd_id'] ?? $entity['id'] ?? 0);
+    if ($canonical_id <= 0) {
+      return [];
+    }
+
+    $query = $this->database->select('ttd_entity_aliases', 'ea');
+    $query->join('ttd_entities', 'e', 'e.ttd_id = ea.alias_entity_id');
+    $query->fields('e')
+      ->condition('ea.canonical_entity_id', $canonical_id);
+
+    $aliases = [];
+    foreach ($query->execute() as $record) {
+      $aliases[] = (array) $record;
+    }
+
+    return $aliases;
   }
 
   /**
