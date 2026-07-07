@@ -34,6 +34,12 @@
   border-bottom: 1px solid #dee2e6;
 }
 
+.ttd-topics-overview th:nth-child(3),
+.ttd-topics-overview td.ttd-hidden-status-cell {
+  text-align: center;
+  width: 110px;
+}
+
 .ttd-topics-overview td:first-child .ttd-status-badge {
   float: right;
   margin-left: 8px;
@@ -204,6 +210,41 @@ a.ttd-status-badge--hide-action:hover {
   text-decoration: none;
 }
 
+.ttd-hidden-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 3px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+a.ttd-hidden-status--hidden,
+a.ttd-hidden-status--hidden:link,
+a.ttd-hidden-status--hidden:visited {
+  color: #2d3436;
+  background-color: #ffeaa7;
+}
+
+a.ttd-hidden-status--hidden:hover {
+  color: #2d3436;
+  background-color: #fdcb6e;
+  text-decoration: none;
+}
+
+.ttd-hidden-status--visible {
+  color: #6c757d;
+}
+
+a.ttd-hidden-status--visible:hover {
+  color: #495057;
+  background-color: #e9ecef;
+  text-decoration: none;
+}
+
 .gin--dark-mode a.ttd-status-badge--hidden,
 .gin--dark-mode a.ttd-status-badge--hidden:link,
 .gin--dark-mode a.ttd-status-badge--hidden:visited {
@@ -231,6 +272,27 @@ a.ttd-status-badge--hide-action:hover {
 .gin--dark-mode a.ttd-status-badge--hide-action:hover {
   background-color: var(--gin-border-color, #3a3a3d);
   color: var(--gin-color-text, #e0e0e0);
+}
+
+.gin--dark-mode a.ttd-hidden-status--hidden,
+.gin--dark-mode a.ttd-hidden-status--hidden:link,
+.gin--dark-mode a.ttd-hidden-status--hidden:visited {
+  color: #ffeaa7;
+  background-color: #6c5b1e;
+}
+
+.gin--dark-mode a.ttd-hidden-status--hidden:hover {
+  color: #ffeaa7;
+  background-color: #7d6a23;
+}
+
+.gin--dark-mode .ttd-hidden-status--visible {
+  color: var(--gin-color-text-light, #9ca3af);
+}
+
+.gin--dark-mode a.ttd-hidden-status--visible:hover {
+  color: var(--gin-color-text, #e0e0e0);
+  background-color: var(--gin-bg-layer3, #333336);
 }
 
 /* Settings tab bar link */

@@ -133,7 +133,7 @@ class TtdTopicsController extends ControllerBase {
     $sort_order = $request->query->get('order', 'desc');
 
     // Validate sort params.
-    if (!in_array($sort_by, ['name', 'count'], TRUE)) {
+    if (!in_array($sort_by, ['name', 'count', 'hidden'], TRUE)) {
       $sort_by = 'count';
     }
     if (!in_array($sort_order, ['asc', 'desc'], TRUE)) {
@@ -152,65 +152,82 @@ class TtdTopicsController extends ControllerBase {
 
     $total_topics_count = $total_count_query->countQuery()->execute()->fetchField();
 
-    // Get topic data with post counts via JOIN for proper SQL sorting.
-    $query = $database->select('taxonomy_term_field_data', 'td');
-    $query->fields('td', ['tid', 'name']);
-    $query->condition('td.vid', 'ttd_topics');
-    $query->condition('td.status', 1);
+    $items_per_page = 50;
+    $needs_post_count_query = !empty($min_posts)
+      || in_array($visibility, ['visible', 'below'], TRUE)
+      || $sort_by === 'count';
 
-    // LEFT JOIN taxonomy_index to get post counts in the query.
-    $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
-    $query->addExpression('COUNT(ti.nid)', 'post_count');
+    if ($needs_post_count_query) {
+      // Get topic data with post counts when the current sort/filter requires it.
+      $query = $database->select('taxonomy_term_field_data', 'td');
+      $query->fields('td', ['tid', 'name']);
+      $query->condition('td.vid', 'ttd_topics');
+      $query->condition('td.status', 1);
 
-    // LEFT JOIN field_hide to get hidden status.
-    $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
-    $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
+      $query->leftJoin('taxonomy_index', 'ti', 'td.tid = ti.tid');
+      $query->addExpression('COUNT(ti.nid)', 'post_count');
 
-    $query->groupBy('td.tid');
-    $query->groupBy('td.name');
-    $query->groupBy('tfh.field_hide_value');
+      $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
+      $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
 
-    // Add search filter if provided.
-    if (!empty($search)) {
-      $query->condition('td.name', '%' . $database->escapeLike($search) . '%', 'LIKE');
-    }
+      $query->groupBy('td.tid');
+      $query->groupBy('td.name');
+      $query->groupBy('tfh.field_hide_value');
 
-    // Apply min_posts filter via HAVING.
-    if (!empty($min_posts)) {
-      $query->havingCondition('COUNT(ti.nid)', (int) $min_posts, '>=');
-    }
+      if (!empty($search)) {
+        $query->condition('td.name', '%' . $database->escapeLike($search) . '%', 'LIKE');
+      }
 
-    // Apply visibility filter.
-    if ($visibility === 'hidden') {
-      $query->condition('tfh.field_hide_value', 1);
-    }
-    elseif ($visibility === 'visible') {
-      $or = $query->orConditionGroup()
-        ->condition('tfh.field_hide_value', 0)
-        ->isNull('tfh.field_hide_value');
-      $query->condition($or);
-      $query->havingCondition('COUNT(ti.nid)', $min_display_count, '>=');
-    }
-    elseif ($visibility === 'below') {
-      $or = $query->orConditionGroup()
-        ->condition('tfh.field_hide_value', 0)
-        ->isNull('tfh.field_hide_value');
-      $query->condition($or);
-      $query->havingCondition('COUNT(ti.nid)', $min_display_count, '<');
-    }
+      if (!empty($min_posts)) {
+        $query->havingCondition('COUNT(ti.nid)', (int) $min_posts, '>=');
+      }
 
-    // Apply sort in SQL.
-    if ($sort_by === 'name') {
-      $query->orderBy('td.name', strtoupper($sort_order));
+      if ($visibility === 'hidden') {
+        $query->condition('tfh.field_hide_value', 1);
+      }
+      elseif ($visibility === 'visible') {
+        $or = $query->orConditionGroup()
+          ->condition('tfh.field_hide_value', 0)
+          ->isNull('tfh.field_hide_value');
+        $query->condition($or);
+        $query->havingCondition('COUNT(ti.nid)', $min_display_count, '>=');
+      }
+      elseif ($visibility === 'below') {
+        $or = $query->orConditionGroup()
+          ->condition('tfh.field_hide_value', 0)
+          ->isNull('tfh.field_hide_value');
+        $query->condition($or);
+        $query->havingCondition('COUNT(ti.nid)', $min_display_count, '<');
+      }
+
+      $filtered_count = (int) (clone $query)->countQuery()->execute()->fetchField();
     }
     else {
-      $query->orderBy('post_count', strtoupper($sort_order));
-      $query->orderBy('td.name', 'ASC');
+      // Hidden/name sorts can page terms first and count posts only for visible rows.
+      $query = $database->select('taxonomy_term_field_data', 'td');
+      $query->fields('td', ['tid', 'name']);
+      $query->condition('td.vid', 'ttd_topics');
+      $query->condition('td.status', 1);
+
+      $query->leftJoin('taxonomy_term__field_hide', 'tfh', 'td.tid = tfh.entity_id');
+      $query->addExpression('COALESCE(tfh.field_hide_value, 0)', 'is_hidden');
+
+      $query->groupBy('td.tid');
+      $query->groupBy('td.name');
+      $query->groupBy('tfh.field_hide_value');
+
+      if (!empty($search)) {
+        $query->condition('td.name', '%' . $database->escapeLike($search) . '%', 'LIKE');
+      }
+
+      if ($visibility === 'hidden') {
+        $query->condition('tfh.field_hide_value', 1);
+      }
+
+      $filtered_count = (int) (clone $query)->countQuery()->execute()->fetchField();
     }
 
-    $all_results = $query->execute()->fetchAll();
-
-    if (empty($all_results)) {
+    if ($filtered_count === 0) {
       $no_results_text = !empty($search) ?
         $this->t('No topics found matching "@search".', ['@search' => $search]) :
         $this->t('No topics found.');
@@ -220,19 +237,43 @@ class TtdTopicsController extends ControllerBase {
       ];
     }
 
-    // Calculate totals across ALL results (not just current page).
-    $filtered_count = count($all_results);
-    $total_posts = 0;
-    foreach ($all_results as $row) {
-      $total_posts += (int) $row->post_count;
-    }
-
-    // Set up pagination.
-    $items_per_page = 50;
+    // Set up pagination before applying the SQL range.
     $pager_manager = \Drupal::service('pager.manager');
     $pager = $pager_manager->createPager($filtered_count, $items_per_page, 1);
     $current_page = $pager->getCurrentPage();
-    $page_results = array_slice($all_results, $current_page * $items_per_page, $items_per_page);
+
+    // Apply sort in SQL.
+    if ($sort_by === 'name') {
+      $query->orderBy('td.name', strtoupper($sort_order));
+    }
+    elseif ($sort_by === 'hidden') {
+      $query->orderBy('is_hidden', strtoupper($sort_order));
+      $query->orderBy('td.name', 'ASC');
+    }
+    else {
+      $query->orderBy('post_count', strtoupper($sort_order));
+      $query->orderBy('td.name', 'ASC');
+    }
+
+    $query->range($current_page * $items_per_page, $items_per_page);
+    $page_results = $query->execute()->fetchAll();
+
+    if (!$needs_post_count_query && !empty($page_results)) {
+      $page_term_ids = array_map(static function ($row) {
+        return (int) $row->tid;
+      }, $page_results);
+
+      $count_query = $database->select('taxonomy_index', 'ti');
+      $count_query->fields('ti', ['tid']);
+      $count_query->addExpression('COUNT(ti.nid)', 'post_count');
+      $count_query->condition('ti.tid', $page_term_ids, 'IN');
+      $count_query->groupBy('ti.tid');
+      $page_post_counts = $count_query->execute()->fetchAllKeyed();
+
+      foreach ($page_results as $row) {
+        $row->post_count = (int) ($page_post_counts[$row->tid] ?? 0);
+      }
+    }
 
     // Build table rows from current page.
     $rows = [];
@@ -245,23 +286,26 @@ class TtdTopicsController extends ControllerBase {
       $edit_url = Url::fromRoute('entity.taxonomy_term.edit_form', ['taxonomy_term' => $row->tid]);
       $toggle_url = Url::fromRoute('topicalboost.api.toggle_topic_visibility', ['taxonomy_term' => $row->tid]);
 
-      // Build name cell with inline badges.
+      // Build name cell.
       $name_markup = '<a href="' . $edit_url->toString() . '" class="ttd-topic-name">' . htmlspecialchars($row->name, ENT_QUOTES) . '</a>';
 
-      // Hidden badge is clickable to unhide; visible topics above threshold get a hover-only "Hide" link.
       if ($is_hidden) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Click to unhide">Hidden</a>';
+        $hidden_markup = '<a href="' . $toggle_url->toString() . '" class="ttd-hidden-status ttd-hidden-status--hidden ttd-toggle-visibility" title="Click to unhide" aria-label="Hidden. Click to unhide">&#10003;</a>';
       }
       elseif (!$is_below_threshold) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Hide from public display">Hide</a>';
+        $hidden_markup = '<a href="' . $toggle_url->toString() . '" class="ttd-hidden-status ttd-hidden-status--visible ttd-toggle-visibility" title="Hide from public display" aria-label="Visible. Click to hide">&mdash;</a>';
       }
-      if ($is_below_threshold) {
-        $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
+      else {
+        $hidden_markup = '<span class="ttd-hidden-status ttd-hidden-status--visible" aria-label="Visible">&mdash;</span>';
       }
 
       $rows[(int) $row->tid] = [
         'name' => [
           'data' => ['#markup' => $name_markup],
+        ],
+        'hidden' => [
+          'data' => ['#markup' => $hidden_markup],
+          'class' => ['ttd-hidden-status-cell'],
         ],
         'count' => $count,
         'operations' => [
@@ -318,15 +362,15 @@ class TtdTopicsController extends ControllerBase {
     }
     $filter_text = !empty($filter_parts) ? ' (' . implode(' and ', $filter_parts) . ')' : '';
 
-    // Summary with page range and totals across all pages.
+    // Summary with page range across all matching topics.
     $page_start = $current_page * $items_per_page + 1;
     $page_end = min(($current_page + 1) * $items_per_page, $filtered_count);
     $display_text = '';
     if ($filtered_count > $items_per_page) {
-      $display_text = 'Showing <strong>' . $page_start . '-' . $page_end . '</strong> of <strong>' . $filtered_count . '</strong> topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
+      $display_text = 'Showing <strong>' . $page_start . '-' . $page_end . '</strong> of <strong>' . $filtered_count . '</strong> topics' . $filter_text;
     }
     else {
-      $display_text = 'Showing <strong>' . $filtered_count . '</strong> topics with <strong>' . $total_posts . '</strong> total post references' . $filter_text;
+      $display_text = 'Showing <strong>' . $filtered_count . '</strong> topics' . $filter_text;
     }
     if ($total_topics_count != $filtered_count) {
       $display_text .= ' (<strong>' . $total_topics_count . '</strong> total topics)';
@@ -371,10 +415,23 @@ class TtdTopicsController extends ControllerBase {
     }
     $count_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'count', 'order' => $count_order]]);
 
+    // Hidden header: toggle order if already sorting by hidden, else default to DESC.
+    $hidden_order = ($sort_by === 'hidden' && $sort_order === 'desc') ? 'asc' : 'desc';
+    $hidden_arrow = '';
+    if ($sort_by === 'hidden') {
+      $hidden_arrow = $sort_order === 'asc' ? ' &#9650;' : ' &#9660;';
+    }
+    $hidden_sort_url = Url::fromRoute('<current>', [], ['query' => $base_query + ['sort' => 'hidden', 'order' => $hidden_order]]);
+
     $header = [
       'name' => [
         'data' => [
           '#markup' => '<a href="' . $name_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'name' ? ' is-active' : '') . '">Topic Name' . $name_arrow . '</a>',
+        ],
+      ],
+      'hidden' => [
+        'data' => [
+          '#markup' => '<a href="' . $hidden_sort_url->toString() . '" class="ttd-sort-link' . ($sort_by === 'hidden' ? ' is-active' : '') . '">Hidden' . $hidden_arrow . '</a>',
         ],
       ],
       'count' => [
