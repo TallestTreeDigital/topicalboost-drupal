@@ -37,6 +37,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-perfor
 
 # From the module root, no Drupal bootstrap required.
 php tests/cli/test-sync-cursor-upgrade.php
+php tests/cli/test-hidden-backfill-parity.php
 ```
 
 `test-parity-core.php` covers:

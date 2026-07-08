@@ -14,10 +14,16 @@ class TtdSyncService {
   const QUEUE_ID = 'ttd_topics_analysis';
   const SYNC_JOB_TYPE = 'ttd_sync_pull';
   const HIDDEN_SYNC_JOB_TYPE = 'ttd_sync_hidden_entities';
+  const LOCAL_HIDDEN_BACKFILL_JOB_TYPE = 'ttd_backfill_local_hidden_entities';
   const CURATION_SYNC_JOB_TYPE = 'ttd_sync_curation_scores';
   const SYNC_STATE_KEY = 'ttd_active_sync';
   const LAST_SYNC_KEY = 'ttd_last_sync_at';
   const API_HIDDEN_STATE_KEY = 'ttd_api_hidden_entity_ids';
+  const LOCAL_HIDDEN_BACKFILL_COMPLETE_KEY = 'ttd_local_hidden_backfill_complete';
+  const LOCAL_HIDDEN_BACKFILL_CURSOR_KEY = 'ttd_local_hidden_backfill_cursor';
+  const LOCAL_HIDDEN_BACKFILL_STATS_KEY = 'ttd_local_hidden_backfill_stats';
+  const LOCAL_HIDDEN_BACKFILL_RETRY_KEY = 'ttd_local_hidden_backfill_retry_at';
+  const LOCAL_HIDDEN_BACKFILL_LAST_QUEUED_KEY = 'ttd_local_hidden_backfill_last_queued';
   const CURATION_SCORE_COLLECTION = 'ttd_topics.curation_scores';
   const CURATION_LAST_SYNC_KEY = 'ttd_curation_scores_sync_last_run';
   const TOPIC_PAGE_SIZE = 25;
@@ -668,6 +674,94 @@ class TtdSyncService {
   }
 
   /**
+   * Count locally hidden topics with TopicalBoost entity IDs.
+   */
+  public function countLocalHiddenEntities(): int {
+    $database = \Drupal::database();
+    if (!$this->hasLocalHiddenBackfillTables($database)) {
+      return 0;
+    }
+
+    $query = $database->select('taxonomy_term_field_data', 'td');
+    $query->join('taxonomy_term__field_hide', 'tfh', 'tfh.entity_id = td.tid AND tfh.deleted = 0 AND tfh.field_hide_value = 1');
+    $query->join('taxonomy_term__field_ttd_id', 'ttid', 'ttid.entity_id = td.tid AND ttid.deleted = 0');
+    $query->condition('td.vid', 'ttd_topics');
+    $query->isNotNull('ttid.field_ttd_id_value');
+    $query->condition('ttid.field_ttd_id_value', '', '<>');
+    $query->addExpression('COUNT(DISTINCT td.tid)', 'count');
+
+    return (int) $query->execute()->fetchField();
+  }
+
+  /**
+   * Send one cursor-batched page of local hidden topics to the API.
+   */
+  public function backfillLocalHiddenEntitiesBatch(int $batch_size = 100, int $after_term_id = 0): array {
+    $batch_size = max(1, min(1000, $batch_size));
+    $after_term_id = max(0, $after_term_id);
+    $stats = [
+      'found' => 0,
+      'sent' => 0,
+      'hidden' => 0,
+      'already_hidden' => 0,
+      'not_found' => 0,
+      'failed' => 0,
+      'last_term_id' => $after_term_id,
+      'has_more' => FALSE,
+    ];
+
+    $rows = $this->getLocalHiddenEntityRows($batch_size, $after_term_id);
+    if (empty($rows)) {
+      return $stats;
+    }
+
+    $last_row = end($rows);
+    $stats['found'] = count($rows);
+    $stats['last_term_id'] = (int) ($last_row['term_id'] ?? $after_term_id);
+    $stats['has_more'] = count($rows) === $batch_size;
+
+    $items = [];
+    foreach ($rows as $row) {
+      $entity_id = (int) $row['entity_id'];
+      if ($entity_id <= 0) {
+        continue;
+      }
+
+      $items[] = [
+        'entityId' => $entity_id,
+        'entityName' => (string) $row['entity_name'],
+        'reason' => 'Backfilled from Drupal hidden topic',
+        'metadata' => [
+          'termId' => (int) $row['term_id'],
+          'localHiddenBackfill' => TRUE,
+        ],
+      ];
+    }
+
+    if (empty($items)) {
+      return $stats;
+    }
+
+    $response = $this->apiRequest('POST', '/telemetry/editorial-signals/hidden-backfill', [
+      'items' => $items,
+    ]);
+
+    if (!is_array($response) || empty($response['logged'])) {
+      $stats['failed'] = count($items);
+      $stats['last_term_id'] = $after_term_id;
+      $stats['has_more'] = TRUE;
+      return $stats;
+    }
+
+    $stats['sent'] = count($items);
+    $stats['hidden'] = (int) ($response['hidden'] ?? 0);
+    $stats['already_hidden'] = (int) ($response['alreadyHidden'] ?? 0);
+    $stats['not_found'] = (int) ($response['notFound'] ?? 0);
+
+    return $stats;
+  }
+
+  /**
    * Push local Drupal curation overrides to the API as editorial signals.
    *
    * Hidden topics win if a term is both hidden and force-shown.
@@ -717,6 +811,54 @@ class TtdSyncService {
     }
 
     return $stats;
+  }
+
+  /**
+   * Query locally hidden topic rows without loading taxonomy entities.
+   */
+  private function getLocalHiddenEntityRows(int $limit = 0, int $after_term_id = 0): array {
+    $database = \Drupal::database();
+    if (!$this->hasLocalHiddenBackfillTables($database)) {
+      return [];
+    }
+
+    $query = $database->select('taxonomy_term_field_data', 'td')->distinct();
+    $query->fields('td', ['tid', 'name']);
+    $query->addField('ttid', 'field_ttd_id_value', 'ttd_id');
+    $query->join('taxonomy_term__field_hide', 'tfh', 'tfh.entity_id = td.tid AND tfh.deleted = 0 AND tfh.field_hide_value = 1');
+    $query->join('taxonomy_term__field_ttd_id', 'ttid', 'ttid.entity_id = td.tid AND ttid.deleted = 0');
+    $query->condition('td.vid', 'ttd_topics');
+    $query->condition('td.tid', max(0, $after_term_id), '>');
+    $query->isNotNull('ttid.field_ttd_id_value');
+    $query->condition('ttid.field_ttd_id_value', '', '<>');
+    $query->orderBy('td.tid', 'ASC');
+    if ($limit > 0) {
+      $query->range(0, max(1, min(1000, $limit)));
+    }
+
+    $rows = [];
+    foreach ($query->execute() as $row) {
+      $ttd_id = trim((string) $row->ttd_id);
+      $entity_id = ctype_digit($ttd_id) ? (int) $ttd_id : 0;
+
+      $rows[] = [
+        'entity_id' => $entity_id,
+        'entity_name' => (string) $row->name,
+        'term_id' => (int) $row->tid,
+      ];
+    }
+
+    return $rows;
+  }
+
+  /**
+   * Check whether the tables needed for fast hidden backfill exist.
+   */
+  private function hasLocalHiddenBackfillTables($database): bool {
+    $schema = $database->schema();
+    return $schema->tableExists('taxonomy_term_field_data')
+      && $schema->tableExists('taxonomy_term__field_hide')
+      && $schema->tableExists('taxonomy_term__field_ttd_id');
   }
 
   /**
