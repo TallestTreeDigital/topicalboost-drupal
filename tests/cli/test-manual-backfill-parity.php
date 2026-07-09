@@ -27,6 +27,7 @@ ttd_manual_backfill_assert(strpos($sync_service, "node__field_manual_topics") !=
 ttd_manual_backfill_assert(strpos($sync_service, "taxonomy_term__field_ttd_id") !== false, 'Backfill resolves canonical TopicalBoost entity IDs from field_ttd_id');
 ttd_manual_backfill_assert(strpos($sync_service, "'/telemetry/editorial-signals/manual-backfill'") !== false, 'Backfill uses the bulk manual-backfill API endpoint');
 ttd_manual_backfill_assert(strpos($sync_service, "'manualEntryMethod' => 'current_state_backfill'") !== false, 'Backfill marks synthetic current-state events');
+ttd_manual_backfill_assert(strpos($sync_service, "'manualTopicEffectiveAt'") !== false, 'Backfill includes a publish-date effective timestamp for display');
 
 ttd_manual_backfill_assert(strpos($backfill_job, 'id = "ttd_backfill_local_manual_topics"') !== false, 'AdvancedQueue job type exists for local manual topic backfill');
 ttd_manual_backfill_assert(strpos($backfill_job, 'private const BATCH_SIZE = 100;') !== false, 'Backfill job uses WordPress-sized batches');

@@ -834,6 +834,9 @@ class TtdSyncService {
           'ttdId' => $entity_id,
           'cmsPostId' => $node_id,
           'cmsTopicId' => $term_id,
+          'cmsPostPublishedAt' => (string) ($row['published_at'] ?? ''),
+          'cmsPostModifiedAt' => (string) ($row['modified_at'] ?? ''),
+          'manualTopicEffectiveAt' => (string) (($row['published_at'] ?? '') ?: ($row['modified_at'] ?? '')),
           'localManualTopicBackfill' => TRUE,
           'manualEntryMethod' => 'current_state_backfill',
         ],
@@ -994,6 +997,9 @@ class TtdSyncService {
     $query->addField('fmt', 'field_manual_topics_target_id', 'term_id');
     $query->fields('td', ['name']);
     $query->addField('ttid', 'field_ttd_id_value', 'ttd_id');
+    $query->addField('n', 'created', 'node_created');
+    $query->addField('n', 'changed', 'node_changed');
+    $query->join('node_field_data', 'n', 'n.nid = fmt.entity_id AND n.default_langcode = 1');
     $query->join('taxonomy_term_field_data', 'td', 'td.tid = fmt.field_manual_topics_target_id');
     $query->join('taxonomy_term__field_ttd_id', 'ttid', 'ttid.entity_id = fmt.field_manual_topics_target_id AND ttid.deleted = 0');
     $query->condition('fmt.deleted', 0);
@@ -1013,6 +1019,8 @@ class TtdSyncService {
         'term_id' => (int) $row->term_id,
         'entity_id' => $entity_id,
         'entity_name' => (string) $row->name,
+        'published_at' => $this->formatTimestampForApi($row->node_created ?? NULL),
+        'modified_at' => $this->formatTimestampForApi($row->node_changed ?? NULL),
       ];
     }
 
@@ -1035,6 +1043,7 @@ class TtdSyncService {
   private function hasLocalManualTopicBackfillTables($database): bool {
     $schema = $database->schema();
     return $schema->tableExists('node__field_manual_topics')
+      && $schema->tableExists('node_field_data')
       && $schema->tableExists('taxonomy_term_field_data')
       && $schema->tableExists('taxonomy_term__field_ttd_id');
   }
