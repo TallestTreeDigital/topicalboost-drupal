@@ -15,6 +15,7 @@ class TtdSyncService {
   const SYNC_JOB_TYPE = 'ttd_sync_pull';
   const HIDDEN_SYNC_JOB_TYPE = 'ttd_sync_hidden_entities';
   const LOCAL_HIDDEN_BACKFILL_JOB_TYPE = 'ttd_backfill_local_hidden_entities';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_JOB_TYPE = 'ttd_backfill_local_manual_topics';
   const CURATION_SYNC_JOB_TYPE = 'ttd_sync_curation_scores';
   const SYNC_STATE_KEY = 'ttd_active_sync';
   const LAST_SYNC_KEY = 'ttd_last_sync_at';
@@ -24,6 +25,11 @@ class TtdSyncService {
   const LOCAL_HIDDEN_BACKFILL_STATS_KEY = 'ttd_local_hidden_backfill_stats';
   const LOCAL_HIDDEN_BACKFILL_RETRY_KEY = 'ttd_local_hidden_backfill_retry_at';
   const LOCAL_HIDDEN_BACKFILL_LAST_QUEUED_KEY = 'ttd_local_hidden_backfill_last_queued';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_COMPLETE_KEY = 'ttd_local_manual_topic_backfill_complete';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_CURSOR_KEY = 'ttd_local_manual_topic_backfill_cursor';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_STATS_KEY = 'ttd_local_manual_topic_backfill_stats';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_RETRY_KEY = 'ttd_local_manual_topic_backfill_retry_at';
+  const LOCAL_MANUAL_TOPIC_BACKFILL_LAST_QUEUED_KEY = 'ttd_local_manual_topic_backfill_last_queued';
   const CURATION_SCORE_COLLECTION = 'ttd_topics.curation_scores';
   const CURATION_LAST_SYNC_KEY = 'ttd_curation_scores_sync_last_run';
   const TOPIC_PAGE_SIZE = 25;
@@ -762,6 +768,104 @@ class TtdSyncService {
   }
 
   /**
+   * Count current manual topic assignments with TopicalBoost entity IDs.
+   */
+  public function countLocalManualTopicAssignments(): int {
+    $database = \Drupal::database();
+    if (!$this->hasLocalManualTopicBackfillTables($database)) {
+      return 0;
+    }
+
+    $query = $database->select('node__field_manual_topics', 'fmt')->distinct();
+    $query->fields('fmt', ['entity_id', 'field_manual_topics_target_id']);
+    $query->join('taxonomy_term__field_ttd_id', 'ttid', 'ttid.entity_id = fmt.field_manual_topics_target_id AND ttid.deleted = 0');
+    $query->condition('fmt.deleted', 0);
+    $query->isNotNull('ttid.field_ttd_id_value');
+    $query->condition('ttid.field_ttd_id_value', '', '<>');
+
+    return (int) $query->countQuery()->execute()->fetchField();
+  }
+
+  /**
+   * Send one cursor-batched page of current manual topic assignments to the API.
+   */
+  public function backfillLocalManualTopicsBatch(int $batch_size = 100, int $after_node_id = 0): array {
+    $batch_size = max(1, min(500, $batch_size));
+    $after_node_id = max(0, $after_node_id);
+    $stats = [
+      'found' => 0,
+      'nodes' => 0,
+      'sent' => 0,
+      'backfilled' => 0,
+      'already_active' => 0,
+      'not_found' => 0,
+      'failed' => 0,
+      'last_node_id' => $after_node_id,
+      'has_more' => FALSE,
+    ];
+
+    $batch = $this->getLocalManualTopicRows($batch_size, $after_node_id);
+    $rows = $batch['rows'];
+    $stats['nodes'] = (int) ($batch['node_count'] ?? 0);
+    $stats['found'] = count($rows);
+    $stats['last_node_id'] = (int) ($batch['last_node_id'] ?? $after_node_id);
+    $stats['has_more'] = !empty($batch['has_more']);
+
+    if (empty($rows)) {
+      return $stats;
+    }
+
+    $items = [];
+    foreach ($rows as $row) {
+      $entity_id = (int) $row['entity_id'];
+      $node_id = (int) $row['node_id'];
+      $term_id = (int) $row['term_id'];
+      if ($entity_id <= 0 || $node_id <= 0 || $term_id <= 0) {
+        continue;
+      }
+
+      $items[] = [
+        'postId' => (string) $node_id,
+        'entityId' => $entity_id,
+        'entityName' => (string) $row['entity_name'],
+        'reason' => 'Backfilled from Drupal current manual topic state',
+        'metadata' => [
+          'termId' => $term_id,
+          'ttdId' => $entity_id,
+          'cmsPostId' => $node_id,
+          'cmsTopicId' => $term_id,
+          'localManualTopicBackfill' => TRUE,
+          'manualEntryMethod' => 'current_state_backfill',
+        ],
+      ];
+    }
+
+    if (empty($items)) {
+      return $stats;
+    }
+
+    foreach (array_chunk($items, 1000) as $chunk) {
+      $response = $this->apiRequest('POST', '/telemetry/editorial-signals/manual-backfill', [
+        'items' => $chunk,
+      ]);
+
+      if (!is_array($response) || empty($response['logged'])) {
+        $stats['failed'] += count($chunk);
+        $stats['last_node_id'] = $after_node_id;
+        $stats['has_more'] = TRUE;
+        return $stats;
+      }
+
+      $stats['sent'] += count($chunk);
+      $stats['backfilled'] += (int) ($response['backfilled'] ?? 0);
+      $stats['already_active'] += (int) ($response['alreadyActive'] ?? 0);
+      $stats['not_found'] += (int) ($response['notFound'] ?? 0);
+    }
+
+    return $stats;
+  }
+
+  /**
    * Push local Drupal curation overrides to the API as editorial signals.
    *
    * Hidden topics win if a term is both hidden and force-shown.
@@ -852,12 +956,86 @@ class TtdSyncService {
   }
 
   /**
+   * Query current manual topic assignment rows without loading node entities.
+   */
+  private function getLocalManualTopicRows(int $limit = 100, int $after_node_id = 0): array {
+    $database = \Drupal::database();
+    $limit = max(1, min(500, $limit));
+    $after_node_id = max(0, $after_node_id);
+    $result = [
+      'rows' => [],
+      'last_node_id' => $after_node_id,
+      'has_more' => FALSE,
+      'node_count' => 0,
+    ];
+
+    if (!$this->hasLocalManualTopicBackfillTables($database)) {
+      return $result;
+    }
+
+    $node_query = $database->select('node__field_manual_topics', 'fmt')->distinct();
+    $node_query->addField('fmt', 'entity_id', 'node_id');
+    $node_query->condition('fmt.deleted', 0);
+    $node_query->condition('fmt.entity_id', $after_node_id, '>');
+    $node_query->orderBy('fmt.entity_id', 'ASC');
+    $node_query->range(0, $limit);
+    $node_ids = array_map('intval', $node_query->execute()->fetchCol());
+
+    if (empty($node_ids)) {
+      return $result;
+    }
+
+    $result['last_node_id'] = max($node_ids);
+    $result['has_more'] = count($node_ids) === $limit;
+    $result['node_count'] = count($node_ids);
+
+    $query = $database->select('node__field_manual_topics', 'fmt')->distinct();
+    $query->addField('fmt', 'entity_id', 'node_id');
+    $query->addField('fmt', 'field_manual_topics_target_id', 'term_id');
+    $query->fields('td', ['name']);
+    $query->addField('ttid', 'field_ttd_id_value', 'ttd_id');
+    $query->join('taxonomy_term_field_data', 'td', 'td.tid = fmt.field_manual_topics_target_id');
+    $query->join('taxonomy_term__field_ttd_id', 'ttid', 'ttid.entity_id = fmt.field_manual_topics_target_id AND ttid.deleted = 0');
+    $query->condition('fmt.deleted', 0);
+    $query->condition('fmt.entity_id', $node_ids, 'IN');
+    $query->condition('td.vid', 'ttd_topics');
+    $query->isNotNull('ttid.field_ttd_id_value');
+    $query->condition('ttid.field_ttd_id_value', '', '<>');
+    $query->orderBy('fmt.entity_id', 'ASC');
+    $query->orderBy('fmt.delta', 'ASC');
+
+    foreach ($query->execute() as $row) {
+      $ttd_id = trim((string) $row->ttd_id);
+      $entity_id = ctype_digit($ttd_id) ? (int) $ttd_id : 0;
+
+      $result['rows'][] = [
+        'node_id' => (int) $row->node_id,
+        'term_id' => (int) $row->term_id,
+        'entity_id' => $entity_id,
+        'entity_name' => (string) $row->name,
+      ];
+    }
+
+    return $result;
+  }
+
+  /**
    * Check whether the tables needed for fast hidden backfill exist.
    */
   private function hasLocalHiddenBackfillTables($database): bool {
     $schema = $database->schema();
     return $schema->tableExists('taxonomy_term_field_data')
       && $schema->tableExists('taxonomy_term__field_hide')
+      && $schema->tableExists('taxonomy_term__field_ttd_id');
+  }
+
+  /**
+   * Check whether the tables needed for fast manual topic backfill exist.
+   */
+  private function hasLocalManualTopicBackfillTables($database): bool {
+    $schema = $database->schema();
+    return $schema->tableExists('node__field_manual_topics')
+      && $schema->tableExists('taxonomy_term_field_data')
       && $schema->tableExists('taxonomy_term__field_ttd_id');
   }
 

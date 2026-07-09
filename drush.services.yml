@@ -29,6 +29,11 @@ services:
     tags:
       - { name: drush.command }
 
+  ttd_topics.sync_local_curation_overrides_commands:
+    class: \Drupal\ttd_topics\Commands\SyncLocalCurationOverridesCommand
+    tags:
+      - { name: drush.command }
+
   ttd_topics.maintenance_commands:
     class: \Drupal\ttd_topics\Commands\TopicalBoostMaintenanceCommands
     tags:

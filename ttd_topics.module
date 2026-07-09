@@ -1778,6 +1778,31 @@ function ttd_topics_cron() {
     }
   }
 
+  // One-shot backfill: push pre-existing local manual topic assignments into TopicalBoost.
+  $local_manual_topic_backfill_queued = FALSE;
+  if (\Drupal::database()->schema()->tableExists('advancedqueue')) {
+    $local_manual_topic_backfill_queued = (bool) \Drupal::database()->select('advancedqueue', 'aq')
+      ->condition('queue_id', \Drupal\ttd_topics\Service\TtdSyncService::QUEUE_ID)
+      ->condition('type', \Drupal\ttd_topics\Service\TtdSyncService::LOCAL_MANUAL_TOPIC_BACKFILL_JOB_TYPE)
+      ->condition('state', ['queued', 'processing'], 'IN')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+  $local_manual_topic_backfill_complete = $state->get(\Drupal\ttd_topics\Service\TtdSyncService::LOCAL_MANUAL_TOPIC_BACKFILL_COMPLETE_KEY);
+  $local_manual_topic_backfill_retry_at = (int) $state->get(\Drupal\ttd_topics\Service\TtdSyncService::LOCAL_MANUAL_TOPIC_BACKFILL_RETRY_KEY, 0);
+  if ($queue && !$local_manual_topic_backfill_complete && !$local_manual_topic_backfill_queued && $local_manual_topic_backfill_retry_at <= $now) {
+    try {
+      $queue->enqueueJob(Job::create(\Drupal\ttd_topics\Service\TtdSyncService::LOCAL_MANUAL_TOPIC_BACKFILL_JOB_TYPE, ['trigger' => 'cron']));
+      $state->set(\Drupal\ttd_topics\Service\TtdSyncService::LOCAL_MANUAL_TOPIC_BACKFILL_LAST_QUEUED_KEY, $now);
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue local manual topic backfill: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
+
   // Keep API-owned hidden entities in sync without waiting for a manual sync.
   $hidden_sync_queued = FALSE;
   if (\Drupal::database()->schema()->tableExists('advancedqueue')) {
