@@ -115,6 +115,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       $count = $post_counts[$term_id] ?? 0;
       $is_manual = in_array($term_id, $manual_topic_ids, TRUE);
       $is_rejected = in_array($term_id, $rejected_topic_ids, TRUE);
+      $source_type = $this->getTopicSource($ttd_id, $is_manual, $salience_data);
       $demand = in_array($tier, ['mainEntity', 'about'], TRUE) ? $this->buildDemandBadgeData($term_id) : NULL;
 
       $display_tier = $tier === 'mainEntity' ? 'about' : $tier;
@@ -126,6 +127,8 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
         'is_manual' => $is_manual,
         'is_rejected' => $is_rejected,
         'tier' => $display_tier,
+        'source_type' => $source_type,
+        'source_label' => $this->getTopicSourceLabel($source_type),
         'demand' => $demand,
       ];
 
@@ -177,6 +180,41 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
         ],
       ],
     ];
+  }
+
+  /**
+   * Gets the subtle provenance source used for the topic rail color.
+   */
+  private function getTopicSource(int $ttd_id, bool $is_manual, array $salience_data): string {
+    if ($is_manual) {
+      return 'manual';
+    }
+
+    if ($ttd_id && !empty($salience_data[$ttd_id]['topic_source'])) {
+      $source = $salience_data[$ttd_id]['topic_source'];
+      if (in_array($source, ['nlp', 'llm'], TRUE)) {
+        return $source;
+      }
+    }
+
+    return 'nlp';
+  }
+
+  /**
+   * Human label for the topic provenance tooltip.
+   */
+  private function getTopicSourceLabel(string $source): string {
+    switch ($source) {
+      case 'manual':
+        return (string) $this->t('Manual editorial');
+
+      case 'llm':
+        return (string) $this->t('LLM');
+
+      case 'nlp':
+      default:
+        return (string) $this->t('Google NLP');
+    }
   }
 
   /**

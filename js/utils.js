@@ -68,31 +68,53 @@
       : '';
   };
 
+  window.ttdTopicsUtils.getTopicSource = function(topic, isManual) {
+    if (isManual) return 'manual';
+
+    const explicitSource = (topic.topic_source || topic.source_type || topic.source || '').toString().toLowerCase();
+    if (explicitSource === 'manual') return 'manual';
+    if (explicitSource === 'llm' || explicitSource.indexOf('llm') !== -1 || explicitSource.indexOf('ai') !== -1) return 'llm';
+    if (topic.llm_tier) return 'llm';
+
+    return 'nlp';
+  };
+
+  window.ttdTopicsUtils.getTopicSourceLabel = function(source) {
+    if (source === 'manual') return 'Manual editorial';
+    if (source === 'llm') return 'LLM';
+    return 'Google NLP';
+  };
+
   /**
    * Render a topic item.
    */
   window.ttdTopicsUtils.renderTopicItem = function(topic, type, section) {
     const displaySection = section === 'mainEntity' ? 'about' : section;
-    const isManual = type === 'manual';
+    const isManual = type === 'manual' || topic.is_manual || topic.manual;
     const ttdId = topic.ttd_id || '';
     const termId = topic.term_id || topic.id || '';
     const count = topic.count || 0;
     const name = topic.name || '';
     const isRejected = topic.rejected || false;
     const countFormatted = this.formatCount(count);
+    const topicSource = this.getTopicSource(topic, isManual);
+    const topicSourceLabel = this.getTopicSourceLabel(topicSource);
 
     // Build classes
     const classes = [
       'topic-item',
       isManual ? 'manual-topic' : 'api-topic',
       displaySection === 'about' ? 'about-topic' :
-      displaySection === 'mentions' ? 'mentions-topic' : 'below-threshold-topic'
+      displaySection === 'mentions' ? 'mentions-topic' : 'below-threshold-topic',
+      'topic-source-' + topicSource
     ];
     if (isRejected) classes.push('rejected');
 
     let html = '<div class="' + classes.join(' ') + '" ' +
                'data-term-id="' + termId + '" ' +
                'data-ttd-id="' + ttdId + '" ' +
+               'data-topic-source="' + topicSource + '" ' +
+               'title="Source: ' + topicSourceLabel + '" ' +
                'draggable="true">';
 
     // Checkbox for auto mention topics only.

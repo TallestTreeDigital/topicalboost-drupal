@@ -3879,7 +3879,7 @@ function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience
 /**
  * Get salience data for all entities on a node.
  *
- * Returns array indexed by ttd_id with salience_score and salience_category.
+ * Returns array indexed by ttd_id with salience_score, salience_category, and topic_source.
  * Used by frontend display to order topics by relevance.
  *
  * @param int $node_id
@@ -3888,7 +3888,7 @@ function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience
  *   Optional loaded node, used to avoid reloading during render.
  *
  * @return array
- *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null]].
+ *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null, 'topic_source' => string]].
  */
 function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
   $cache = &drupal_static(__FUNCTION__, []);
@@ -3947,9 +3947,12 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
   $salience_map = [];
   foreach ($results as $row) {
     $entity_id = (int) $row->entity_id;
+    $stored_tier = $row->salience_category ?: NULL;
     $salience_map[(int) $row->entity_id] = [
       'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
-      'salience_category' => $computed_tiers[$entity_id] ?? ($row->salience_category ?: 'mentions'),
+      'salience_category' => $computed_tiers[$entity_id] ?? ($stored_tier ?: 'mentions'),
+      'llm_tier' => $stored_tier,
+      'topic_source' => $stored_tier ? 'llm' : 'nlp',
       'is_user_override' => isset($overrides[$entity_id]),
     ];
   }
@@ -3959,6 +3962,8 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
       $salience_map[$entity_id] = [
         'salience_score' => NULL,
         'salience_category' => $computed_tiers[$entity_id] ?? $tier,
+        'llm_tier' => NULL,
+        'topic_source' => 'nlp',
         'is_user_override' => TRUE,
       ];
     }
