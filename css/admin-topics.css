@@ -414,6 +414,7 @@
   margin-bottom: 8px;
   background: #fff;
   border: 1px solid #ddd;
+  border-left: 3px solid transparent;
   border-radius: 3px;
   cursor: move;
   transition: all 0.2s;
@@ -592,11 +593,23 @@
 
 /* Manual topic adjustments */
 .topic-item.manual-topic {
-  border-color: #46b450;
+  border-color: #ddd;
 }
 
 .topic-item.manual-topic:hover {
-  border-color: #2ea02e;
+  border-color: #0073aa;
+}
+
+.topic-item.topic-source-nlp {
+  border-left-color: #60a5fa !important;
+}
+
+.topic-item.topic-source-llm {
+  border-left-color: #22c55e !important;
+}
+
+.topic-item.topic-source-manual {
+  border-left-color: #f59e0b !important;
 }
 
 /* Spinner for loading badge */
@@ -870,11 +883,11 @@
 
 /* Manual topic adjustments */
 .gin--dark-mode .topic-item.manual-topic {
-  border-color: #4ade80;
+  border-color: var(--gin-border-color);
 }
 
 .gin--dark-mode .topic-item.manual-topic:hover {
-  border-color: #22c55e;
+  border-color: var(--gin-color-primary);
 }
 
 /* Remove button - keep mostly the same but slightly adjust for dark mode */
@@ -1227,24 +1240,16 @@
   box-shadow: none;
 }
 
-.ttd-wide-layout .ttd-main-entity-section .topic-item,
-.ttd-wide-layout .ttd-main-entity-section .topic-item.api-topic,
-.ttd-wide-layout .ttd-main-entity-section .topic-item.manual-topic {
-  border-left-color: #10b981 !important;
-  background: #f0fdf4;
+.ttd-wide-layout .topic-item.topic-source-nlp {
+  border-left-color: #60a5fa !important;
 }
 
-.ttd-wide-layout .ttd-about-section .topic-item,
-.ttd-wide-layout .ttd-about-section .topic-item.api-topic,
-.ttd-wide-layout .ttd-about-section .topic-item.manual-topic {
+.ttd-wide-layout .topic-item.topic-source-llm {
+  border-left-color: #22c55e !important;
+}
+
+.ttd-wide-layout .topic-item.topic-source-manual {
   border-left-color: #f59e0b !important;
-}
-
-.ttd-wide-layout .ttd-mentions-section .topic-item,
-.ttd-wide-layout .ttd-mentions-section .topic-item.api-topic,
-.ttd-wide-layout .ttd-mentions-section .topic-item.manual-topic {
-  border-left-color: #cbd5e1 !important;
-  background: #fafafa;
 }
 
 .ttd-wide-layout .topic-name-container,
@@ -1442,14 +1447,6 @@
   background: var(--gin-bg-app);
   border-color: var(--gin-border-color);
   color: var(--gin-color-text);
-}
-
-.gin--dark-mode .ttd-wide-layout .ttd-main-entity-section .topic-item {
-  background: rgba(16, 185, 129, 0.12);
-}
-
-.gin--dark-mode .ttd-wide-layout .ttd-about-section .topic-item {
-  background: rgba(245, 158, 11, 0.12);
 }
 
 .gin--dark-mode .ttd-wide-layout .topic-item:hover {

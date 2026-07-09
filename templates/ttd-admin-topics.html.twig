@@ -20,10 +20,14 @@
   {% set tier = topic.tier %}
   {% set is_focus = section == 'about' %}
   {% set demand = topic.demand|default(null) %}
+  {% set source_type = topic.source_type|default(is_manual ? 'manual' : 'nlp') %}
+  {% set source_label = topic.source_label|default(source_type) %}
 
-  <div class="topic-item {{ is_manual ? 'manual-topic' : 'api-topic' }} {{ tier }}-topic {{ section }}-topic{% if is_rejected %} rejected{% endif %}"
+  <div class="topic-item {{ is_manual ? 'manual-topic' : 'api-topic' }} {{ tier }}-topic {{ section }}-topic topic-source-{{ source_type }}{% if is_rejected %} rejected{% endif %}"
        data-term-id="{{ term.id() }}"
        data-ttd-id="{{ ttd_id }}"
+       data-topic-source="{{ source_type }}"
+       title="{{ 'Source: @source'|t({'@source': source_label}) }}"
        draggable="true">
 
     {% if is_manual %}
