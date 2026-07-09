@@ -23,7 +23,7 @@ commit_parsers = [
     { message = "^docs", group = "Documentation" },
     { message = "^style", group = "Styling" },
     { message = "^test", group = "Testing" },
-    { message = "^(Add|Added|Auto-fetch|Expose|Move|Moved)", group = "Features" },
+    { message = "^(Add|Added|Auto-fetch|Expose|Move|Moved|Release)", group = "Features" },
     { message = "^(Fix|Fixed|Guard|Harden|Normalize|Align|Clarify|Prevent|Stop)", group = "Bug Fixes" },
     { message = "^(Improve|Improved|Optimize|Prioritize|Simplify)", group = "Performance" },
     { message = "^(Center|Polish|Sharpen)", group = "Styling" },
