@@ -89,8 +89,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     $term_ids = array_map(function($topic) { return $topic->id(); }, $topics);
     $post_counts = ttd_topics_get_topic_node_counts($term_ids);
 
-    // Classify topics into tiers
-    $main_entity = NULL;
+    // Classify topics into visible UI tiers. mainEntity is displayed as About.
     $about_topics = [];
     $mentions_topics = [];
     $below_threshold_topics = [];
@@ -118,20 +117,20 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       $is_rejected = in_array($term_id, $rejected_topic_ids, TRUE);
       $demand = in_array($tier, ['mainEntity', 'about'], TRUE) ? $this->buildDemandBadgeData($term_id) : NULL;
 
+      $display_tier = $tier === 'mainEntity' ? 'about' : $tier;
+
       $topic_data = [
         'term' => $term,
         'count' => $count,
         'count_display' => $this->formatCount($count),
         'is_manual' => $is_manual,
         'is_rejected' => $is_rejected,
-        'tier' => $tier,
+        'tier' => $display_tier,
         'demand' => $demand,
       ];
 
       // Classify by tier
-      if ($tier === 'mainEntity') {
-        $main_entity = $topic_data;
-      } elseif ($tier === 'about') {
+      if ($tier === 'mainEntity' || $tier === 'about') {
         $about_topics[] = $topic_data;
       } elseif ($tier === 'mentions') {
         if ($count >= $threshold_count) {
@@ -144,8 +143,13 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       }
     }
 
-    // Sort like WordPress: count descending, then alphabetically.
+    // Sort like WordPress: manual topics first, then count, alphabetically.
     $sort_topics = function($a, $b) {
+      $a_manual = !empty($a['is_manual']) ? 1 : 0;
+      $b_manual = !empty($b['is_manual']) ? 1 : 0;
+      if ($a_manual !== $b_manual) {
+        return $b_manual - $a_manual;
+      }
       if ($b['count'] !== $a['count']) {
         return $b['count'] - $a['count'];
       }
@@ -158,7 +162,6 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     return [
       '#theme' => 'ttd_admin_topics',
       '#node' => $node,
-      '#main_entity' => $main_entity,
       '#about_topics' => $about_topics,
       '#mentions_topics' => $mentions_topics,
       '#below_threshold_topics' => $below_threshold_topics,

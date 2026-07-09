@@ -62,10 +62,17 @@
     return 'Very Hard';
   };
 
+  window.ttdTopicsUtils.renderManualTopicChip = function(isManual) {
+    return isManual
+      ? '<span class="ttd-manual-topic-chip" title="Added manually by an editor">Manual</span>'
+      : '';
+  };
+
   /**
    * Render a topic item.
    */
   window.ttdTopicsUtils.renderTopicItem = function(topic, type, section) {
+    const displaySection = section === 'mainEntity' ? 'about' : section;
     const isManual = type === 'manual';
     const ttdId = topic.ttd_id || '';
     const termId = topic.term_id || topic.id || '';
@@ -78,9 +85,8 @@
     const classes = [
       'topic-item',
       isManual ? 'manual-topic' : 'api-topic',
-      section === 'mainEntity' ? 'main-entity-topic' :
-      section === 'about' ? 'about-topic' :
-      section === 'mentions' ? 'mentions-topic' : 'below-threshold-topic'
+      displaySection === 'about' ? 'about-topic' :
+      displaySection === 'mentions' ? 'mentions-topic' : 'below-threshold-topic'
     ];
     if (isRejected) classes.push('rejected');
 
@@ -89,8 +95,8 @@
                'data-ttd-id="' + ttdId + '" ' +
                'draggable="true">';
 
-    // Checkbox for auto topics
-    if (!isManual) {
+    // Checkbox for auto mention topics only.
+    if (!isManual && displaySection !== 'about') {
       html += '<input type="checkbox" name="topics[]" value="' + termId + '" ' +
               (isRejected ? '' : 'checked="checked"') + ' ' +
               'aria-label="Accept ' + name + '" />';
@@ -103,8 +109,8 @@
               'aria-label="Remove ' + name + '" title="Remove this manual topic">×</button>';
     }
 
-    // KD Badge for mainEntity and about
-    if (section === 'mainEntity' || section === 'about') {
+    // KD Badge for About topics.
+    if (displaySection === 'about') {
       html += '<span class="ttd-kd-badge ttd-kd-no-data" title="Click to fetch demand data">--</span>';
     }
 
@@ -112,7 +118,8 @@
     html += '<span class="topic-count" data-count="' + count + '">' + countFormatted + '</span>';
 
     // Topic name
-    html += '<div class="topic-name-container"><label>' + name + '</label></div>';
+    html += '<div class="topic-name-container"><span class="ttd-topic-name-row"><label>' +
+            this.escapeHtml(name) + '</label>' + this.renderManualTopicChip(isManual) + '</span></div>';
 
     // Drag handle
     html += '<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>';

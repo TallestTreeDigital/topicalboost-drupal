@@ -550,6 +550,34 @@
   cursor: inherit;
 }
 
+.ttd-topic-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ttd-topic-name-row label {
+  min-width: 0;
+}
+
+.ttd-manual-topic-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 1px 5px;
+  border: 1px solid #fde68a;
+  border-radius: 3px;
+  background: #fefce8;
+  color: #92400e;
+  cursor: help;
+}
+
 /* Drag handle */
 .drag-handle {
   color: #999;
@@ -623,12 +651,15 @@
 
 /* Header button */
 .gin--dark-mode #get-topics-button {
-  background: rgb(var(--gin-color-primary-rgb));
-  color: var(--gin-color-text);
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #fff !important;
 }
 
 .gin--dark-mode #get-topics-button:hover {
-  background: rgb(var(--gin-color-primary-hover-rgb));
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  color: #fff !important;
 }
 
 /* Status message */
@@ -1430,7 +1461,7 @@
   color: var(--gin-color-text-light);
 }
 
-/* Match the WordPress editor panel: Main Topic, About, and Mentions are stacked rows. */
+/* Match the WordPress editor panel: About and Mentions are stacked rows. */
 .ttd-wide-layout #ttd-topics-list-container {
   display: block !important;
   margin-top: 0 !important;

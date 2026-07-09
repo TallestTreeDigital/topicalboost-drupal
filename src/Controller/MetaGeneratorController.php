@@ -17,7 +17,7 @@ class MetaGeneratorController extends ControllerBase {
   /**
    * Get keywords/topics for a node with demand metrics.
    *
-   * Only returns "About" focus topics, not "Mentions".
+   * Only returns About/focus topics, not Mentions.
    *
    * @param \Drupal\node\NodeInterface $node
    *   The node entity.
@@ -86,11 +86,11 @@ class MetaGeneratorController extends ControllerBase {
         'traffic_potential' => $traffic_potential !== NULL ? (int) $traffic_potential : NULL,
         'search_volume' => $volume !== NULL ? (int) $volume : NULL,
         'tier' => $tier,
-        'tier_priority' => $tier === 'mainEntity' ? 0 : 1,
+        'tier_priority' => 1,
       ];
     }
 
-    // Sort by tier first, then opportunity score like WordPress.
+    // Sort by opportunity score across focus topics like WordPress.
     usort($keywords, function ($a, $b) {
       if ($a['tier_priority'] !== $b['tier_priority']) {
         return $a['tier_priority'] - $b['tier_priority'];

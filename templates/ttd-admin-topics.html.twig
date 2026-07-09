@@ -5,7 +5,6 @@
  *
  * Available variables:
  * - node: The node entity.
- * - main_entity: Main entity topic data (term, count, is_manual, etc).
  * - about_topics: Array of "About" topics.
  * - mentions_topics: Array of "Mentions" topics.
  * - below_threshold_topics: Array of below-threshold topics.
@@ -19,7 +18,7 @@
   {% set is_manual = topic.is_manual %}
   {% set is_rejected = topic.is_rejected %}
   {% set tier = topic.tier %}
-  {% set is_focus = section in ['mainEntity', 'about'] %}
+  {% set is_focus = section == 'about' %}
   {% set demand = topic.demand|default(null) %}
 
   <div class="topic-item {{ is_manual ? 'manual-topic' : 'api-topic' }} {{ tier }}-topic {{ section }}-topic{% if is_rejected %} rejected{% endif %}"
@@ -42,7 +41,12 @@
     {% endif %}
 
     <div class="topic-name-container">
-      <label>{{ term.label() }}</label>
+      <span class="ttd-topic-name-row">
+        <label>{{ term.label() }}</label>
+        {% if is_manual %}
+          <span class="ttd-manual-topic-chip" title="Added manually by an editor">Manual</span>
+        {% endif %}
+      </span>
     </div>
 
     <div class="topic-metrics">
@@ -78,22 +82,6 @@
 
   <div class="ttd-topics-content">
     <div id="ttd-topics-list-container">
-
-    {# Main Topic Section #}
-    <div class="ttd-topics-section ttd-main-entity-section" data-section="mainEntity">
-      <div class="ttd-section-header ttd-section-static">
-        <span class="ttd-section-title">Main Topic</span>
-        <span class="ttd-section-count">({{ main_entity ? 1 : 0 }})</span>
-        <span class="ttd-section-warning" style="display: none;">1 max</span>
-      </div>
-      <div class="ttd-topics-list">
-        {% if main_entity %}
-          {{ macros.render_topic_item(main_entity, 'mainEntity', node) }}
-        {% else %}
-          <div class="ttd-no-topics-message">Drag a topic here or <a href="#" class="ttd-add-manual-link">add one manually</a>.</div>
-        {% endif %}
-      </div>
-    </div>
 
     {# About Section #}
     <div class="ttd-topics-section ttd-about-section" data-section="about" data-max-recommended="4">
