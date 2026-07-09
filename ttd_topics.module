@@ -443,7 +443,6 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
     'ttd_admin_topics' => [
       'variables' => [
         'node' => NULL,
-        'main_entity' => NULL,
         'about_topics' => [],
         'mentions_topics' => [],
         'below_threshold_topics' => [],

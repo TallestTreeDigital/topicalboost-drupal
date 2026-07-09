@@ -164,7 +164,7 @@
                 <div class="ttd-meta-generator">
                     <!-- Keywords Row -->
                     <div class="ttd-meta-keywords-row${hideKeywords ? ' ttd-keywords-hidden' : ''}"${hideKeywords ? ' style="display:none"' : ''}>
-                        <span class="ttd-meta-keywords-label">${Drupal.t('MAIN & ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your Main Topic and About tiers. Social meta generates from the article content directly.')}">[?]</span></span>
+                        <span class="ttd-meta-keywords-label">${Drupal.t('ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your About tier. Social meta generates from the article content directly.')}">[?]</span></span>
                         <div class="ttd-meta-keywords-chips" id="ttd-keywords-list">
                             <span class="ttd-meta-loading-inline">${Drupal.t('Loading...')}</span>
                         </div>
@@ -298,35 +298,27 @@
             $columns.show();
             $keywordsRow.removeClass('ttd-meta-keywords-standalone');
 
-            // Separate mainEntity from about topics
-            const mainEntity = topics.filter(t => t.tier === 'mainEntity');
-            const aboutTopics = topics.filter(t => t.tier === 'about');
-            const allTopics = [...mainEntity, ...aboutTopics];
-            const displayTopics = allTopics.length > 0 ? allTopics : topics;
+            // Legacy mainEntity topics are displayed as About/focus topics.
+            const aboutTopics = topics.filter(t => t.tier === 'mainEntity' || t.tier === 'about');
+            const displayTopics = aboutTopics.length > 0 ? aboutTopics : topics;
 
-            // Find best keyword to pre-select (lowest KD, or main entity)
+            // Find best keyword to pre-select (lowest KD).
             let bestIndex = 0;
-            if (mainEntity.length > 0) {
-                bestIndex = 0; // Main entity is first
-            } else {
-                // Find lowest KD among about topics
-                let lowestKD = Infinity;
-                displayTopics.forEach((topic, index) => {
-                    const kd = parseFloat(topic.keyword_difficulty) || 100;
-                    if (kd < lowestKD) {
-                        lowestKD = kd;
-                        bestIndex = index;
-                    }
-                });
-            }
+            let lowestKD = Infinity;
+            displayTopics.forEach((topic, index) => {
+                const kd = parseFloat(topic.keyword_difficulty) || 100;
+                if (kd < lowestKD) {
+                    lowestKD = kd;
+                    bestIndex = index;
+                }
+            });
 
             let html = '';
 
             displayTopics.forEach((topic, index) => {
-                const isMainEntity = topic.tier === 'mainEntity';
                 const preChecked = (index === bestIndex);
 
-                html += this.renderKeywordChip(topic, preChecked, isMainEntity);
+                html += this.renderKeywordChip(topic, preChecked, false);
             });
 
             $list.html(html);
