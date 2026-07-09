@@ -38,6 +38,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-perfor
 # From the module root, no Drupal bootstrap required.
 php tests/cli/test-sync-cursor-upgrade.php
 php tests/cli/test-hidden-backfill-parity.php
+php tests/cli/test-topic-archive-links.php
 ```
 
 `test-parity-core.php` covers:
@@ -72,6 +73,11 @@ files plus the runtime parity scripts above.
 new sync jobs must include `after_id`, legacy jobs missing `after_id` must cancel
 without retrying, and the update hook must clear only non-processing
 TopicalBoost sync pull jobs.
+
+`test-topic-archive-links.php` guards Search API/archive topic links: taxonomy
+fallbacks, internal and absolute archive URLs, existing query strings and
+fragments, Facets-style nested query parameters, value prefixes, slug values,
+and missing-value fallback behavior.
 
 `test-parity-performance.php` maps the WordPress performance/query-count tests
 to Drupal schema and topic hot paths:

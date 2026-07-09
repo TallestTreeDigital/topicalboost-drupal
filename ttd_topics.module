@@ -125,6 +125,131 @@ function ttd_topics_term_should_curate(\Drupal\taxonomy\Entity\Term $term, array
 }
 
 /**
+ * Builds the public topic URL from settings, with taxonomy term fallback.
+ */
+function ttd_topics_get_topic_url(\Drupal\taxonomy\TermInterface $term, $absolute = FALSE) {
+  $fallback = $term->toUrl('canonical', ['absolute' => $absolute])->toString();
+  $config = \Drupal::config('ttd_topics.settings');
+
+  if (($config->get('topic_url_mode') ?: 'taxonomy_term') !== 'archive_query' || !\Drupal::moduleHandler()->moduleExists('search_api')) {
+    return $fallback;
+  }
+
+  $archive_path = trim((string) $config->get('topic_archive_path'));
+  $query_parameter = trim((string) ($config->get('topic_archive_query_parameter') ?: 'topic'), "?&= \t\n\r\0\x0B");
+  if ($archive_path === '' || $query_parameter === '') {
+    return $fallback;
+  }
+
+  $value = ttd_topics_get_topic_url_value($term, $config->get('topic_archive_value_source') ?: 'term_id');
+  if ($value === '') {
+    return $fallback;
+  }
+  $value = ttd_topics_apply_topic_url_value_template($term, $value, $config->get('topic_archive_value_template') ?: '[value]');
+  if ($value === '') {
+    return $fallback;
+  }
+
+  $parts = parse_url($archive_path);
+  if ($parts === FALSE) {
+    return $fallback;
+  }
+
+  $query = [];
+  if (!empty($parts['query'])) {
+    parse_str($parts['query'], $query);
+  }
+
+  $topic_query = [];
+  parse_str($query_parameter . '=' . rawurlencode($value), $topic_query);
+  $query = array_replace_recursive($query, $topic_query);
+
+  $fragment = $parts['fragment'] ?? NULL;
+  $options = ['query' => $query];
+  if ($fragment !== NULL && $fragment !== '') {
+    $options['fragment'] = $fragment;
+  }
+
+  try {
+    if (!empty($parts['scheme']) && !empty($parts['host'])) {
+      $uri = $parts['scheme'] . '://' . $parts['host']
+        . (!empty($parts['port']) ? ':' . $parts['port'] : '')
+        . (!empty($parts['path']) ? $parts['path'] : '/');
+      $url = Url::fromUri($uri, $options);
+    }
+    else {
+      $path = $parts['path'] ?? $archive_path;
+      if ($path === '') {
+        return $fallback;
+      }
+      $path = '/' . ltrim($path, '/');
+      $url = Url::fromUri('internal:' . $path, $options);
+    }
+
+    if ($absolute) {
+      $url->setAbsolute();
+    }
+    return $url->toString();
+  }
+  catch (\Exception $e) {
+    \Drupal::logger('ttd_topics')->warning('Falling back to taxonomy topic URL after archive link build failed: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+    return $fallback;
+  }
+}
+
+/**
+ * Applies the optional query value pattern used by Search API/Facets URLs.
+ */
+function ttd_topics_apply_topic_url_value_template(\Drupal\taxonomy\TermInterface $term, $value, $template) {
+  $template = trim((string) $template);
+  if ($template === '') {
+    $template = '[value]';
+  }
+
+  $replacements = [
+    '[value]' => (string) $value,
+    '[term_id]' => (string) $term->id(),
+    '[ttd_id]' => ttd_topics_get_topic_url_value($term, 'ttd_id'),
+    '[term_uuid]' => $term->uuid(),
+    '[uuid]' => $term->uuid(),
+    '[term_slug]' => ttd_topics_get_topic_url_value($term, 'term_slug'),
+    '[slug]' => ttd_topics_get_topic_url_value($term, 'term_slug'),
+    '[term_name]' => $term->label(),
+    '[name]' => $term->label(),
+  ];
+
+  return trim(strtr($template, $replacements));
+}
+
+/**
+ * Gets the configured query value for a topic archive URL.
+ */
+function ttd_topics_get_topic_url_value(\Drupal\taxonomy\TermInterface $term, $source) {
+  switch ($source) {
+    case 'ttd_id':
+      return $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
+        ? trim((string) $term->get('field_ttd_id')->value)
+        : '';
+
+    case 'term_uuid':
+      return $term->uuid();
+
+    case 'term_slug':
+      $language_id = \Drupal::languageManager()->getCurrentLanguage()->getId();
+      $slug = \Drupal::service('transliteration')->transliterate($term->label(), $language_id, '_');
+      $slug = strtolower($slug);
+      $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+      return trim($slug, '-');
+
+    case 'term_id':
+    default:
+      return (string) $term->id();
+  }
+}
+
+/**
  * Returns a stable public site base URL for background API requests.
  */
 function ttd_topics_get_site_base_url() {
@@ -1069,6 +1194,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
         if ($is_manual || $is_force_show || $is_high_salience || $count >= $min_display_count) {
           $filtered_topics[] = [
             'term' => $term,
+            'url' => ttd_topics_get_topic_url($term),
             'count' => $count,
             'salience_score' => $entity_salience['salience_score'],
             'salience_category' => $tier,
@@ -1218,7 +1344,7 @@ function ttd_topics_auto_link_content($text, EntityInterface $node) {
       $term = $topic_data['term'];
       $link_topics[] = [
         'name' => $term->label(),
-        'url' => $term->toUrl()->toString(),
+        'url' => ttd_topics_get_topic_url($term),
       ];
     }
   }
@@ -3086,7 +3212,7 @@ function ttd_topics_build_admin_content_topics_cell(NodeInterface $node) {
       continue;
     }
 
-    $url = Url::fromRoute('entity.taxonomy_term.canonical', ['taxonomy_term' => $term->id()])->toString();
+    $url = ttd_topics_get_topic_url($term);
     $links[] = '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($term->label(), ENT_QUOTES, 'UTF-8') . '</a>';
     if (count($links) >= 5) {
       break;

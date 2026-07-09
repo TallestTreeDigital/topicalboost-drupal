@@ -41,6 +41,21 @@ ttd_topics.settings:
     topic_url_path_prefix:
       type: string
       label: 'Topic URL path prefix'
+    topic_url_mode:
+      type: string
+      label: 'Topic link destination mode'
+    topic_archive_path:
+      type: string
+      label: 'Topic archive path'
+    topic_archive_query_parameter:
+      type: string
+      label: 'Topic archive query parameter'
+    topic_archive_value_source:
+      type: string
+      label: 'Topic archive query value source'
+    topic_archive_value_template:
+      type: string
+      label: 'Topic archive query value pattern'
     debug_mode:
       type: boolean
       label: 'Debug mode'

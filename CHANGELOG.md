@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.15] - 2026-07-09
+
+### Added
+- Add configurable Drupal topic links for Search API/archive pages, including query parameter, value source, and Facets-style value pattern settings.
+
 ## [2.0.1] - 2026-05-22
 
 ### Fixed

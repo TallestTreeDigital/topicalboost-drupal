@@ -524,6 +524,107 @@ class SettingsForm extends ConfigFormBase {
     $current_path_prefix = str_replace('[term:name]', '', $current_full_pattern);
     $stored_prefix = $config->get('topic_url_path_prefix');
     $default_prefix = $stored_prefix ?: $current_path_prefix;
+    $search_api_enabled = $this->isSearchApiEnabled();
+    $topic_url_mode_default = $config->get('topic_url_mode') ?: 'taxonomy_term';
+    if (!$search_api_enabled && $topic_url_mode_default === 'archive_query') {
+      $topic_url_mode_default = 'taxonomy_term';
+    }
+    $topic_url_mode_options = [
+      'taxonomy_term' => $this->t('Taxonomy term pages'),
+    ];
+    if ($search_api_enabled) {
+      $topic_url_mode_options['archive_query'] = $this->t('Existing Search API/archive page');
+    }
+    $archive_states = [
+      'visible' => [
+        ':input[name="topic_url_mode"]' => ['value' => 'archive_query'],
+      ],
+    ];
+    $taxonomy_states = [
+      'visible' => [
+        ':input[name="topic_url_mode"]' => ['value' => 'taxonomy_term'],
+      ],
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_url_mode'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Topic Link Destination'),
+      '#options' => $topic_url_mode_options,
+      '#default_value' => $topic_url_mode_default,
+      '#description' => $this->t('Most sites should use taxonomy term pages. Choose the archive option only when this site already routes topic filtering through Search API, Facets, or another listing page.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-button-group-radios']],
+    ];
+
+    if (!$search_api_enabled) {
+      $form['tabs_container']['content']['schema']['topic_archive_unavailable'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Search/archive topic links'),
+        '#markup' => '<p>' . $this->t('Search/archive topic links are available after the Search API module is installed and enabled. Until then, TopicalBoost uses normal taxonomy term links.') . '</p>',
+        '#attributes' => ['class' => ['ttd-topics-field-group']],
+      ];
+    }
+
+    $form['tabs_container']['content']['schema']['topic_archive_help'] = [
+      '#type' => 'item',
+      '#title' => $this->t('Archive topic link setup'),
+      '#markup' => '<p>' . $this->t('Use this only for sites that already have a working archive/search page for topic filtering. TopicalBoost builds the link URL; Drupal still owns the Search API index, archive View, and Facets or exposed-filter logic that make that URL return the right articles.') . '</p>',
+      '#states' => $archive_states,
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_archive_path'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Archive Path'),
+      '#default_value' => $config->get('topic_archive_path') ?: '',
+      '#description' => $this->t('Internal path or absolute URL for the archive/listing page, such as /issues or /search. Existing query parameters are preserved.'),
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group'],
+        'placeholder' => '/search',
+      ],
+      '#states' => $archive_states,
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_archive_query_parameter'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Topic Query Parameter'),
+      '#default_value' => $config->get('topic_archive_query_parameter') ?: 'topic',
+      '#description' => $this->t('Parameter the archive page expects, for example topic or f[0].'),
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group'],
+        'placeholder' => 'topic',
+      ],
+      '#states' => $archive_states,
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_archive_value_source'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Topic Query Value'),
+      '#options' => [
+        'term_id' => $this->t('Drupal term ID'),
+        'ttd_id' => $this->t('TopicalBoost topic ID'),
+        'term_uuid' => $this->t('Drupal term UUID'),
+        'term_slug' => $this->t('Term label slug'),
+      ],
+      '#default_value' => $config->get('topic_archive_value_source') ?: 'term_id',
+      '#description' => $this->t('Match this to the indexed field used by the archive/search page. Term ID is the safest default for normal Drupal entity reference indexes.'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+      '#states' => $archive_states,
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_archive_value_template'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Topic Query Value Pattern'),
+      '#default_value' => $config->get('topic_archive_value_template') ?: '[value]',
+      '#description' => $this->t('Usually [value]. For Facets-style values, include the facet field prefix, such as field_ttd_topics:[value]. Available tokens: [value], [term_id], [ttd_id], [uuid], [slug], [name].'),
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group'],
+        'placeholder' => '[value]',
+      ],
+      '#states' => $archive_states,
+    ];
+
+    $form['tabs_container']['content']['schema']['topic_archive_status'] = $this->buildTopicArchiveStatus($config);
+    $form['tabs_container']['content']['schema']['topic_archive_status']['#states'] = $archive_states;
 
     $form['tabs_container']['content']['schema']['topic_url_path_prefix'] = [
       '#type' => 'textfield',
@@ -535,15 +636,19 @@ class SettingsForm extends ConfigFormBase {
         'placeholder' => '/topics/',
         'id' => 'topic-url-path-input'
       ],
+      '#states' => $taxonomy_states,
     ];
 
     $form['tabs_container']['content']['schema']['url_preview'] = [
-      '#markup' => '<div class="ttd-url-preview">
-        Preview: <span class="ttd-url-display">' . \Drupal::request()->getSchemeAndHttpHost() . '<span id="url-path-preview" class="ttd-url-slug">' . $default_prefix . '</span>artificial-intelligence</span>
-      </div>',
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ttd-url-preview']],
+      'content' => [
+        '#markup' => 'Preview: <span class="ttd-url-display">' . \Drupal::request()->getSchemeAndHttpHost() . '<span id="url-path-preview" class="ttd-url-slug">' . $default_prefix . '</span>artificial-intelligence</span>',
+      ],
       '#attached' => [
         'library' => ['ttd_topics/url_preview'],
       ],
+      '#states' => $taxonomy_states,
     ];
 
     $form['tabs_container']['content']['schema']['required_permission'] = [
@@ -2070,6 +2175,23 @@ class SettingsForm extends ConfigFormBase {
     $api_key_validation_hash = $validation_matches_saved_key ? $saved_validation_hash : '';
     $subscription_status = $validation_matches_saved_key ? ($config->get('subscription_status') ?: '') : '';
     $domain_mismatch = $validation_matches_saved_key ? ($config->get('domain_mismatch') ?: []) : [];
+    $new_topic_url_mode = $form_state->getValue('topic_url_mode') ?: 'taxonomy_term';
+    if (!$this->isSearchApiEnabled() || !in_array($new_topic_url_mode, ['taxonomy_term', 'archive_query'], TRUE)) {
+      $new_topic_url_mode = 'taxonomy_term';
+    }
+    $new_archive_path = trim((string) $form_state->getValue('topic_archive_path'));
+    $new_archive_query_parameter = trim((string) ($form_state->getValue('topic_archive_query_parameter') ?: 'topic'), "?&= \t\n\r\0\x0B");
+    if ($new_archive_query_parameter === '') {
+      $new_archive_query_parameter = 'topic';
+    }
+    $new_archive_value_source = $form_state->getValue('topic_archive_value_source') ?: 'term_id';
+    if (!in_array($new_archive_value_source, ['term_id', 'ttd_id', 'term_uuid', 'term_slug'], TRUE)) {
+      $new_archive_value_source = 'term_id';
+    }
+    $new_archive_value_template = trim((string) ($form_state->getValue('topic_archive_value_template') ?: '[value]'));
+    if ($new_archive_value_template === '') {
+      $new_archive_value_template = '[value]';
+    }
     
     // Get old and new content types to manage field additions/removals.
     $old_content_types = array_filter($config->get('enabled_content_types') ?: []);
@@ -2111,8 +2233,11 @@ class SettingsForm extends ConfigFormBase {
     // Handle URL pattern changes
     $new_path_prefix = $form_state->getValue('topic_url_path_prefix');
     $current_path_prefix = $config->get('topic_url_path_prefix');
+    if ($new_path_prefix === NULL) {
+      $new_path_prefix = $current_path_prefix ?: 'topics';
+    }
     
-    if ($new_path_prefix !== NULL && $new_path_prefix !== $current_path_prefix) {
+    if ($new_topic_url_mode === 'taxonomy_term' && $new_path_prefix !== NULL && $new_path_prefix !== $current_path_prefix) {
       // Ensure the prefix starts with / and ends with /
       $new_path_prefix = '/' . trim($new_path_prefix, '/') . '/';
       
@@ -2167,6 +2292,11 @@ class SettingsForm extends ConfigFormBase {
       ->set('analysis_custom_fields', array_filter($form_state->getValue('analysis_custom_fields') ?: []))
       ->set('topics_list_label', $form_state->getValue('topics_list_label'))
       ->set('topic_url_path_prefix', $new_path_prefix)
+      ->set('topic_url_mode', $new_topic_url_mode)
+      ->set('topic_archive_path', $new_archive_path)
+      ->set('topic_archive_query_parameter', $new_archive_query_parameter)
+      ->set('topic_archive_value_source', $new_archive_value_source)
+      ->set('topic_archive_value_template', $new_archive_value_template)
       ->set('debug_mode', $form_state->getValue('debug_mode'))
       ->set('topicalboost_api_key', $new_api_key)
       ->set('api_key_validated', $api_key_validated)
@@ -2216,6 +2346,261 @@ class SettingsForm extends ConfigFormBase {
       ->save();
 
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * Builds archive-query setup guidance for topic links.
+   */
+  protected function buildTopicArchiveStatus($config) {
+    $archive_path = trim((string) $config->get('topic_archive_path'));
+    $query_parameter = trim((string) ($config->get('topic_archive_query_parameter') ?: 'topic'));
+    $value_source = $config->get('topic_archive_value_source') ?: 'term_id';
+    $value_template = $config->get('topic_archive_value_template') ?: '[value]';
+
+    $topicalboost_items = [
+      $this->t('Generates article topic links from the archive URL settings below.'),
+      $this->t('Keeps normal taxonomy term links as the default for sites that do not use a Search API/archive topic setup.'),
+      $this->t('Does not create or reconfigure Search API indexes, archive Views, or Facets.'),
+    ];
+
+    $drupal_items = [
+      $this->t('Index the TopicalBoost topic field used by article content.'),
+      $this->t('Make the archive page read the configured URL parameter and filter against that indexed field.'),
+      $this->t('Do not place a visible topic facet/block on the page unless readers should see it. Keep the URL filter behavior enabled so topic links still work.'),
+    ];
+
+    $verify_items = [];
+
+    if ($archive_path === '') {
+      $verify_items[] = $this->t('Add the Search API/archive page path, such as /search or /news-archive.');
+    }
+    elseif (!preg_match('/^https?:\/\//i', $archive_path) && strpos($archive_path, '/') !== 0) {
+      $verify_items[] = $this->t('Archive paths should start with / unless you are entering a full https:// URL.');
+    }
+    else {
+      $verify_items[] = $this->t('Archive path: @path', ['@path' => $archive_path]);
+    }
+
+    if ($query_parameter === '') {
+      $verify_items[] = $this->t('Add the URL parameter your archive page reads for topic filtering.');
+    }
+    else {
+      $verify_items[] = $this->t('URL parameter Drupal must read: ?@parameter=...', [
+        '@parameter' => $query_parameter,
+      ]);
+    }
+
+    $verify_items[] = $this->t('Query value source: @value_source', [
+      '@value_source' => $this->getTopicArchiveValueSourceLabel($value_source),
+    ]);
+    $verify_items[] = $this->t('Query value pattern: @pattern', [
+      '@pattern' => $value_template,
+    ]);
+
+    $sample_term = $this->getTopicArchiveSampleTerm();
+    if ($sample_term && function_exists('ttd_topics_get_topic_url')) {
+      $sample_url = \ttd_topics_get_topic_url($sample_term);
+      $verify_items[] = Markup::create($this->t('Sample generated link: @topic to ', [
+        '@topic' => $sample_term->label(),
+      ]) . '<a href="' . htmlspecialchars($sample_url, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($sample_url, ENT_QUOTES, 'UTF-8') . '</a>');
+    }
+    else {
+      $verify_items[] = $this->t('After at least one TopicalBoost topic exists, this page will show a sample generated archive link.');
+    }
+
+    $topicalboost_list = $this->buildTopicArchiveListMarkup($topicalboost_items);
+    $drupal_list = $this->buildTopicArchiveListMarkup($drupal_items);
+    $verify_list = $this->buildTopicArchiveListMarkup($verify_items);
+    $admin_links = $this->buildTopicArchiveAdminLinks($config);
+
+    $markup = '<div class="ttd-topic-archive-guide">';
+    $markup .= '<div class="ttd-topic-archive-guide__intro"><strong>' . $this->t('Optional Search API/archive setup') . '</strong><span>' . $this->t('Only use this when topic links should open an existing archive/search page instead of Drupal taxonomy term pages.') . '</span></div>';
+    $markup .= '<div class="ttd-topic-archive-guide__grid">';
+    $markup .= '<section><h4>' . $this->t('What TopicalBoost does') . '</h4><ul>' . $topicalboost_list . '</ul></section>';
+    $markup .= '<section><h4>' . $this->t('What Drupal must already do') . '</h4><ul>' . $drupal_list . '</ul></section>';
+    $markup .= '</div>';
+    $markup .= '<section class="ttd-topic-archive-guide__verify"><h4>' . $this->t('Verify this setup') . '</h4><ul>' . $verify_list . '</ul>' . $admin_links . '</section>';
+    $markup .= '</div>';
+
+    return [
+      '#markup' => Markup::create($markup),
+    ];
+  }
+
+  /**
+   * Builds a list of already-sanitized TranslatableMarkup/Markup items.
+   */
+  protected function buildTopicArchiveListMarkup(array $items) {
+    $markup = '';
+    foreach ($items as $item) {
+      $markup .= '<li>' . (string) $item . '</li>';
+    }
+
+    return $markup;
+  }
+
+  /**
+   * Checks whether Search API is enabled for archive topic links.
+   */
+  protected function isSearchApiEnabled() {
+    return \Drupal::moduleHandler()->moduleExists('search_api');
+  }
+
+  /**
+   * Builds helpful admin links for the Search API/archive setup.
+   */
+  protected function buildTopicArchiveAdminLinks($config) {
+    $links = [];
+
+    $search_api_url = $this->getFirstRouteUrlIfAvailable(['entity.search_api_index.collection', 'search_api.overview']);
+    if ($search_api_url) {
+      $links[] = [
+        'label' => $this->t('Choose/check the Search API index'),
+        'url' => $search_api_url,
+        'description' => $this->t('Make sure the archive index includes the TopicalBoost topic reference field.'),
+      ];
+    }
+
+    foreach (array_slice($this->getEnabledContentTypeIds($config), 0, 3) as $content_type) {
+      $url = $this->getRouteUrlIfAvailable('entity.node.field_ui_fields', ['node_type' => $content_type]);
+      if ($url) {
+        $links[] = [
+          'label' => $this->t('Check @type topic field', ['@type' => ucfirst(str_replace('_', ' ', $content_type))]),
+          'url' => $url,
+          'description' => $this->t('Confirm which TopicalBoost topic field is attached to this content type.'),
+        ];
+      }
+    }
+
+    $views_url = $this->getRouteUrlIfAvailable('entity.view.collection');
+    if ($views_url) {
+      $links[] = [
+        'label' => $this->t('Find/edit the archive View'),
+        'url' => $views_url,
+        'description' => $this->t('Use the public archive/search View that should receive topic-link traffic.'),
+      ];
+    }
+
+    $facets_url = $this->getRouteUrlIfAvailable('entity.facets_facet.collection');
+    if ($facets_url) {
+      $links[] = [
+        'label' => $this->t('Check Facets URL setup'),
+        'url' => $facets_url,
+        'description' => $this->t('Use this only if the archive uses Facets-style values such as f[0]=field_ttd_topics:123. The facet block does not need to be displayed.'),
+      ];
+    }
+
+    if (empty($links)) {
+      return '';
+    }
+
+    $items = '';
+    foreach ($links as $link) {
+      $items .= '<li><a href="' . htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8') . '">' . (string) $link['label'] . '</a><span>' . (string) $link['description'] . '</span></li>';
+    }
+
+    return '<div class="ttd-topic-archive-admin-links"><h4>' . $this->t('Useful admin links') . '</h4><ol>' . $items . '</ol></div>';
+  }
+
+  /**
+   * Returns the first available route URL from a list of route names.
+   */
+  protected function getFirstRouteUrlIfAvailable(array $route_names, array $parameters = []) {
+    foreach ($route_names as $route_name) {
+      $url = $this->getRouteUrlIfAvailable($route_name, $parameters);
+      if ($url) {
+        return $url;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Normalizes enabled content type config stored as either keys or values.
+   */
+  protected function getEnabledContentTypeIds($config) {
+    $raw_content_types = $config->get('enabled_content_types') ?: [];
+    $content_types = [];
+
+    foreach ($raw_content_types as $key => $value) {
+      $content_type = is_string($value) && $value !== '' ? $value : (is_string($key) ? $key : '');
+      if ($content_type !== '' && $content_type !== '0') {
+        $content_types[$content_type] = $content_type;
+      }
+    }
+
+    return array_values($content_types);
+  }
+
+  /**
+   * Returns a route URL if the target route exists on this site.
+   */
+  protected function getRouteUrlIfAvailable($route_name, array $parameters = []) {
+    try {
+      \Drupal::service('router.route_provider')->getRouteByName($route_name);
+      return Url::fromRoute($route_name, $parameters)->toString();
+    }
+    catch (\Exception $e) {
+      return NULL;
+    }
+  }
+
+  /**
+   * Loads one local TopicalBoost topic for archive-link examples.
+   */
+  protected function getTopicArchiveSampleTerm() {
+    try {
+      if ($this->database->schema()->tableExists('node__field_ttd_topics')) {
+        $query = $this->database->select('taxonomy_term_field_data', 'td');
+        $query->innerJoin('node__field_ttd_topics', 'nt', 'nt.field_ttd_topics_target_id = td.tid');
+        $tid = $query
+          ->distinct()
+          ->fields('td', ['tid'])
+          ->condition('td.vid', 'ttd_topics')
+          ->condition('td.status', 1)
+          ->condition('td.name', '', '<>')
+          ->condition('td.name', '&%', 'NOT LIKE')
+          ->orderBy('td.name', 'ASC')
+          ->range(0, 1)
+          ->execute()
+          ->fetchField();
+
+        if ($tid) {
+          return \Drupal\taxonomy\Entity\Term::load($tid);
+        }
+      }
+
+      $tid = $this->database->select('taxonomy_term_field_data', 'td')
+        ->fields('td', ['tid'])
+        ->condition('td.vid', 'ttd_topics')
+        ->condition('td.status', 1)
+        ->condition('td.name', '', '<>')
+        ->condition('td.name', '&%', 'NOT LIKE')
+        ->orderBy('td.name', 'ASC')
+        ->range(0, 1)
+        ->execute()
+        ->fetchField();
+
+      return $tid ? \Drupal\taxonomy\Entity\Term::load($tid) : NULL;
+    }
+    catch (\Exception $e) {
+      return NULL;
+    }
+  }
+
+  /**
+   * Gets a human-readable label for the archive query value source.
+   */
+  protected function getTopicArchiveValueSourceLabel($source) {
+    $labels = [
+      'term_id' => $this->t('Drupal term ID'),
+      'ttd_id' => $this->t('TopicalBoost topic ID'),
+      'term_uuid' => $this->t('Drupal term UUID'),
+      'term_slug' => $this->t('Term label slug'),
+    ];
+
+    return $labels[$source] ?? $labels['term_id'];
   }
 
   /**

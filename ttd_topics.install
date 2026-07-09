@@ -603,6 +603,11 @@ function ttd_topics_default_settings() {
     'analysis_custom_fields' => [],
     'topics_list_label' => 'Topics on this page',
     'topic_url_path_prefix' => 'topics',
+    'topic_url_mode' => 'taxonomy_term',
+    'topic_archive_path' => '',
+    'topic_archive_query_parameter' => 'topic',
+    'topic_archive_value_source' => 'term_id',
+    'topic_archive_value_template' => '[value]',
     'debug_mode' => FALSE,
     'topicalboost_api_key' => '',
     'api_key_validated' => FALSE,
@@ -1811,4 +1816,35 @@ function ttd_topics_update_9107() {
 
   $schema->createTable('ttd_entity_aliases', $table_specs['ttd_entity_aliases']);
   return t('Added TopicalBoost entity alias table.');
+}
+
+/**
+ * Add configurable topic archive links for Search API/archive pages.
+ */
+function ttd_topics_update_9108() {
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  $defaults = [
+    'topic_url_mode' => 'taxonomy_term',
+    'topic_archive_path' => '',
+    'topic_archive_query_parameter' => 'topic',
+    'topic_archive_value_source' => 'term_id',
+    'topic_archive_value_template' => '[value]',
+  ];
+
+  $added = [];
+  foreach ($defaults as $key => $value) {
+    if ($config->get($key) === NULL) {
+      $config->set($key, $value);
+      $added[] = $key;
+    }
+  }
+
+  if (empty($added)) {
+    return t('TopicalBoost topic archive link settings were already configured.');
+  }
+
+  $config->save();
+  return t('Added TopicalBoost topic archive link settings: @settings.', [
+    '@settings' => implode(', ', $added),
+  ]);
 }

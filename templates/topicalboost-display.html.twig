@@ -43,12 +43,12 @@
           {% set visible_count = 0 %}
           {% for topic in filtered_topics %}
             {% if visible_count < maximum_visible_post_topics %}
-              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
+              <a href="{{ topic.url|default(path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id})) }}" class="mention-tag ttd-main-links">
                 {{ topic.term.label|trim }}
               </a>
               {% set visible_count = visible_count + 1 %}
             {% else %}
-              <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
+              <a href="{{ topic.url|default(path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id})) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
                 {{ topic.term.label|trim }}
               </a>
             {% endif %}
@@ -60,12 +60,12 @@
         {% elseif filter_mode == 'mentions_behind_toggle' %}
           {# Show about/mainEntity openly, mentions behind Show More #}
           {% for topic in about_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
+            <a href="{{ topic.url|default(path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id})) }}" class="mention-tag ttd-main-links">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}
           {% for topic in mentions_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
+            <a href="{{ topic.url|default(path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id})) }}" class="mention-tag ttd-extra-links ttd-topics-display-hidden hidden">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}
@@ -76,7 +76,7 @@
         {% elseif filter_mode == 'high_salience_only' %}
           {# Only show mainEntity + about tiers #}
           {% for topic in about_topics %}
-            <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id}) }}" class="mention-tag ttd-main-links">
+            <a href="{{ topic.url|default(path('entity.taxonomy_term.canonical', {'taxonomy_term': topic.term.id})) }}" class="mention-tag ttd-main-links">
               {{ topic.term.label|trim }}
             </a>
           {% endfor %}

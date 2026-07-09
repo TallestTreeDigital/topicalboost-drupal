@@ -310,7 +310,7 @@ class TopicsExtension extends AbstractExtension {
       'id' => $term->id(),
       'name' => $term->getName(),
       'label' => $term->label(),
-      'url' => $term->toUrl()->toString(),
+      'url' => function_exists('ttd_topics_get_topic_url') ? \ttd_topics_get_topic_url($term) : $term->toUrl()->toString(),
       'entity' => $term,
       'count' => (int) ($topic['count'] ?? 0),
       'salience_score' => $topic['salience_score'] ?? NULL,
@@ -412,6 +412,7 @@ class TopicsExtension extends AbstractExtension {
         if ($is_manual || $count >= $min_display_count || $is_forced || in_array($salience_category, ['mainEntity', 'about'], TRUE)) {
           $filtered_topics[] = [
             'term' => $term,
+            'url' => function_exists('ttd_topics_get_topic_url') ? \ttd_topics_get_topic_url($term) : $term->toUrl()->toString(),
             'count' => $count,
             'salience_score' => $salience_data[$ttd_id]['salience_score'] ?? NULL,
             'salience_category' => $salience_category,
