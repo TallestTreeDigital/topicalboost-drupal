@@ -39,6 +39,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-perfor
 php tests/cli/test-sync-cursor-upgrade.php
 php tests/cli/test-hidden-backfill-parity.php
 php tests/cli/test-topic-archive-links.php
+php tests/cli/test-topic-archive-managed-filter.php
 ```
 
 `test-parity-core.php` covers:
@@ -78,6 +79,10 @@ TopicalBoost sync pull jobs.
 fallbacks, internal and absolute archive URLs, existing query strings and
 fragments, Facets-style nested query parameters, value prefixes, slug values,
 and missing-value fallback behavior.
+
+`test-topic-archive-managed-filter.php` guards the optional one-click Search
+API setup: archive View detection, scoped index field creation and reindexing,
+hidden query filtering, cache variation, permissions, and invalid URL values.
 
 `test-parity-performance.php` maps the WordPress performance/query-count tests
 to Drupal schema and topic hot paths:

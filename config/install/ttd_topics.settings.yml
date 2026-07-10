@@ -14,6 +14,10 @@ topic_archive_path: ''
 topic_archive_query_parameter: topic
 topic_archive_value_source: term_id
 topic_archive_value_template: '[value]'
+topic_archive_managed_filter: false
+topic_archive_view: ''
+topic_archive_index: ''
+topic_archive_index_field: ''
 debug_mode: false
 topicalboost_api_key: ''
 api_key_validated: false

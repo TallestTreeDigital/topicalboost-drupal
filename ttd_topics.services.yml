@@ -29,6 +29,16 @@ services:
     tags:
       - { name: event_subscriber }
 
+  ttd_topics.search_archive_setup:
+    class: Drupal\ttd_topics\Service\SearchArchiveSetupManager
+    arguments: ['@entity_type.manager', '@module_handler', '@current_user']
+
+  ttd_topics.search_archive_query_subscriber:
+    class: Drupal\ttd_topics\EventSubscriber\SearchArchiveQuerySubscriber
+    arguments: ['@config.factory', '@request_stack']
+    tags:
+      - { name: event_subscriber }
+
   ttd_topics.error_telemetry:
     class: Drupal\ttd_topics\Service\ErrorTelemetryService
     arguments: ['@config.factory', '@state']

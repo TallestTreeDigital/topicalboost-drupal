@@ -623,6 +623,50 @@ class SettingsForm extends ConfigFormBase {
       '#states' => $archive_states,
     ];
 
+    $setup_manager = \Drupal::service('ttd_topics.search_archive_setup');
+    $archive_view_options = $search_api_enabled
+      ? $setup_manager->getCandidateOptions($config->get('topic_archive_path') ?: '')
+      : [];
+    $archive_view_default = (string) $config->get('topic_archive_view');
+    if ($archive_view_default === '') {
+      $archive_view_default = $setup_manager->suggestCandidate($config->get('topic_archive_path') ?: '');
+    }
+
+    $form['tabs_container']['content']['schema']['topic_archive_managed_filter'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Let TopicalBoost configure archive filtering'),
+      '#default_value' => (bool) $config->get('topic_archive_managed_filter'),
+      '#description' => $this->t('TopicalBoost will add its missing topic ID field to the selected Search API index, apply a hidden URL filter to that View, and queue the index for reindexing. It does not create or display a facet.'),
+      '#disabled' => empty($archive_view_options),
+      '#states' => $archive_states,
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $managed_filter_states = [
+      'visible' => [
+        ':input[name="topic_url_mode"]' => ['value' => 'archive_query'],
+        ':input[name="topic_archive_managed_filter"]' => ['checked' => TRUE],
+      ],
+    ];
+    $form['tabs_container']['content']['schema']['topic_archive_view'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Archive Search API View'),
+      '#options' => ['' => $this->t('- Select the existing archive View -')] + $archive_view_options,
+      '#default_value' => $archive_view_default,
+      '#description' => $this->t('Choose the existing Search API page display that uses the archive path above. TopicalBoost changes only the query when its topic parameter is present.'),
+      '#states' => $managed_filter_states,
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    if ($search_api_enabled && empty($archive_view_options)) {
+      $form['tabs_container']['content']['schema']['topic_archive_managed_unavailable'] = [
+        '#type' => 'item',
+        '#markup' => '<p>' . $this->t('TopicalBoost could not find an enabled Search API page View. Create or enable the archive View first, then return here for automatic filtering.') . '</p>',
+        '#states' => $archive_states,
+        '#attributes' => ['class' => ['ttd-topics-field-group']],
+      ];
+    }
+
     $form['tabs_container']['content']['schema']['topic_archive_status'] = $this->buildTopicArchiveStatus($config);
     $form['tabs_container']['content']['schema']['topic_archive_status']['#states'] = $archive_states;
 
@@ -1875,6 +1919,33 @@ class SettingsForm extends ConfigFormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
+
+    if (($form_state->getValue('topic_url_mode') ?: 'taxonomy_term') !== 'archive_query'
+      || !$form_state->getValue('topic_archive_managed_filter')) {
+      return;
+    }
+
+    if (($form_state->getValue('topic_archive_value_source') ?: 'term_id') !== 'term_id') {
+      $form_state->setErrorByName('topic_archive_value_source', $this->t('Automatic archive filtering currently requires Drupal term IDs.'));
+    }
+    if (($form_state->getValue('topic_archive_value_template') ?: '[value]') !== '[value]') {
+      $form_state->setErrorByName('topic_archive_value_template', $this->t('Automatic archive filtering currently requires the [value] pattern.'));
+    }
+
+    $parameter = trim((string) $form_state->getValue('topic_archive_query_parameter'), "?&= \t\n\r\0\x0B");
+    if (!preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/', $parameter)) {
+      $form_state->setErrorByName('topic_archive_query_parameter', $this->t('Automatic archive filtering requires a simple parameter such as ttd_topic.'));
+    }
+
+    try {
+      \Drupal::service('ttd_topics.search_archive_setup')->validateSelection(
+        (string) $form_state->getValue('topic_archive_view'),
+        (string) $form_state->getValue('topic_archive_path')
+      );
+    }
+    catch (\RuntimeException $e) {
+      $form_state->setErrorByName('topic_archive_view', $e->getMessage());
+    }
   }
 
   /**
@@ -2192,6 +2263,13 @@ class SettingsForm extends ConfigFormBase {
     if ($new_archive_value_template === '') {
       $new_archive_value_template = '[value]';
     }
+    $new_archive_managed_filter = $new_topic_url_mode === 'archive_query'
+      && (bool) $form_state->getValue('topic_archive_managed_filter');
+    $new_archive_view = $new_archive_managed_filter
+      ? (string) $form_state->getValue('topic_archive_view')
+      : '';
+    $new_archive_index = '';
+    $new_archive_index_field = '';
     
     // Get old and new content types to manage field additions/removals.
     $old_content_types = array_filter($config->get('enabled_content_types') ?: []);
@@ -2214,6 +2292,34 @@ class SettingsForm extends ConfigFormBase {
     
     // Handle field management for content type changes.
     $this->manageContentTypeFields($old_content_types, $new_content_types);
+
+    if ($new_archive_managed_filter) {
+      try {
+        $queue_reindex = !$config->get('topic_archive_managed_filter')
+          || $config->get('topic_archive_view') !== $new_archive_view
+          || $config->get('topic_archive_path') !== $new_archive_path;
+        $setup = \Drupal::service('ttd_topics.search_archive_setup')->prepare(
+          $new_archive_view,
+          $new_archive_path,
+          $queue_reindex
+        );
+        $new_archive_index = $setup['index_id'];
+        $new_archive_index_field = $setup['field_id'];
+        if ($setup['field_added'] || $setup['reindex_queued']) {
+          \Drupal::messenger()->addStatus($this->t('TopicalBoost connected @view to the @index Search API index and queued reindexing. The hidden topic filter will work as cron indexes the content.', [
+            '@view' => $setup['view_label'],
+            '@index' => $setup['index_label'],
+          ]));
+        }
+      }
+      catch (\RuntimeException $e) {
+        $new_archive_managed_filter = FALSE;
+        $new_archive_view = '';
+        \Drupal::messenger()->addError($this->t('TopicalBoost could not configure archive filtering: @message', [
+          '@message' => $e->getMessage(),
+        ]));
+      }
+    }
 
     // Handle logo file upload.
     $logo_fid = $config->get('organization_logo_fid');
@@ -2297,6 +2403,10 @@ class SettingsForm extends ConfigFormBase {
       ->set('topic_archive_query_parameter', $new_archive_query_parameter)
       ->set('topic_archive_value_source', $new_archive_value_source)
       ->set('topic_archive_value_template', $new_archive_value_template)
+      ->set('topic_archive_managed_filter', $new_archive_managed_filter)
+      ->set('topic_archive_view', $new_archive_view)
+      ->set('topic_archive_index', $new_archive_index)
+      ->set('topic_archive_index_field', $new_archive_index_field)
       ->set('debug_mode', $form_state->getValue('debug_mode'))
       ->set('topicalboost_api_key', $new_api_key)
       ->set('api_key_validated', $api_key_validated)
@@ -2356,18 +2466,29 @@ class SettingsForm extends ConfigFormBase {
     $query_parameter = trim((string) ($config->get('topic_archive_query_parameter') ?: 'topic'));
     $value_source = $config->get('topic_archive_value_source') ?: 'term_id';
     $value_template = $config->get('topic_archive_value_template') ?: '[value]';
+    $managed_filter = (bool) $config->get('topic_archive_managed_filter');
 
     $topicalboost_items = [
       $this->t('Generates article topic links from the archive URL settings below.'),
       $this->t('Keeps normal taxonomy term links as the default for sites that do not use a Search API/archive topic setup.'),
-      $this->t('Does not create or reconfigure Search API indexes, archive Views, or Facets.'),
     ];
-
-    $drupal_items = [
-      $this->t('Index the TopicalBoost topic field used by article content.'),
-      $this->t('Make the archive page read the configured URL parameter and filter against that indexed field.'),
-      $this->t('Do not place a visible topic facet/block on the page unless readers should see it. Keep the URL filter behavior enabled so topic links still work.'),
-    ];
+    if ($managed_filter) {
+      $topicalboost_items[] = $this->t('Adds the missing topic ID field to the selected Search API index and applies the URL filter only to that archive View.');
+      $topicalboost_items[] = $this->t('Queues reindexing through Search API without creating a facet or changing the archive layout.');
+      $drupal_items = [
+        $this->t('Keep the selected Search API archive View enabled.'),
+        $this->t('Run cron so Search API can process the queued reindex.'),
+        $this->t('Do not place a visible topic facet/block on the page unless readers should see it.'),
+      ];
+    }
+    else {
+      $topicalboost_items[] = $this->t('Does not change Search API indexes, archive Views, or Facets unless automatic filtering is enabled.');
+      $drupal_items = [
+        $this->t('Index the TopicalBoost topic field used by article content.'),
+        $this->t('Make the archive page read the configured URL parameter and filter against that indexed field.'),
+        $this->t('Do not place a visible topic facet/block on the page unless readers should see it. Keep the URL filter behavior enabled so topic links still work.'),
+      ];
+    }
 
     $verify_items = [];
 
@@ -2396,6 +2517,12 @@ class SettingsForm extends ConfigFormBase {
     $verify_items[] = $this->t('Query value pattern: @pattern', [
       '@pattern' => $value_template,
     ]);
+    if ($managed_filter) {
+      $verify_items[] = $this->t('Automatic filtering: connected to @view using index field @field.', [
+        '@view' => $config->get('topic_archive_view') ?: $this->t('not selected'),
+        '@field' => $config->get('topic_archive_index_field') ?: $this->t('not configured'),
+      ]);
+    }
 
     $sample_term = $this->getTopicArchiveSampleTerm();
     if ($sample_term && function_exists('ttd_topics_get_topic_url')) {
@@ -2414,7 +2541,7 @@ class SettingsForm extends ConfigFormBase {
     $admin_links = $this->buildTopicArchiveAdminLinks($config);
 
     $markup = '<div class="ttd-topic-archive-guide">';
-    $markup .= '<div class="ttd-topic-archive-guide__intro"><strong>' . $this->t('Optional Search API/archive setup') . '</strong><span>' . $this->t('Only use this when topic links should open an existing archive/search page instead of Drupal taxonomy term pages.') . '</span></div>';
+    $markup .= '<div class="ttd-topic-archive-guide__intro"><strong>' . $this->t('Optional Search API/archive setup') . '</strong><span>' . $this->t('Only use this when topic links should open an existing archive/search page instead of Drupal taxonomy term pages. Automatic filtering can connect the selected Search API View without displaying a facet.') . '</span></div>';
     $markup .= '<div class="ttd-topic-archive-guide__grid">';
     $markup .= '<section><h4>' . $this->t('What TopicalBoost does') . '</h4><ul>' . $topicalboost_list . '</ul></section>';
     $markup .= '<section><h4>' . $this->t('What Drupal must already do') . '</h4><ul>' . $drupal_list . '</ul></section>';

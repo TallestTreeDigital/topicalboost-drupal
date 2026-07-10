@@ -1848,3 +1848,33 @@ function ttd_topics_update_9108() {
     '@settings' => implode(', ', $added),
   ]);
 }
+
+/**
+ * Add optional managed Search API archive filtering settings.
+ */
+function ttd_topics_update_9109() {
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  $defaults = [
+    'topic_archive_managed_filter' => FALSE,
+    'topic_archive_view' => '',
+    'topic_archive_index' => '',
+    'topic_archive_index_field' => '',
+  ];
+
+  $added = [];
+  foreach ($defaults as $key => $value) {
+    if ($config->get($key) === NULL) {
+      $config->set($key, $value);
+      $added[] = $key;
+    }
+  }
+
+  if (empty($added)) {
+    return t('TopicalBoost managed archive filtering settings were already configured.');
+  }
+
+  $config->save();
+  return t('Added TopicalBoost managed archive filtering settings: @settings.', [
+    '@settings' => implode(', ', $added),
+  ]);
+}

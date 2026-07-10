@@ -56,6 +56,18 @@ ttd_topics.settings:
     topic_archive_value_template:
       type: string
       label: 'Topic archive query value pattern'
+    topic_archive_managed_filter:
+      type: boolean
+      label: 'Let TopicalBoost manage archive filtering'
+    topic_archive_view:
+      type: string
+      label: 'Managed archive View and display'
+    topic_archive_index:
+      type: string
+      label: 'Managed archive Search API index'
+    topic_archive_index_field:
+      type: string
+      label: 'Managed archive Search API field'
     debug_mode:
       type: boolean
       label: 'Debug mode'

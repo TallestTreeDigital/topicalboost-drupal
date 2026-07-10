@@ -250,6 +250,33 @@ function ttd_topics_get_topic_url_value(\Drupal\taxonomy\TermInterface $term, $s
 }
 
 /**
+ * Implements hook_views_pre_build().
+ *
+ * Ensures cached archive output varies by the managed topic query parameter.
+ */
+function ttd_topics_views_pre_build($view) {
+  $config = \Drupal::config('ttd_topics.settings');
+  if (($config->get('topic_url_mode') ?: 'taxonomy_term') !== 'archive_query'
+    || !$config->get('topic_archive_managed_filter')
+    || !isset($view->storage)) {
+    return;
+  }
+
+  $selection = (string) $config->get('topic_archive_view');
+  if ($selection === '' || $selection !== $view->storage->id() . ':' . $view->current_display) {
+    return;
+  }
+
+  $parameter = trim((string) $config->get('topic_archive_query_parameter'));
+  if (!preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/', $parameter)) {
+    return;
+  }
+
+  $view->element['#cache']['contexts'][] = 'url.query_args:' . $parameter;
+  $view->element['#cache']['contexts'] = array_values(array_unique($view->element['#cache']['contexts']));
+}
+
+/**
  * Returns a stable public site base URL for background API requests.
  */
 function ttd_topics_get_site_base_url() {

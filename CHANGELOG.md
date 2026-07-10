@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Add configurable Drupal topic links for Search API/archive pages, including query parameter, value source, and Facets-style value pattern settings.
+- Add an optional managed setup that detects an existing Search API archive View, indexes TopicalBoost topic IDs, applies a hidden URL filter, and queues reindexing without creating a visible facet.
 
 ## [2.0.1] - 2026-05-22
 
