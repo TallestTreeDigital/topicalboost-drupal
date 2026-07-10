@@ -387,7 +387,30 @@ namespace {
   $manager = new SearchArchiveSetupManager($entity_manager, new FakeModuleHandler(), new FakeCurrentUser());
   $candidates = $manager->getCandidates('/news-archive');
   assert_managed(isset($candidates['news_archive:page_1']), 'detects the Search API page View behind the archive path');
+  $options = $manager->getCandidateOptions('/news-archive');
+  assert_managed($options['news_archive:page_1'] === 'Archive page (/news-archive)', 'keeps a unique archive View option concise');
   assert_managed($manager->suggestCandidate('/news-archive') === 'news_archive:page_1', 'suggests the single exact path match');
+
+  $duplicate_view = new FakeViewEntity('second_archive', 'Second archive', 'search_api_index_news', [
+    'page_1' => [
+      'display_plugin' => 'page',
+      'display_title' => 'Archive page',
+      'display_options' => ['path' => 'news-archive'],
+    ],
+  ]);
+  $duplicate_manager = new SearchArchiveSetupManager(new FakeEntityTypeManager([
+    'view' => new FakeStorage([
+      'news_archive' => $view,
+      'second_archive' => $duplicate_view,
+    ]),
+    'search_api_index' => new FakeStorage(['news' => $index]),
+  ]), new FakeModuleHandler(), new FakeCurrentUser());
+  $duplicate_options = $duplicate_manager->getCandidateOptions('/news-archive');
+  assert_managed(
+    $duplicate_options['news_archive:page_1'] === 'Archive page (/news-archive) - News archive [News index]'
+      && $duplicate_options['second_archive:page_1'] === 'Archive page (/news-archive) - Second archive [News index]',
+    'adds View and index context only when archive options would otherwise be identical'
+  );
 
   $unavailable_manager = new SearchArchiveSetupManager($entity_manager, new FakeModuleHandler(FALSE), new FakeCurrentUser());
   assert_managed($unavailable_manager->getCandidates('/news-archive') === [], 'offers no managed setup when Search API is unavailable');

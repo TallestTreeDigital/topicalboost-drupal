@@ -110,15 +110,19 @@ class SearchArchiveSetupManager {
    * Returns readable select options for candidate archive Views.
    */
   public function getCandidateOptions($archive_path = '') {
+    $candidates = $this->getCandidates($archive_path);
+    $base_labels = [];
+    foreach ($candidates as $candidate) {
+      $base_label = sprintf('%s (%s)', $candidate['display_title'], $candidate['path']);
+      $base_labels[$base_label] = ($base_labels[$base_label] ?? 0) + 1;
+    }
+
     $options = [];
-    foreach ($this->getCandidates($archive_path) as $selection => $candidate) {
-      $options[$selection] = sprintf(
-        '%s - %s (%s) [%s]',
-        $candidate['view_label'],
-        $candidate['display_title'],
-        $candidate['path'],
-        $candidate['index_label']
-      );
+    foreach ($candidates as $selection => $candidate) {
+      $base_label = sprintf('%s (%s)', $candidate['display_title'], $candidate['path']);
+      $options[$selection] = $base_labels[$base_label] === 1
+        ? $base_label
+        : sprintf('%s - %s [%s]', $base_label, $candidate['view_label'], $candidate['index_label']);
     }
     return $options;
   }
