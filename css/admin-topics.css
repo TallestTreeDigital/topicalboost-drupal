@@ -1559,20 +1559,14 @@
   color: #15803d !important;
 }
 
-.ttd-wide-layout .ttd-about-section .ttd-section-header {
-  color: #92400e !important;
-}
-
-.ttd-wide-layout .ttd-about-section .ttd-section-count {
-  color: #b45309 !important;
-}
-
+.ttd-wide-layout .ttd-about-section .ttd-section-header,
 .ttd-wide-layout .ttd-mentions-section .ttd-section-header {
-  color: #6b7280 !important;
+  color: #50575e !important;
 }
 
+.ttd-wide-layout .ttd-about-section .ttd-section-count,
 .ttd-wide-layout .ttd-mentions-section .ttd-section-count {
-  color: #9ca3af !important;
+  color: #8c8f94 !important;
 }
 
 .ttd-wide-layout .ttd-topics-list {
@@ -1598,10 +1592,7 @@
 }
 
 .gin--dark-mode .ttd-wide-layout .ttd-about-section .ttd-section-header,
-.gin--dark-mode .ttd-wide-layout .ttd-about-section .ttd-section-count {
-  color: #fbbf24 !important;
-}
-
+.gin--dark-mode .ttd-wide-layout .ttd-about-section .ttd-section-count,
 .gin--dark-mode .ttd-wide-layout .ttd-mentions-section .ttd-section-header,
 .gin--dark-mode .ttd-wide-layout .ttd-mentions-section .ttd-section-count {
   color: var(--gin-color-text-light) !important;
