@@ -21,13 +21,13 @@
   {% set is_focus = section == 'about' %}
   {% set demand = topic.demand|default(null) %}
   {% set source_type = topic.source_type|default(is_manual ? 'manual' : 'nlp') %}
-  {% set source_label = topic.source_label|default(source_type) %}
+  {% set source_description = topic.source_description|default(topic.source_label|default(source_type)) %}
 
   <div class="topic-item {{ is_manual ? 'manual-topic' : 'api-topic' }} {{ tier }}-topic {{ section }}-topic topic-source-{{ source_type }}{% if is_rejected %} rejected{% endif %}"
        data-term-id="{{ term.id() }}"
        data-ttd-id="{{ ttd_id }}"
        data-topic-source="{{ source_type }}"
-       title="{{ 'Source: @source'|t({'@source': source_label}) }}"
+       title="{{ source_description }}"
        draggable="true">
 
     {% if is_manual %}
@@ -85,6 +85,12 @@
   </div>
 
   <div class="ttd-topics-content">
+    <div class="ttd-topic-source-legend" aria-label="Topic source legend">
+      <span class="ttd-topic-source-legend-label">Source</span>
+      <span title="Detected by Google NLP and surfaced by TopicalBoost"><i class="topic-source-nlp" aria-hidden="true"></i>Google NLP</span>
+      <span title="Added or reclassified by TopicalBoost"><i class="topic-source-llm" aria-hidden="true"></i>TopicalBoost</span>
+      <span title="Added by an editor"><i class="topic-source-manual" aria-hidden="true"></i>Editorial</span>
+    </div>
     <div id="ttd-topics-list-container">
 
     {# About Section #}

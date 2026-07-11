@@ -612,6 +612,62 @@
   border-left-color: #f59e0b !important;
 }
 
+.ttd-topic-source-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 7px 12px 3px;
+  color: #6b7280;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.ttd-topic-source-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.ttd-topic-source-legend .ttd-topic-source-legend-label {
+  color: #8b949e;
+}
+
+.ttd-topic-source-legend i {
+  display: inline-block;
+  width: 3px;
+  height: 11px;
+  border-radius: 1px;
+}
+
+.ttd-topic-source-legend i.topic-source-nlp {
+  background: #60a5fa;
+}
+
+.ttd-topic-source-legend i.topic-source-llm {
+  background: #22c55e;
+}
+
+.ttd-topic-source-legend i.topic-source-manual {
+  background: #f59e0b;
+}
+
+@media (max-width: 782px) {
+  .ttd-topic-source-legend {
+    justify-content: flex-start;
+  }
+}
+
+.gin--dark-mode .ttd-topic-source-legend {
+  color: #b8bec8;
+}
+
+.gin--dark-mode .ttd-topic-source-legend .ttd-topic-source-legend-label {
+  color: #8f96a3;
+}
+
 /* Spinner for loading badge */
 .ttd-badge-spinner {
   display: inline-block;

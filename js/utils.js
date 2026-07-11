@@ -80,9 +80,15 @@
   };
 
   window.ttdTopicsUtils.getTopicSourceLabel = function(source) {
-    if (source === 'manual') return 'Manual editorial';
-    if (source === 'llm') return 'LLM';
+    if (source === 'manual') return 'Editorial';
+    if (source === 'llm') return 'TopicalBoost';
     return 'Google NLP';
+  };
+
+  window.ttdTopicsUtils.getTopicSourceDescription = function(source) {
+    if (source === 'manual') return 'Added by an editor';
+    if (source === 'llm') return 'Added or reclassified by TopicalBoost';
+    return 'Detected by Google NLP and surfaced by TopicalBoost';
   };
 
   /**
@@ -98,7 +104,7 @@
     const isRejected = topic.rejected || false;
     const countFormatted = this.formatCount(count);
     const topicSource = this.getTopicSource(topic, isManual);
-    const topicSourceLabel = this.getTopicSourceLabel(topicSource);
+    const topicSourceDescription = this.getTopicSourceDescription(topicSource);
 
     // Build classes
     const classes = [
@@ -114,7 +120,7 @@
                'data-term-id="' + termId + '" ' +
                'data-ttd-id="' + ttdId + '" ' +
                'data-topic-source="' + topicSource + '" ' +
-               'title="Source: ' + topicSourceLabel + '" ' +
+               'title="' + topicSourceDescription + '" ' +
                'draggable="true">';
 
     // Checkbox for auto mention topics only.
