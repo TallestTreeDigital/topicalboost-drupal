@@ -1565,7 +1565,7 @@ html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mo
   line-height: 1.35;
 }
 
-.ttd-topic-archive-admin-links ol {
+.ttd-topic-archive-admin-links ul {
   display: grid;
   gap: 10px;
   margin: 0;

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.17] - 2026-07-11
+
+### Changed
+- Clarify that archive admin links are optional troubleshooting shortcuts and hide manual-only field and Facets links after automatic filtering is connected.
+
 ## [2.0.16] - 2026-07-11
 
 ### Changed

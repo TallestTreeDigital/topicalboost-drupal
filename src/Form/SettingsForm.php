@@ -2501,7 +2501,7 @@ class SettingsForm extends ConfigFormBase {
       $sample_markup = '<span class="ttd-topic-archive-summary__empty">' . $this->t('A test link will appear after a topic is assigned to content.') . '</span>';
     }
 
-    $admin_links = $this->buildTopicArchiveAdminLinks($config);
+    $admin_links = $this->buildTopicArchiveAdminLinks($config, $connected);
     $details = '<dl class="ttd-topic-archive-summary__facts">';
     $details .= '<div><dt>' . $this->t('Archive page') . '</dt><dd>' . $escape($view_label ?: $archive_path ?: $this->t('Not set')) . '</dd></div>';
     $details .= '<div><dt>' . $this->t('Query parameter') . '</dt><dd><code>?' . $escape($query_parameter ?: $this->t('Not set')) . '=...</code></dd></div>';
@@ -2539,45 +2539,53 @@ class SettingsForm extends ConfigFormBase {
   /**
    * Builds helpful admin links for the Search API/archive setup.
    */
-  protected function buildTopicArchiveAdminLinks($config) {
+  protected function buildTopicArchiveAdminLinks($config, $connected = FALSE) {
     $links = [];
 
     $search_api_url = $this->getFirstRouteUrlIfAvailable(['entity.search_api_index.collection', 'search_api.overview']);
     if ($search_api_url) {
       $links[] = [
-        'label' => $this->t('Choose/check the Search API index'),
+        'label' => $connected ? $this->t('Open Search API index') : $this->t('Choose the Search API index'),
         'url' => $search_api_url,
-        'description' => $this->t('Make sure the archive index includes the TopicalBoost topic reference field.'),
+        'description' => $connected
+          ? $this->t('Check the topic field or reindex status.')
+          : $this->t('Make sure the archive index includes the TopicalBoost topic reference field.'),
       ];
     }
 
-    foreach (array_slice($this->getEnabledContentTypeIds($config), 0, 3) as $content_type) {
-      $url = $this->getRouteUrlIfAvailable('entity.node.field_ui_fields', ['node_type' => $content_type]);
-      if ($url) {
-        $links[] = [
-          'label' => $this->t('Check @type topic field', ['@type' => ucfirst(str_replace('_', ' ', $content_type))]),
-          'url' => $url,
-          'description' => $this->t('Confirm which TopicalBoost topic field is attached to this content type.'),
-        ];
+    if (!$connected) {
+      foreach (array_slice($this->getEnabledContentTypeIds($config), 0, 3) as $content_type) {
+        $url = $this->getRouteUrlIfAvailable('entity.node.field_ui_fields', ['node_type' => $content_type]);
+        if ($url) {
+          $links[] = [
+            'label' => $this->t('Check @type topic field', ['@type' => ucfirst(str_replace('_', ' ', $content_type))]),
+            'url' => $url,
+            'description' => $this->t('Confirm which TopicalBoost topic field is attached to this content type.'),
+          ];
+        }
       }
     }
 
     $views_url = $this->getRouteUrlIfAvailable('entity.view.collection');
     if ($views_url) {
       $links[] = [
-        'label' => $this->t('Find/edit the archive View'),
+        'label' => $connected ? $this->t('Open archive View') : $this->t('Choose the archive View'),
         'url' => $views_url,
-        'description' => $this->t('Use the public archive/search View that should receive topic-link traffic.'),
+        'description' => $connected
+          ? $this->t('Review the archive page configuration.')
+          : $this->t('Use the public archive/search View that should receive topic-link traffic.'),
       ];
     }
 
-    $facets_url = $this->getRouteUrlIfAvailable('entity.facets_facet.collection');
-    if ($facets_url) {
-      $links[] = [
-        'label' => $this->t('Check Facets URL setup'),
-        'url' => $facets_url,
-        'description' => $this->t('Use this only if the archive uses Facets-style values such as f[0]=field_ttd_topics:123. The facet block does not need to be displayed.'),
-      ];
+    if (!$connected) {
+      $facets_url = $this->getRouteUrlIfAvailable('entity.facets_facet.collection');
+      if ($facets_url) {
+        $links[] = [
+          'label' => $this->t('Check Facets URL setup'),
+          'url' => $facets_url,
+          'description' => $this->t('Use this only if the archive uses Facets-style values such as f[0]=field_ttd_topics:123. The facet block does not need to be displayed.'),
+        ];
+      }
     }
 
     if (empty($links)) {
@@ -2589,7 +2597,8 @@ class SettingsForm extends ConfigFormBase {
       $items .= '<li><a href="' . htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8') . '">' . (string) $link['label'] . '</a><span>' . (string) $link['description'] . '</span></li>';
     }
 
-    return '<div class="ttd-topic-archive-admin-links"><h4>' . $this->t('Useful admin links') . '</h4><ol>' . $items . '</ol></div>';
+    $heading = $connected ? $this->t('Troubleshooting') : $this->t('Manual setup links');
+    return '<div class="ttd-topic-archive-admin-links"><h4>' . $heading . '</h4><ul>' . $items . '</ul></div>';
   }
 
   /**
