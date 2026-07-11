@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.16] - 2026-07-11
+
+### Changed
+- Replace the expanded Search API/archive guidance panel with a compact connection status, a real archive-filter test link, and progressively disclosed setup details.
+- Improve archive setup labels and dark-theme contrast without changing link generation or filtering behavior.
+
 ## [2.0.15] - 2026-07-09
 
 ### Added
