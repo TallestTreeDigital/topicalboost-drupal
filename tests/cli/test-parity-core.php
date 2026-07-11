@@ -464,8 +464,19 @@ try {
   ]);
   ttd_parity_assert(($llm_tiers[10] ?? NULL) === 'mainEntity', 'LLM tier computation keeps first mainEntity');
   ttd_parity_assert(($llm_tiers[11] ?? NULL) === 'about', 'LLM tier computation demotes extra mainEntity to about');
-  ttd_parity_assert(count(array_filter($llm_tiers, static fn($tier) => $tier === 'about')) === 4, 'LLM tier computation caps about topics at four');
+  ttd_parity_assert(count(array_filter($llm_tiers, static fn($tier) => in_array($tier, ['mainEntity', 'about'], TRUE))) === 5, 'LLM tier computation caps combined focus topics at five');
   ttd_parity_assert(($llm_tiers[16] ?? NULL) === 'mentions', 'LLM tier computation demotes overflow about to mentions');
+
+  $about_only_tiers = ttd_topics_compute_tiers([
+    ['entity_id' => 20, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 21, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 22, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 23, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 24, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 25, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+  ]);
+  ttd_parity_assert(count(array_filter($about_only_tiers, static fn($tier) => $tier === 'about')) === 5, 'Future API path keeps five about topics without mainEntity');
+  ttd_parity_assert(($about_only_tiers[25] ?? NULL) === 'mentions', 'Future API path demotes sixth about topic');
 
   $override_tiers = ttd_topics_compute_tiers([
     ['entity_id' => 400, 'salience_score' => 0.50, 'llm_tier' => NULL],

@@ -3724,7 +3724,7 @@ function ttd_get_term_salience_category($term_id, $node_id) {
  * Matches TTd\Topics\Entity_DB::compute_tiers():
  * - LLM tiers are authoritative when any entity has one.
  * - Salience-only fallback uses 10% for mainEntity and 5% for about.
- * - Only one mainEntity and at most four about topics are allowed.
+ * - Legacy mainEntity and about share one five-topic focus budget.
  * - User overrides win before natural tier assignment.
  *
  * @param array $entities
@@ -3738,10 +3738,10 @@ function ttd_get_term_salience_category($term_id, $node_id) {
 function ttd_topics_compute_tiers(array $entities, array $overrides = []): array {
   $main_entity_min = 0.10;
   $about_min = 0.05;
-  $max_about = 4;
+  $max_focus_topics = 5;
 
   $main_entity_assigned = FALSE;
-  $about_count = 0;
+  $focus_count = 0;
   $tiers = [];
   $has_llm_tiers = FALSE;
 
@@ -3762,9 +3762,10 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
     $tiers[$entity_id] = $tier;
     if ($tier === 'mainEntity') {
       $main_entity_assigned = TRUE;
+      $focus_count++;
     }
     elseif ($tier === 'about') {
-      $about_count++;
+      $focus_count++;
     }
   }
 
@@ -3777,22 +3778,23 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
 
       $llm_tier = $entity['llm_tier'] ?? NULL;
       if ($llm_tier === 'mainEntity') {
-        if (!$main_entity_assigned) {
+        if (!$main_entity_assigned && $focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'mainEntity';
           $main_entity_assigned = TRUE;
+          $focus_count++;
         }
-        elseif ($about_count < $max_about) {
+        elseif ($focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'about';
-          $about_count++;
+          $focus_count++;
         }
         else {
           $tiers[$entity_id] = 'mentions';
         }
       }
       elseif ($llm_tier === 'about') {
-        if ($about_count < $max_about) {
+        if ($focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'about';
-          $about_count++;
+          $focus_count++;
         }
         else {
           $tiers[$entity_id] = 'mentions';
@@ -3822,13 +3824,14 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
     }
 
     $score = $entity['salience_score'] ?? 0;
-    if (!$main_entity_assigned && $score >= $main_entity_min) {
+    if (!$main_entity_assigned && $focus_count < $max_focus_topics && $score >= $main_entity_min) {
       $tiers[$entity_id] = 'mainEntity';
       $main_entity_assigned = TRUE;
+      $focus_count++;
     }
-    elseif ($about_count < $max_about && $score >= $about_min) {
+    elseif ($focus_count < $max_focus_topics && $score >= $about_min) {
       $tiers[$entity_id] = 'about';
-      $about_count++;
+      $focus_count++;
     }
     else {
       $tiers[$entity_id] = 'mentions';

@@ -49,7 +49,7 @@
           const tier = $section.data('section');
 
           if (tier === 'about') {
-            return parseInt($section.data('max-recommended'), 10) || 4;
+            return parseInt($section.data('max-recommended'), 10) || 5;
           }
 
           return null;

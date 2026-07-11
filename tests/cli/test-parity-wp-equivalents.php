@@ -4,7 +4,7 @@
  * Drupal CLI parity tests for remaining WordPress plugin test contracts.
  *
  * Run from the Drupal site root with:
- *   drush scr web/modules/custom/topicalboost/tests/cli/test-parity-wp-equivalents.php
+ *   drush scr web/modules/custom/ttd-topics/tests/cli/test-parity-wp-equivalents.php
  */
 
 use Drupal\node\Entity\Node;
@@ -267,7 +267,8 @@ try {
   ttd_parity_wp_require_field('taxonomy_term', 'ttd_topics', 'field_hide');
   ttd_parity_wp_require_field('taxonomy_term', 'ttd_topics', 'field_force_show');
 
-  $menu_links = \Drupal\Component\Serialization\Yaml::decode(file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/ttd_topics.links.menu.yml')) ?: [];
+  $module_root = DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('ttd_topics');
+  $menu_links = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($module_root . '/ttd_topics.links.menu.yml')) ?: [];
   $config_overview_links = array_filter($menu_links, static function (array $definition, string $machine_name): bool {
     return str_starts_with($machine_name, 'topicalboost.')
       && ($definition['parent'] ?? '') === 'system.admin_config_content';
@@ -275,13 +276,13 @@ try {
   ttd_parity_wp_assert(count($config_overview_links) === 1, 'Configuration overview exposes one TopicalBoost entry');
   ttd_parity_wp_assert(isset($config_overview_links['topicalboost.settings_form']), 'Single Configuration overview entry routes to TopicalBoost settings');
 
-  $post_editor_js = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/js/post-editor.js');
-  $admin_topics_css = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/css/admin-topics.css');
-  $admin_topics_template = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/templates/ttd-admin-topics.html.twig');
+  $post_editor_js = file_get_contents($module_root . '/js/post-editor.js');
+  $admin_topics_css = file_get_contents($module_root . '/css/admin-topics.css');
+  $admin_topics_template = file_get_contents($module_root . '/templates/ttd-admin-topics.html.twig');
   ttd_parity_wp_assert(strpos($post_editor_js, 'flashFullWarning') !== FALSE, 'Editor drag limits flash a FULL warning like WordPress');
   ttd_parity_wp_assert(strpos($post_editor_js, 'dropEffect = \'none\'') !== FALSE, 'Editor drag limits reject over-capacity drops');
   ttd_parity_wp_assert(strpos($admin_topics_css, 'ttd-warning-flash') !== FALSE, 'Editor warning flash styling exists');
-  ttd_parity_wp_assert(strpos($admin_topics_template, '>4 max<') !== FALSE, 'Editor About limit copy matches WordPress');
+  ttd_parity_wp_assert(strpos($admin_topics_template, '>5 max<') !== FALSE, 'Editor About limit copy matches WordPress');
 
   \Drupal::configFactory()->getEditable('ttd_topics.settings')
     ->set('post_topic_minimum_display_count', 2)
