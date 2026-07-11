@@ -62,12 +62,6 @@
     return 'Very Hard';
   };
 
-  window.ttdTopicsUtils.renderManualTopicChip = function(isManual) {
-    return isManual
-      ? '<span class="ttd-manual-topic-chip" title="Added manually by an editor">Manual</span>'
-      : '';
-  };
-
   window.ttdTopicsUtils.getTopicSource = function(topic, isManual) {
     if (isManual) return 'manual';
 
@@ -147,7 +141,7 @@
 
     // Topic name
     html += '<div class="topic-name-container"><span class="ttd-topic-name-row"><label>' +
-            this.escapeHtml(name) + '</label>' + this.renderManualTopicChip(isManual) + '</span></div>';
+            this.escapeHtml(name) + '</label></span></div>';
 
     // Drag handle
     html += '<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>';
