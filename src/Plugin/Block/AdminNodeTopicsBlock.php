@@ -129,6 +129,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
         'tier' => $display_tier,
         'source_type' => $source_type,
         'source_label' => $this->getTopicSourceLabel($source_type),
+        'source_description' => $this->getTopicSourceDescription($source_type),
         'demand' => $demand,
       ];
 
@@ -206,14 +207,31 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
   private function getTopicSourceLabel(string $source): string {
     switch ($source) {
       case 'manual':
-        return (string) $this->t('Manual editorial');
+        return (string) $this->t('Editorial');
 
       case 'llm':
-        return (string) $this->t('LLM');
+        return (string) $this->t('TopicalBoost');
 
       case 'nlp':
       default:
         return (string) $this->t('Google NLP');
+    }
+  }
+
+  /**
+   * Plain-language provenance explanation for topic tooltips.
+   */
+  private function getTopicSourceDescription(string $source): string {
+    switch ($source) {
+      case 'manual':
+        return (string) $this->t('Added by an editor');
+
+      case 'llm':
+        return (string) $this->t('Added or reclassified by TopicalBoost');
+
+      case 'nlp':
+      default:
+        return (string) $this->t('Detected by Google NLP and surfaced by TopicalBoost');
     }
   }
 
