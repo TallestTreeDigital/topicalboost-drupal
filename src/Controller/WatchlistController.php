@@ -27,6 +27,7 @@ class WatchlistController extends ControllerBase {
       'headers' => [
         'Content-Type' => 'application/json',
         'x-api-key' => $api_key,
+        'x-tb-platform' => 'drupal',
       ],
       'timeout' => 30,
     ];
@@ -121,6 +122,8 @@ class WatchlistController extends ControllerBase {
     $content = json_decode($request->getContent(), TRUE);
     $entity_id = (int) ($content['entity_id'] ?? 0);
     $label = trim($content['label'] ?? '');
+    $post_id = (int) ($content['post_id'] ?? 0);
+    $surface = preg_replace('/[^a-z0-9_-]/', '', strtolower($content['surface'] ?? 'settings'));
 
     if (!$entity_id || empty($label)) {
       return new JsonResponse([
@@ -132,6 +135,8 @@ class WatchlistController extends ControllerBase {
     $response = $this->apiRequest('POST', '/watchlist/add', [
       'entityId' => $entity_id,
       'label' => $label,
+      'postId' => $post_id ?: NULL,
+      'surface' => $surface,
     ]);
 
     if ($response === NULL) {
@@ -153,6 +158,7 @@ class WatchlistController extends ControllerBase {
   public function createCustom(Request $request) {
     $content = json_decode($request->getContent(), TRUE);
     $name = trim($content['name'] ?? '');
+    $surface = preg_replace('/[^a-z0-9_-]/', '', strtolower($content['surface'] ?? 'settings'));
 
     if (strlen($name) < 2) {
       return new JsonResponse([
@@ -163,6 +169,7 @@ class WatchlistController extends ControllerBase {
 
     $response = $this->apiRequest('POST', '/watchlist/create-custom', [
       'name' => $name,
+      'surface' => $surface,
     ]);
 
     if ($response === NULL) {
@@ -184,6 +191,8 @@ class WatchlistController extends ControllerBase {
   public function remove(Request $request) {
     $content = json_decode($request->getContent(), TRUE);
     $entity_id = (int) ($content['entity_id'] ?? 0);
+    $post_id = (int) ($content['post_id'] ?? 0);
+    $surface = preg_replace('/[^a-z0-9_-]/', '', strtolower($content['surface'] ?? 'settings'));
 
     if (!$entity_id) {
       return new JsonResponse([
@@ -192,7 +201,10 @@ class WatchlistController extends ControllerBase {
       ], 400);
     }
 
-    $response = $this->apiRequest('DELETE', '/watchlist/' . $entity_id);
+    $response = $this->apiRequest('DELETE', '/watchlist/' . $entity_id, [
+      'postId' => $post_id ?: NULL,
+      'surface' => $surface,
+    ]);
 
     if ($response === NULL) {
       return new JsonResponse([

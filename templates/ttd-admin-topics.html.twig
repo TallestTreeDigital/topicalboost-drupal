@@ -63,6 +63,7 @@
         {{ topic.count_display|default(topic.count) }}
       </span>
     </div>
+
   </div>
 {% endmacro %}
 
@@ -80,6 +81,8 @@
       <div id="ttd-topics-search-results"></div>
     </div>
   </div>
+
+  <div id="ttd-editor-priority-feedback" class="ttd-editor-priority-feedback" role="status" aria-live="polite"></div>
 
   <div class="ttd-topics-content">
     <div class="ttd-topic-source-legend" aria-label="Topic source legend">

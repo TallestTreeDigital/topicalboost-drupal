@@ -277,12 +277,32 @@ try {
   ttd_parity_wp_assert(isset($config_overview_links['topicalboost.settings_form']), 'Single Configuration overview entry routes to TopicalBoost settings');
 
   $post_editor_js = file_get_contents($module_root . '/js/post-editor.js');
+  $always_check_js = file_get_contents($module_root . '/js/editor-always-check.js');
+  $utils_js = file_get_contents($module_root . '/js/utils.js');
   $admin_topics_css = file_get_contents($module_root . '/css/admin-topics.css');
   $admin_topics_template = file_get_contents($module_root . '/templates/ttd-admin-topics.html.twig');
+  $watchlist_controller = file_get_contents($module_root . '/src/Controller/WatchlistController.php');
+  $settings_form = file_get_contents($module_root . '/src/Form/SettingsForm.php');
+  $watchlist_js = file_get_contents($module_root . '/js/watchlist.js');
   ttd_parity_wp_assert(strpos($post_editor_js, 'flashFullWarning') !== FALSE, 'Editor drag limits flash a FULL warning like WordPress');
   ttd_parity_wp_assert(strpos($post_editor_js, 'dropEffect = \'none\'') !== FALSE, 'Editor drag limits reject over-capacity drops');
   ttd_parity_wp_assert(strpos($admin_topics_css, 'ttd-warning-flash') !== FALSE, 'Editor warning flash styling exists');
   ttd_parity_wp_assert(strpos($admin_topics_template, '>5 max<') !== FALSE, 'Editor About limit copy matches WordPress');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-priority-topic') === FALSE, 'Editor topic rows have no site-wide controls');
+  ttd_parity_wp_assert(strpos($utils_js, 'ttd-priority-topic') === FALSE, 'Dynamic topic rows have no site-wide controls');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-editor-priority-feedback') !== FALSE, 'Editor provides contextual always-check feedback');
+  ttd_parity_wp_assert(strpos($utils_js, 'window.ttdAlwaysCheckTopics.offer') !== FALSE, 'Manual topic additions offer the site-wide action');
+  ttd_parity_wp_assert(strpos($always_check_js, 'Always check across site') !== FALSE, 'Editor action states its site-wide scope');
+  ttd_parity_wp_assert(strpos($always_check_js, "surface: 'editor'") !== FALSE, 'Always-check mutations include editor telemetry context');
+  ttd_parity_wp_assert(strpos($always_check_js, 'post_id: nodeId') !== FALSE, 'Always-check mutations include node telemetry context');
+  ttd_parity_wp_assert(strpos($always_check_js, "'/api/topicalboost/watchlist/remove'") !== FALSE, 'Contextual action provides Undo');
+  ttd_parity_wp_assert(strpos($watchlist_controller, "'x-tb-platform' => 'drupal'") !== FALSE, 'Always-check telemetry identifies Drupal as its source');
+  ttd_parity_wp_assert(strpos($watchlist_controller, "'postId' => \$post_id ?: NULL") !== FALSE, 'Drupal proxy forwards post telemetry context');
+  ttd_parity_wp_assert(strpos($settings_form, 'Topics to Always Check') !== FALSE, 'Settings provide the canonical management surface');
+  ttd_parity_wp_assert(strpos($settings_form, '/50') === FALSE, 'Settings do not advertise the safety limit as a target');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'CAPACITY_WARNING_THRESHOLD = 40') !== FALSE, 'Capacity guidance appears only near the limit');
+  ttd_parity_wp_assert(strpos($watchlist_js, '50-topic limit reached') !== FALSE, 'Settings explain the limit when it is reached');
+  ttd_parity_wp_assert(strpos($watchlist_js, '$search.prop(\'disabled\', atLimit)') !== FALSE, 'Topic search is disabled at the safety limit');
 
   \Drupal::configFactory()->getEditable('ttd_topics.settings')
     ->set('post_topic_minimum_display_count', 2)

@@ -1,7 +1,9 @@
 (function ($, Drupal, once) {
   'use strict';
 
-  var $search, $spinner, $results, $items, $count, $feedback;
+  var $search, $spinner, $results, $items, $count, $capacity, $feedback;
+  var MAX_WATCHLIST_SIZE = 50;
+  var CAPACITY_WARNING_THRESHOLD = 40;
   var searchTimer = null;
   var watchlistItems = [];
   var loaded = false;
@@ -16,6 +18,7 @@
         $results = $('#ttd-watchlist-results');
         $items = $('#ttd-watchlist-items');
         $count = $('#ttd-watchlist-count span');
+        $capacity = $('#ttd-watchlist-capacity');
         $feedback = $('#ttd-watchlist-feedback');
 
         // Load when watchlist tab becomes visible.
@@ -72,16 +75,17 @@
         renderWatchlist();
       },
       error: function () {
-        $items.html('<p class="ttd-watchlist-empty" style="color: #d63638;">Failed to load watchlist.</p>');
+        $items.html('<p class="ttd-watchlist-empty" style="color: #d63638;">Failed to load topics.</p>');
       }
     });
   }
 
   function renderWatchlist() {
     $count.text(watchlistItems.length);
+    updateCapacityState();
 
     if (watchlistItems.length === 0) {
-      $items.html('<p class="ttd-watchlist-empty">No watchlist entities. Add entities your publication frequently covers for automatic detection.</p>');
+      $items.html('<p class="ttd-watchlist-empty">No topics added. Search for a niche or frequently missed topic to give it an extra check during analysis.</p>');
       return;
     }
 
@@ -104,7 +108,35 @@
     });
   }
 
+  function updateCapacityState() {
+    var count = watchlistItems.length;
+    var remaining = Math.max(0, MAX_WATCHLIST_SIZE - count);
+    var atLimit = count >= MAX_WATCHLIST_SIZE;
+
+    $search.prop('disabled', atLimit);
+    $search.attr('placeholder', atLimit ? 'Topic limit reached' : 'Search for an entity...');
+
+    if (atLimit) {
+      $capacity.text('50-topic limit reached. Remove a topic to add another.').show();
+      $results.hide().empty();
+      return;
+    }
+
+    if (count >= CAPACITY_WARNING_THRESHOLD) {
+      $capacity.text(remaining + (remaining === 1 ? ' spot remaining' : ' spots remaining')).show();
+      return;
+    }
+
+    $capacity.hide().empty();
+  }
+
+  function isAtLimit() {
+    return watchlistItems.length >= MAX_WATCHLIST_SIZE;
+  }
+
   function searchEntities(query) {
+    if (isAtLimit()) return;
+
     if (currentSearchXhr) currentSearchXhr.abort();
     currentSearchQuery = query;
     $spinner.addClass('is-active');
@@ -172,6 +204,11 @@
   }
 
   function addToWatchlist(entityId, label) {
+    if (isAtLimit()) {
+      showFeedback('Remove a topic before adding another.', 'error');
+      return;
+    }
+
     $results.hide();
     $search.val('');
     showFeedback('Adding...', 'info');
@@ -180,13 +217,13 @@
       url: '/api/topicalboost/watchlist/add',
       type: 'POST',
       contentType: 'application/json',
-      data: JSON.stringify({ entity_id: entityId, label: label }),
+      data: JSON.stringify({ entity_id: entityId, label: label, surface: 'settings' }),
       dataType: 'json',
       success: function (response) {
         if (response.success && response.data && response.data.item) {
           watchlistItems.push(response.data.item);
           renderWatchlist();
-          showFeedback('Entity added to watchlist', 'success');
+          showFeedback('Topic will receive an extra check across the site', 'success');
         } else {
           showFeedback((response.data && response.data.message) || 'Failed to add entity', 'error');
         }
@@ -198,6 +235,11 @@
   }
 
   function createCustomEntity(name) {
+    if (isAtLimit()) {
+      showFeedback('Remove a topic before adding another.', 'error');
+      return;
+    }
+
     $results.hide();
     $search.val('');
     showFeedback('Creating custom entity...', 'info');
@@ -206,13 +248,13 @@
       url: '/api/topicalboost/watchlist/create-custom',
       type: 'POST',
       contentType: 'application/json',
-      data: JSON.stringify({ name: name }),
+      data: JSON.stringify({ name: name, surface: 'settings' }),
       dataType: 'json',
       success: function (response) {
         if (response.success && response.data && response.data.item) {
           watchlistItems.push(response.data.item);
           renderWatchlist();
-          showFeedback('Custom entity created and added to watchlist', 'success');
+          showFeedback('Custom topic will receive an extra check across the site', 'success');
         } else {
           showFeedback((response.data && response.data.message) || 'Failed to create custom entity', 'error');
         }
@@ -230,13 +272,13 @@
       url: '/api/topicalboost/watchlist/remove',
       type: 'POST',
       contentType: 'application/json',
-      data: JSON.stringify({ entity_id: entityId }),
+      data: JSON.stringify({ entity_id: entityId, surface: 'settings' }),
       dataType: 'json',
       success: function (response) {
         if (response.success) {
           watchlistItems = watchlistItems.filter(function (w) { return w.entityId !== entityId; });
           renderWatchlist();
-          showFeedback('Entity removed', 'success');
+          showFeedback('Topic removed', 'success');
         } else {
           $chip.css('opacity', '1');
           showFeedback('Failed to remove entity', 'error');

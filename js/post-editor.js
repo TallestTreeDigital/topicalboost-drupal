@@ -21,7 +21,6 @@
         const $topicsListContainer = $container.find('#ttd-topics-list-container');
         const $topicsSearchContainer = $container.find('.ttd-topics-search-container');
         const hasBeenAnalyzed = !!(settings.ttdTopics && settings.ttdTopics.hasBeenAnalyzed);
-
         $container.on('click', '.ttd-wide-rejected-toggle', function(e) {
           e.preventDefault();
           e.stopPropagation();

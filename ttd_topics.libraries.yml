@@ -203,6 +203,7 @@ admin_topics:
   js:
     js/utils.js: {}
     js/post-editor.js: {}
+    js/editor-always-check.js: {}
   dependencies:
     - core/jquery
     - core/drupal

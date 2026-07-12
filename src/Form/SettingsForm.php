@@ -101,7 +101,7 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
         <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
         <div class="ttd-nav-group-label">Analysis</div>
-        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Watchlist</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Always Check</div>
         <div class="ttd-nav-group-label">Advanced</div>
         <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
         <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
@@ -1309,7 +1309,7 @@ class SettingsForm extends ConfigFormBase {
     }
 
     // =========================================================================
-    // Watchlist Tab
+    // Topics to Always Check Tab
     // =========================================================================
     $form['tabs_container']['content']['watchlist'] = [
       '#type' => 'container',
@@ -1317,16 +1317,16 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     $form['tabs_container']['content']['watchlist']['panel_title'] = [
-      '#markup' => '<h2 class="ttd-panel-title">Entity Watchlist</h2>',
+      '#markup' => '<h2 class="ttd-panel-title">Topics to Always Check</h2>',
     ];
 
     $form['tabs_container']['content']['watchlist']['description'] = [
-      '#markup' => '<p class="description">' . $this->t('Entities on the watchlist are always checked during analysis. Use this for niche topics your publication frequently covers that analysis might otherwise miss.') . '</p>',
+      '#markup' => '<p class="description">' . $this->t('TopicalBoost gives these topics an extra check during analysis across the site, helping catch niche or brief mentions that might otherwise be missed.') . '</p>',
     ];
 
     $form['tabs_container']['content']['watchlist']['search_container'] = [
       '#markup' => Markup::create('<div class="ttd-watchlist-search-wrapper">
-        <label for="ttd-watchlist-search">' . $this->t('Add Entity') . '</label>
+        <label for="ttd-watchlist-search">' . $this->t('Add a topic') . '</label>
         <input type="text" id="ttd-watchlist-search" class="form-text" placeholder="' . $this->t('Search for an entity...') . '" autocomplete="off" />
         <div class="ttd-watchlist-spinner" id="ttd-watchlist-spinner"></div>
         <div class="ttd-watchlist-results" id="ttd-watchlist-results" style="display:none;"></div>
@@ -1336,9 +1336,10 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['watchlist']['items_container'] = [
       '#markup' => Markup::create('<div class="ttd-watchlist-items-wrapper">
-        <h4>' . $this->t('Watchlist (<span id="ttd-watchlist-count"><span>0</span></span>/50)') . '</h4>
+        <h4>' . $this->t('Topics (<span id="ttd-watchlist-count"><span>0</span></span>)') . '</h4>
+        <p id="ttd-watchlist-capacity" class="description" aria-live="polite" style="display:none;"></p>
         <div class="ttd-watchlist-items" id="ttd-watchlist-items">
-          <p class="ttd-watchlist-empty">Loading watchlist...</p>
+          <p class="ttd-watchlist-empty">Loading topics...</p>
         </div>
       </div>'),
     ];

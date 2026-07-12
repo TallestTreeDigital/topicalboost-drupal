@@ -177,6 +177,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
             'nodeId' => $node->id(),
             'thresholdCount' => $threshold_count,
             'hasBeenAnalyzed' => $has_been_analyzed,
+            'canManageAlwaysCheck' => \Drupal::currentUser()->hasPermission('administer topicalboost configuration'),
           ],
         ],
       ],

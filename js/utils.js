@@ -241,6 +241,7 @@
     const nodeId = $parentContainer.data('node-id');
     const termId = topic.term_id || topic.id;
     const ttdId = topic.ttd_id || termId;
+    const canonicalEntityId = parseInt(topic.ttd_id, 10);
 
     if (!nodeId || !termId) {
       console.error('Missing node ID or term ID');
@@ -308,6 +309,15 @@
             // Update section count
             const count = $mentionsList.find('.topic-item').length;
             $mentionsSection.find('.ttd-section-count').text('(' + count + ')');
+          }
+
+          if (
+            Number.isInteger(canonicalEntityId) &&
+            canonicalEntityId > 0 &&
+            window.ttdAlwaysCheckTopics &&
+            typeof window.ttdAlwaysCheckTopics.offer === 'function'
+          ) {
+            window.ttdAlwaysCheckTopics.offer(canonicalEntityId, capturedName);
           }
 
         } else {
