@@ -288,8 +288,11 @@ try {
   ttd_parity_wp_assert(strpos($post_editor_js, 'dropEffect = \'none\'') !== FALSE, 'Editor drag limits reject over-capacity drops');
   ttd_parity_wp_assert(strpos($admin_topics_css, 'ttd-warning-flash') !== FALSE, 'Editor warning flash styling exists');
   ttd_parity_wp_assert(strpos($admin_topics_template, '>5 max<') !== FALSE, 'Editor About limit copy matches WordPress');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-main-section') === FALSE, 'Merged editor keeps Main Topic removed');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'data-topic-source') !== FALSE, 'Server-rendered rows retain topic source provenance');
   ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-priority-topic') === FALSE, 'Editor topic rows have no site-wide controls');
   ttd_parity_wp_assert(strpos($utils_js, 'ttd-priority-topic') === FALSE, 'Dynamic topic rows have no site-wide controls');
+  ttd_parity_wp_assert(strpos($utils_js, 'data-topic-source') !== FALSE, 'Dynamic topic rows retain topic source provenance');
   ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-editor-priority-feedback') !== FALSE, 'Editor provides contextual always-check feedback');
   ttd_parity_wp_assert(strpos($utils_js, 'window.ttdAlwaysCheckTopics.offer') !== FALSE, 'Manual topic additions offer the site-wide action');
   ttd_parity_wp_assert(strpos($always_check_js, 'Always check across site') !== FALSE, 'Editor action states its site-wide scope');
