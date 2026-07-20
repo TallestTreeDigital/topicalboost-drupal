@@ -329,7 +329,7 @@ class SchemaGenerator {
         $schema_types = $this->getEntitySchemaTypes($ttd_id) ?: ['Thing'];
         $config = \Drupal::config('ttd_topics.settings');
         if ($config->get('disable_event_temporal_properties')) {
-          $schema_types = array_map(fn($type) => $type === 'Event' ? 'Thing' : $type, $schema_types);
+          $schema_types = $this->replaceEventSchemaType($schema_types);
         }
         $main_entity['@type'] = count($schema_types) > 1 ? $schema_types : $schema_types[0];
         $main_entity = $this->formatEntityData($main_entity, $entity, $schema_types[0]);
@@ -723,9 +723,7 @@ class SchemaGenerator {
       // Check if events should be output as Things.
       $config = \Drupal::config('ttd_topics.settings');
       if ($config->get('disable_event_temporal_properties')) {
-        $schema_types = array_map(function ($type) {
-          return $type === 'Event' ? 'Thing' : $type;
-        }, $schema_types);
+        $schema_types = $this->replaceEventSchemaType($schema_types);
       }
 
       $output_data = [
@@ -752,6 +750,18 @@ class SchemaGenerator {
     }
 
     return $items;
+  }
+
+  /**
+   * Replaces Event with Thing without emitting duplicate schema types.
+   */
+  protected function replaceEventSchemaType(array $schema_types): array {
+    $schema_types = array_map(
+      static fn($type) => $type === 'Event' ? 'Thing' : $type,
+      $schema_types,
+    );
+
+    return array_values(array_unique($schema_types));
   }
 
   /**
