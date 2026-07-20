@@ -38,6 +38,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-perfor
 # From the module root, no Drupal bootstrap required.
 php tests/cli/test-sync-cursor-upgrade.php
 php tests/cli/test-hidden-backfill-parity.php
+php tests/cli/test-event-schema-dedup.php
 php tests/cli/test-topic-archive-links.php
 php tests/cli/test-topic-archive-managed-filter.php
 ```
@@ -74,6 +75,9 @@ files plus the runtime parity scripts above.
 new sync jobs must include `after_id`, legacy jobs missing `after_id` must cancel
 without retrying, and the update hook must clear only non-processing
 TopicalBoost sync pull jobs.
+
+`test-event-schema-dedup.php` verifies that the Event-to-Thing fallback emits
+one `Thing` type while preserving any other schema types in their original order.
 
 `test-topic-archive-links.php` guards Search API/archive topic links: taxonomy
 fallbacks, internal and absolute archive URLs, existing query strings and
