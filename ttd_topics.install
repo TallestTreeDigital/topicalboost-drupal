@@ -632,7 +632,6 @@ function ttd_topics_default_settings() {
     'include_excerpt' => FALSE,
     'batch_size' => 35,
     'beta_channel' => FALSE,
-    'use_beta_api' => FALSE,
     'error_telemetry_enabled' => TRUE,
     'disable_event_temporal_properties' => FALSE,
     'hide_seo_module_ui' => FALSE,

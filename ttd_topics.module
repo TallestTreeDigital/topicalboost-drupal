@@ -13,14 +13,12 @@ if (file_exists($local_config) && filesize($local_config) > 0) {
 
 // Define the API endpoint as a constant (only if not already defined by local-config.php)
 if (!defined('TOPICALBOOST_API_ENDPOINT')) {
-  $use_beta_api = FALSE;
-  try {
-    $use_beta_api = (bool) \Drupal::config('ttd_topics.settings')->get('use_beta_api');
-  }
-  catch (\Throwable $e) {
-    $use_beta_api = FALSE;
-  }
-  define('TOPICALBOOST_API_ENDPOINT', $use_beta_api ? 'https://beta.api.topicalboost.com' : 'https://api.topicalboost.com');
+  define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+}
+
+// Declares support for the site-controlled V7 analysis response contract.
+if (!defined('TOPICALBOOST_ANALYSIS_CAPABILITIES')) {
+  define('TOPICALBOOST_ANALYSIS_CAPABILITIES', 'analysis-about-v2,priority-topics-v1');
 }
 
 use Drupal\advancedqueue\Job;
@@ -50,7 +48,19 @@ function ttd_topics_api_headers($api_key) {
   $headers = [
     'Content-Type' => 'application/json',
     'x-api-key' => $api_key,
+    'x-tb-platform' => 'drupal',
+    'x-tb-capabilities' => TOPICALBOOST_ANALYSIS_CAPABILITIES,
   ];
+
+  try {
+    $module_info = \Drupal::service('extension.list.module')->getExtensionInfo('ttd_topics');
+    if (!empty($module_info['version'])) {
+      $headers['x-tb-plugin-version'] = $module_info['version'];
+    }
+  }
+  catch (\Throwable $e) {
+    // Version telemetry is helpful but must never block an API request.
+  }
 
   $site_base_url = ttd_topics_get_site_base_url();
   if ($site_base_url !== '') {

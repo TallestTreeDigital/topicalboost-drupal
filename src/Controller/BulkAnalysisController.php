@@ -276,10 +276,7 @@ class BulkAnalysisController extends ControllerBase {
   protected function callBulkInitiateApi(string $api_base_url, string $api_key, int $content_count): array {
     $client = new Client();
     $response = $client->post($api_base_url . '/analyze/bulk/initiate', [
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'x-api-key' => $api_key,
-      ],
+      'headers' => \ttd_topics_api_headers($api_key),
       'json' => [
         'content_count' => $content_count,
       ],

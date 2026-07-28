@@ -281,6 +281,7 @@ try {
   $utils_js = file_get_contents($module_root . '/js/utils.js');
   $admin_topics_css = file_get_contents($module_root . '/css/admin-topics.css');
   $admin_topics_template = file_get_contents($module_root . '/templates/ttd-admin-topics.html.twig');
+  $module_file = file_get_contents($module_root . '/ttd_topics.module');
   $watchlist_controller = file_get_contents($module_root . '/src/Controller/WatchlistController.php');
   $settings_form = file_get_contents($module_root . '/src/Form/SettingsForm.php');
   $watchlist_js = file_get_contents($module_root . '/js/watchlist.js');
@@ -299,7 +300,11 @@ try {
   ttd_parity_wp_assert(strpos($always_check_js, "surface: 'editor'") !== FALSE, 'Always-check mutations include editor telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, 'post_id: nodeId') !== FALSE, 'Always-check mutations include node telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, "'/api/topicalboost/watchlist/remove'") !== FALSE, 'Contextual action provides Undo');
-  ttd_parity_wp_assert(strpos($watchlist_controller, "'x-tb-platform' => 'drupal'") !== FALSE, 'Always-check telemetry identifies Drupal as its source');
+  ttd_parity_wp_assert(
+    strpos($watchlist_controller, '\\ttd_topics_api_headers($api_key)') !== FALSE
+      && strpos($module_file, "'x-tb-platform' => 'drupal'") !== FALSE,
+    'Always-check telemetry identifies Drupal as its source'
+  );
   ttd_parity_wp_assert(strpos($watchlist_controller, "'postId' => \$post_id ?: NULL") !== FALSE, 'Drupal proxy forwards post telemetry context');
   ttd_parity_wp_assert(strpos($settings_form, 'Topics to Always Check') !== FALSE, 'Settings provide the canonical management surface');
   ttd_parity_wp_assert(strpos($settings_form, '/50') === FALSE, 'Settings do not advertise the safety limit as a target');

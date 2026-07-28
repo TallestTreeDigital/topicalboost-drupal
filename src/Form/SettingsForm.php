@@ -1010,17 +1010,6 @@ class SettingsForm extends ConfigFormBase {
       '#weight' => 1,
     ];
 
-    $form['tabs_container']['content']['developer']['use_beta_api'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Beta Analysis'),
-      '#default_value' => $config->get('use_beta_api') ?: FALSE,
-      '#description' => $this->t('Routes analysis requests to the beta server for testing improvements.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
-      '#prefix' => '<div class="ttd-topics-toggle-field">',
-      '#suffix' => '</div>',
-      '#weight' => 2,
-    ];
-
     $form['tabs_container']['content']['developer']['error_telemetry_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Error Telemetry'),
@@ -2424,7 +2413,6 @@ class SettingsForm extends ConfigFormBase {
       ->set('include_excerpt', $form_state->getValue('include_excerpt'))
       ->set('batch_size', (int) $form_state->getValue('batch_size'))
       ->set('beta_channel', $form_state->getValue('beta_channel'))
-      ->set('use_beta_api', $form_state->getValue('use_beta_api'))
       ->set('error_telemetry_enabled', $form_state->getValue('error_telemetry_enabled'))
       ->set('disable_event_temporal_properties', $form_state->getValue('disable_event_temporal_properties'))
       ->set('hide_seo_module_ui', $form_state->getValue('hide_seo_module_ui'))

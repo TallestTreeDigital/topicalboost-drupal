@@ -24,11 +24,7 @@ class WatchlistController extends ControllerBase {
     }
 
     $options = [
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'x-api-key' => $api_key,
-        'x-tb-platform' => 'drupal',
-      ],
+      'headers' => \ttd_topics_api_headers($api_key),
       'timeout' => 30,
     ];
 

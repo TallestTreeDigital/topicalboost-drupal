@@ -150,9 +150,6 @@ ttd_topics.settings:
     beta_channel:
       type: boolean
       label: 'Enable beta channel'
-    use_beta_api:
-      type: boolean
-      label: 'Use beta analysis API'
     error_telemetry_enabled:
       type: boolean
       label: 'Enable error telemetry'

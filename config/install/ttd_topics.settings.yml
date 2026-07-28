@@ -43,7 +43,6 @@ taxonomy_label_plural: Topics
 include_excerpt: false
 batch_size: 35
 beta_channel: false
-use_beta_api: false
 error_telemetry_enabled: true
 disable_event_temporal_properties: false
 hide_seo_module_ui: false
