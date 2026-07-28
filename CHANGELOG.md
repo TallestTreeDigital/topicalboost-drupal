@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.19-beta1] - 2026-07-28
+
+### Changed
+- Show each admin topic on a source-colored rail so editors can distinguish Google NLP, TopicalBoost, and editorial/manual topics.
+- Collapse the separate main-topic presentation into a combined About Topics section while preserving stored topic tiers and schema output.
+- Clarify topic-source labels, remove redundant badges, and cap the combined About Topics display at five topics.
+
 ## [2.0.17] - 2026-07-11
 
 ### Changed
