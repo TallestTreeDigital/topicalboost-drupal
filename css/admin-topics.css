@@ -135,6 +135,39 @@
   color: #8a2424;
 }
 
+.ttd-editor-priority-feedback.is-description-required {
+  align-items: flex-start;
+}
+
+.ttd-priority-description-form {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ttd-priority-description-title {
+  font-size: 12px;
+}
+
+.ttd-priority-description-help {
+  margin: 0;
+  color: #50575e;
+}
+
+.ttd-priority-description-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 58px;
+  resize: vertical;
+}
+
+.ttd-priority-description-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .ttd-always-check-message {
   min-width: 0;
 }
@@ -1680,5 +1713,9 @@
     grid-column: 2;
     grid-row: 1;
     margin-left: 0;
+  }
+
+  .ttd-priority-description-form {
+    grid-column: 1;
   }
 }

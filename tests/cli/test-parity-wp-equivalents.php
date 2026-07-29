@@ -297,6 +297,12 @@ try {
   ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-editor-priority-feedback') !== FALSE, 'Editor provides contextual always-check feedback');
   ttd_parity_wp_assert(strpos($utils_js, 'window.ttdAlwaysCheckTopics.offer') !== FALSE, 'Manual topic additions offer the site-wide action');
   ttd_parity_wp_assert(strpos($always_check_js, 'Add to Priority Topics') !== FALSE, 'Editor action uses the customer-facing Priority Topics name');
+  ttd_parity_wp_assert(strpos($utils_js, 'capturedDescription') !== FALSE, 'Editor passes known topic descriptions into the Priority Topic action');
+  ttd_parity_wp_assert(strpos($always_check_js, 'requestDescription(entityId, label)') !== FALSE, 'Descriptionless topics open the inline description flow');
+  ttd_parity_wp_assert(strpos($always_check_js, 'prevents false matches based only on its name') !== FALSE, 'Inline guidance explains why a description is required');
+  ttd_parity_wp_assert(strpos($always_check_js, 'ttd-priority-description-submit') !== FALSE && strpos($always_check_js, "prop('disabled', !\$(this).val().trim())") !== FALSE, 'Inline Add remains disabled until a description is entered');
+  ttd_parity_wp_assert(strpos($always_check_js, 'description: description') !== FALSE, 'Editor forwards the inline description to the Priority Topic API');
+  ttd_parity_wp_assert(strpos($admin_topics_css, '.ttd-priority-description-form') !== FALSE, 'Inline Priority Topic description form is styled');
   ttd_parity_wp_assert(strpos($always_check_js, "surface: 'editor'") !== FALSE, 'Always-check mutations include editor telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, 'post_id: nodeId') !== FALSE, 'Always-check mutations include node telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, "'/api/topicalboost/watchlist/remove'") !== FALSE, 'Contextual action provides Undo');

@@ -250,6 +250,7 @@
 
     // Capture data before clearing DOM
     const capturedName = topic.name;
+    const capturedDescription = topic.description || topic.kg_description || topic.wb_description || '';
 
     // Immediately hide dropdown on click - user expects it to dismiss
     jQuery('#ttd-topics-search').val('');
@@ -317,7 +318,7 @@
             window.ttdAlwaysCheckTopics &&
             typeof window.ttdAlwaysCheckTopics.offer === 'function'
           ) {
-            window.ttdAlwaysCheckTopics.offer(canonicalEntityId, capturedName);
+            window.ttdAlwaysCheckTopics.offer(canonicalEntityId, capturedName, capturedDescription);
           }
 
         } else {

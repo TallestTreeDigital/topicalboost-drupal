@@ -42,9 +42,10 @@
     });
   }
 
-  function offer(entityId, label) {
+  function offer(entityId, label, description) {
     entityId = parseInt(entityId, 10);
     label = String(label || '').trim();
+    description = String(description || '').trim();
     if (!entityId || !label || !canManage()) return;
 
     if (alwaysCheckEntityIds.has(entityId)) {
@@ -60,7 +61,11 @@
     $('<button type="button" class="button-link ttd-always-check-action"></button>')
       .text(Drupal.t('Add to Priority Topics'))
       .on('click', function() {
-        addToAlwaysCheck(entityId, label, $(this));
+        if (description) {
+          addToAlwaysCheck(entityId, label, $(this), description);
+          return;
+        }
+        requestDescription(entityId, label);
       })
       .appendTo($feedback);
 
@@ -68,7 +73,40 @@
     scheduleHide(12000);
   }
 
-  function addToAlwaysCheck(entityId, label, $button) {
+  function requestDescription(entityId, label) {
+    const $feedback = resetFeedback().addClass('is-description-required');
+    const $form = $('<div class="ttd-priority-description-form"></div>').appendTo($feedback);
+
+    $('<strong class="ttd-priority-description-title"></strong>')
+      .text(Drupal.t('Describe what should count as “@topic”', {'@topic': label}))
+      .appendTo($form);
+    $('<p class="ttd-priority-description-help"></p>')
+      .text(Drupal.t('This tells TopicalBoost what the topic means and prevents false matches based only on its name.'))
+      .appendTo($form);
+
+    const $description = $('<textarea class="ttd-priority-description-input" rows="2" maxlength="1024" aria-label="' + Drupal.t('Priority Topic description') + '" placeholder="' + Drupal.t('Describe the meaning, related concepts, or conditions that should count.') + '"></textarea>')
+      .appendTo($form);
+    const $actions = $('<div class="ttd-priority-description-actions"></div>').appendTo($form);
+    const $submit = $('<button type="button" class="button button--primary ttd-priority-description-submit" disabled></button>')
+      .text(Drupal.t('Add Priority Topic'))
+      .on('click', function() {
+        const value = $description.val().trim();
+        if (!value) return;
+        addToAlwaysCheck(entityId, label, $submit, value);
+      })
+      .appendTo($actions);
+    $('<button type="button" class="button-link ttd-priority-description-cancel"></button>')
+      .text(Drupal.t('Cancel'))
+      .on('click', hideFeedback)
+      .appendTo($actions);
+
+    $description.on('input', function() {
+      $submit.prop('disabled', !$(this).val().trim());
+    }).trigger('focus');
+    appendDismiss($feedback);
+  }
+
+  function addToAlwaysCheck(entityId, label, $button, description) {
     $button.prop('disabled', true).text(Drupal.t('Adding...'));
 
     $.ajax({
@@ -79,6 +117,7 @@
       data: JSON.stringify({
         entity_id: entityId,
         label: label,
+        description: description,
         post_id: nodeId,
         surface: 'editor'
       })
@@ -138,7 +177,7 @@
     window.clearTimeout(feedbackTimer);
     return $('#ttd-editor-priority-feedback')
       .empty()
-      .removeClass('is-error')
+      .removeClass('is-error is-description-required')
       .addClass('is-visible');
   }
 
