@@ -101,7 +101,7 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
         <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
         <div class="ttd-nav-group-label">Analysis</div>
-        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Always Check</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Priority Topics</div>
         <div class="ttd-nav-group-label">Advanced</div>
         <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
         <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
@@ -1298,7 +1298,7 @@ class SettingsForm extends ConfigFormBase {
     }
 
     // =========================================================================
-    // Topics to Always Check Tab
+    // Priority Topics Tab
     // =========================================================================
     $form['tabs_container']['content']['watchlist'] = [
       '#type' => 'container',
@@ -1306,11 +1306,11 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     $form['tabs_container']['content']['watchlist']['panel_title'] = [
-      '#markup' => '<h2 class="ttd-panel-title">Topics to Always Check</h2>',
+      '#markup' => '<h2 class="ttd-panel-title">Priority Topics</h2>',
     ];
 
     $form['tabs_container']['content']['watchlist']['description'] = [
-      '#markup' => '<p class="description">' . $this->t('TopicalBoost gives these topics an extra check during analysis across the site, helping catch niche or brief mentions that might otherwise be missed.') . '</p>',
+      '#markup' => '<p class="description">' . $this->t('TopicalBoost double-checks these topics during analysis across the site, helping catch niche or brief mentions that might otherwise be missed.') . '</p>',
     ];
 
     $form['tabs_container']['content']['watchlist']['search_container'] = [
@@ -1318,6 +1318,9 @@ class SettingsForm extends ConfigFormBase {
         <label for="ttd-watchlist-search">' . $this->t('Add a topic') . '</label>
         <input type="text" id="ttd-watchlist-search" class="form-text" placeholder="' . $this->t('Search for an entity...') . '" autocomplete="off" />
         <div class="ttd-watchlist-spinner" id="ttd-watchlist-spinner"></div>
+        <label for="ttd-watchlist-guidance" style="display:block; margin:12px 0 4px; font-weight:600;">' . $this->t('What should count as this topic?') . ' <span style="font-weight:400;">' . $this->t('(optional for known topics)') . '</span></label>
+        <textarea id="ttd-watchlist-guidance" class="form-textarea" rows="3" maxlength="1024" style="width:100%;" placeholder="' . $this->t('Example: Apply when the article substantively discusses at least two of Russia, China, Iran, and North Korea.') . '"></textarea>
+        <p class="description" style="margin-top:4px;">' . $this->t('Required for a custom topic. Describe the meaning or conditions the analyzer should look for, even when the exact phrase is absent.') . '</p>
         <div class="ttd-watchlist-results" id="ttd-watchlist-results" style="display:none;"></div>
       </div>
       <div id="ttd-watchlist-feedback"></div>'),

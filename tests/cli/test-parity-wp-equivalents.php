@@ -296,7 +296,7 @@ try {
   ttd_parity_wp_assert(strpos($utils_js, 'data-topic-source') !== FALSE, 'Dynamic topic rows retain topic source provenance');
   ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-editor-priority-feedback') !== FALSE, 'Editor provides contextual always-check feedback');
   ttd_parity_wp_assert(strpos($utils_js, 'window.ttdAlwaysCheckTopics.offer') !== FALSE, 'Manual topic additions offer the site-wide action');
-  ttd_parity_wp_assert(strpos($always_check_js, 'Always check across site') !== FALSE, 'Editor action states its site-wide scope');
+  ttd_parity_wp_assert(strpos($always_check_js, 'Add to Priority Topics') !== FALSE, 'Editor action uses the customer-facing Priority Topics name');
   ttd_parity_wp_assert(strpos($always_check_js, "surface: 'editor'") !== FALSE, 'Always-check mutations include editor telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, 'post_id: nodeId') !== FALSE, 'Always-check mutations include node telemetry context');
   ttd_parity_wp_assert(strpos($always_check_js, "'/api/topicalboost/watchlist/remove'") !== FALSE, 'Contextual action provides Undo');
@@ -306,11 +306,16 @@ try {
     'Always-check telemetry identifies Drupal as its source'
   );
   ttd_parity_wp_assert(strpos($watchlist_controller, "'postId' => \$post_id ?: NULL") !== FALSE, 'Drupal proxy forwards post telemetry context');
-  ttd_parity_wp_assert(strpos($settings_form, 'Topics to Always Check') !== FALSE, 'Settings provide the canonical management surface');
+  ttd_parity_wp_assert(strpos($settings_form, 'Priority Topics') !== FALSE, 'Settings provide the canonical management surface');
   ttd_parity_wp_assert(strpos($settings_form, '/50') === FALSE, 'Settings do not advertise the safety limit as a target');
   ttd_parity_wp_assert(strpos($watchlist_js, 'CAPACITY_WARNING_THRESHOLD = 40') !== FALSE, 'Capacity guidance appears only near the limit');
   ttd_parity_wp_assert(strpos($watchlist_js, '50-topic limit reached') !== FALSE, 'Settings explain the limit when it is reached');
   ttd_parity_wp_assert(strpos($watchlist_js, '$search.prop(\'disabled\', atLimit)') !== FALSE, 'Topic search is disabled at the safety limit');
+  ttd_parity_wp_assert(strpos($settings_form, 'ttd-watchlist-guidance') !== FALSE, 'Priority Topics collect site-specific detection guidance');
+  ttd_parity_wp_assert(strpos($settings_form, 'Required for a custom topic') !== FALSE, 'Settings explain that custom Priority Topics require guidance');
+  ttd_parity_wp_assert(substr_count($watchlist_controller, "'description' => \$description") >= 2, 'Drupal forwards guidance for known and custom topics');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'data-has-description') !== FALSE, 'Descriptionless known topics require guidance before being added');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'Describe what should count as this custom Priority Topic first.') !== FALSE, 'Custom topics are blocked until guidance is present');
 
   \Drupal::configFactory()->getEditable('ttd_topics.settings')
     ->set('post_topic_minimum_display_count', 2)

@@ -118,6 +118,7 @@ class WatchlistController extends ControllerBase {
     $content = json_decode($request->getContent(), TRUE);
     $entity_id = (int) ($content['entity_id'] ?? 0);
     $label = trim($content['label'] ?? '');
+    $description = trim($content['description'] ?? '');
     $post_id = (int) ($content['post_id'] ?? 0);
     $surface = preg_replace('/[^a-z0-9_-]/', '', strtolower($content['surface'] ?? 'settings'));
 
@@ -127,10 +128,17 @@ class WatchlistController extends ControllerBase {
         'data' => ['message' => 'Entity ID and label are required'],
       ], 400);
     }
+    if (strlen($description) > 1024) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Description must be 1024 characters or fewer'],
+      ], 400);
+    }
 
     $response = $this->apiRequest('POST', '/watchlist/add', [
       'entityId' => $entity_id,
       'label' => $label,
+      'description' => $description,
       'postId' => $post_id ?: NULL,
       'surface' => $surface,
     ]);
@@ -154,6 +162,7 @@ class WatchlistController extends ControllerBase {
   public function createCustom(Request $request) {
     $content = json_decode($request->getContent(), TRUE);
     $name = trim($content['name'] ?? '');
+    $description = trim($content['description'] ?? '');
     $surface = preg_replace('/[^a-z0-9_-]/', '', strtolower($content['surface'] ?? 'settings'));
 
     if (strlen($name) < 2) {
@@ -162,9 +171,22 @@ class WatchlistController extends ControllerBase {
         'data' => ['message' => 'Name must be at least 2 characters'],
       ], 400);
     }
+    if (empty($description)) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Describe what should count as this custom Priority Topic'],
+      ], 400);
+    }
+    if (strlen($description) > 1024) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Description must be 1024 characters or fewer'],
+      ], 400);
+    }
 
     $response = $this->apiRequest('POST', '/watchlist/create-custom', [
       'name' => $name,
+      'description' => $description,
       'surface' => $surface,
     ]);
 

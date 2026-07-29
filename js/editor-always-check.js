@@ -58,7 +58,7 @@
       .appendTo($feedback);
 
     $('<button type="button" class="button-link ttd-always-check-action"></button>')
-      .text(Drupal.t('Always check across site'))
+      .text(Drupal.t('Add to Priority Topics'))
       .on('click', function() {
         addToAlwaysCheck(entityId, label, $(this));
       })
@@ -84,7 +84,7 @@
       })
     }).done(function(response) {
       if (!response || !response.success) {
-        showError(Drupal.t('Could not update topics to always check.'));
+        showError(Drupal.t('Could not update Priority Topics.'));
         return;
       }
 
@@ -104,7 +104,7 @@
       appendDismiss($feedback);
       scheduleHide(8000);
     }).fail(function() {
-      showError(Drupal.t('Could not update topics to always check.'));
+      showError(Drupal.t('Could not update Priority Topics.'));
     });
   }
 

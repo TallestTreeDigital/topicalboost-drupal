@@ -1,7 +1,7 @@
 (function ($, Drupal, once) {
   'use strict';
 
-  var $search, $spinner, $results, $items, $count, $capacity, $feedback;
+  var $search, $guidance, $spinner, $results, $items, $count, $capacity, $feedback;
   var MAX_WATCHLIST_SIZE = 50;
   var CAPACITY_WARNING_THRESHOLD = 40;
   var searchTimer = null;
@@ -14,6 +14,7 @@
     attach: function (context) {
       $(once('ttd-watchlist', '#ttd-watchlist-search', context)).each(function () {
         $search = $(this);
+        $guidance = $('#ttd-watchlist-guidance');
         $spinner = $('#ttd-watchlist-spinner');
         $results = $('#ttd-watchlist-results');
         $items = $('#ttd-watchlist-items');
@@ -92,7 +93,7 @@
     var html = '';
     watchlistItems.forEach(function (item) {
       var name = item.kgName || item.wbName || item.nlName || item.label;
-      var desc = item.kgDescription || item.wbDescription || '';
+      var desc = item.guidance || item.kgDescription || item.wbDescription || '';
       html += '<span class="ttd-watchlist-chip" data-entity-id="' + item.entityId + '" title="' + escAttr(desc) + '">';
       html += escHtml(name);
       html += '<button type="button" class="ttd-watchlist-chip-remove" aria-label="Remove">&times;</button>';
@@ -162,14 +163,20 @@
           var createHtml = '<div class="ttd-watchlist-no-results-wrapper">';
           createHtml += '<div class="ttd-watchlist-result-item ttd-watchlist-no-results">No matching entities found in knowledge bases.</div>';
           createHtml += '<div class="ttd-watchlist-result-item ttd-watchlist-create-custom" data-name="' + escAttr(query) + '">';
-          createHtml += '<div class="ttd-watchlist-result-name">Create "' + escHtml(query) + '" as custom entity</div>';
-          createHtml += '<div class="ttd-watchlist-result-desc">Not found in Google KG or Wikidata &mdash; add as custom entity</div>';
+          createHtml += '<div class="ttd-watchlist-result-name">Create "' + escHtml(query) + '" as a custom Priority Topic</div>';
+          createHtml += '<div class="ttd-watchlist-result-desc">Not found in Google KG or Wikidata &mdash; guidance is required</div>';
           createHtml += '</div></div>';
           $results.html(createHtml).show();
 
           $results.find('.ttd-watchlist-create-custom').on('click', function () {
             var name = $(this).data('name');
-            if (name) createCustomEntity(name);
+            var guidance = $guidance.val() || '';
+            if (!guidance.trim()) {
+              showFeedback('Describe what should count as this custom Priority Topic first.', 'error');
+              $guidance.trigger('focus');
+              return;
+            }
+            if (name) createCustomEntity(name, guidance);
           });
           return;
         }
@@ -180,7 +187,7 @@
           var disabledClass = (!c.entityId || alreadyAdded) ? ' ttd-watchlist-result-disabled' : '';
           var badge = alreadyAdded ? ' <span class="ttd-watchlist-already">already added</span>' : '';
 
-          html += '<div class="ttd-watchlist-result-item' + disabledClass + '" data-entity-id="' + (c.entityId || '') + '" data-name="' + escAttr(c.name) + '">';
+          html += '<div class="ttd-watchlist-result-item' + disabledClass + '" data-entity-id="' + (c.entityId || '') + '" data-name="' + escAttr(c.name) + '" data-has-description="' + (c.description ? '1' : '0') + '">';
           html += '<div class="ttd-watchlist-result-name">' + escHtml(c.name) + badge + '</div>';
           if (c.description) {
             html += '<div class="ttd-watchlist-result-desc">' + escHtml(c.description) + '</div>';
@@ -193,7 +200,13 @@
         $results.find('.ttd-watchlist-result-item:not(.ttd-watchlist-result-disabled)').on('click', function () {
           var entityId = $(this).data('entity-id');
           var name = $(this).data('name');
-          if (entityId) addToWatchlist(entityId, name);
+          var guidance = $guidance.val() || '';
+          if (!guidance.trim() && String($(this).data('has-description')) !== '1') {
+            showFeedback('Add guidance so the analyzer knows what should count as this Priority Topic.', 'error');
+            $guidance.trigger('focus');
+            return;
+          }
+          if (entityId) addToWatchlist(entityId, name, guidance);
         });
       },
       error: function (jqXHR, textStatus) {
@@ -203,7 +216,7 @@
     });
   }
 
-  function addToWatchlist(entityId, label) {
+  function addToWatchlist(entityId, label, guidance) {
     if (isAtLimit()) {
       showFeedback('Remove a topic before adding another.', 'error');
       return;
@@ -217,24 +230,25 @@
       url: '/api/topicalboost/watchlist/add',
       type: 'POST',
       contentType: 'application/json',
-      data: JSON.stringify({ entity_id: entityId, label: label, surface: 'settings' }),
+      data: JSON.stringify({ entity_id: entityId, label: label, description: guidance, surface: 'settings' }),
       dataType: 'json',
       success: function (response) {
         if (response.success && response.data && response.data.item) {
+          $guidance.val('');
           watchlistItems.push(response.data.item);
           renderWatchlist();
           showFeedback('Topic will receive an extra check across the site', 'success');
         } else {
-          showFeedback((response.data && response.data.message) || 'Failed to add entity', 'error');
+          showFeedback((response.data && response.data.message) || 'Failed to add Priority Topic', 'error');
         }
       },
       error: function () {
-        showFeedback('Failed to add entity', 'error');
+        showFeedback('Failed to add Priority Topic', 'error');
       }
     });
   }
 
-  function createCustomEntity(name) {
+  function createCustomEntity(name, guidance) {
     if (isAtLimit()) {
       showFeedback('Remove a topic before adding another.', 'error');
       return;
@@ -242,25 +256,26 @@
 
     $results.hide();
     $search.val('');
-    showFeedback('Creating custom entity...', 'info');
+    showFeedback('Creating custom Priority Topic...', 'info');
 
     $.ajax({
       url: '/api/topicalboost/watchlist/create-custom',
       type: 'POST',
       contentType: 'application/json',
-      data: JSON.stringify({ name: name, surface: 'settings' }),
+      data: JSON.stringify({ name: name, description: guidance, surface: 'settings' }),
       dataType: 'json',
       success: function (response) {
         if (response.success && response.data && response.data.item) {
+          $guidance.val('');
           watchlistItems.push(response.data.item);
           renderWatchlist();
           showFeedback('Custom topic will receive an extra check across the site', 'success');
         } else {
-          showFeedback((response.data && response.data.message) || 'Failed to create custom entity', 'error');
+          showFeedback((response.data && response.data.message) || 'Failed to create custom Priority Topic', 'error');
         }
       },
       error: function () {
-        showFeedback('Failed to create custom entity', 'error');
+        showFeedback('Failed to create custom Priority Topic', 'error');
       }
     });
   }
@@ -281,12 +296,12 @@
           showFeedback('Topic removed', 'success');
         } else {
           $chip.css('opacity', '1');
-          showFeedback('Failed to remove entity', 'error');
+          showFeedback('Failed to remove Priority Topic', 'error');
         }
       },
       error: function () {
         $chip.css('opacity', '1');
-        showFeedback('Failed to remove entity', 'error');
+        showFeedback('Failed to remove Priority Topic', 'error');
       }
     });
   }
