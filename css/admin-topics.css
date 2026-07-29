@@ -168,6 +168,52 @@
   gap: 10px;
 }
 
+.gin--dark-mode .ttd-editor-priority-feedback {
+  border-color: var(--gin-border-color, #4b5563);
+  background: var(--gin-bg-layer2, #24272b);
+  color: var(--gin-color-text, #f3f4f6);
+}
+
+.gin--dark-mode .ttd-editor-priority-feedback.is-error {
+  border-color: #9f4146;
+  background: #3a2024;
+  color: #ffd7da;
+}
+
+.gin--dark-mode .ttd-priority-description-help {
+  color: var(--gin-color-text-light, #c3c8ce);
+}
+
+.gin--dark-mode .ttd-priority-description-input {
+  border-color: var(--gin-border-color-form-element, #667085);
+  background: var(--gin-bg-input, #1f2226);
+  color: var(--gin-color-text, #f3f4f6);
+}
+
+.gin--dark-mode .ttd-priority-description-input::placeholder {
+  color: var(--gin-color-text-light, #aeb4bc);
+}
+
+.gin--dark-mode .ttd-priority-description-input:focus {
+  border-color: rgb(var(--gin-color-primary-rgb));
+  box-shadow: 0 0 0 1px rgb(var(--gin-color-primary-rgb));
+}
+
+.gin--dark-mode .ttd-priority-description-cancel,
+.gin--dark-mode .ttd-always-check-action,
+.gin--dark-mode .ttd-always-check-undo {
+  color: rgb(var(--gin-color-primary-rgb));
+}
+
+.gin--dark-mode .ttd-always-check-dismiss {
+  color: var(--gin-color-text-light, #c3c8ce);
+}
+
+.gin--dark-mode .ttd-always-check-dismiss:hover,
+.gin--dark-mode .ttd-always-check-dismiss:focus-visible {
+  color: var(--gin-color-text, #f3f4f6);
+}
+
 .ttd-always-check-message {
   min-width: 0;
 }
