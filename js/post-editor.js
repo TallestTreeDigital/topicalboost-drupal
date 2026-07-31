@@ -373,7 +373,9 @@
                     $badge = $item.find('.ttd-kd-badge');
                   }
 
-                  if (response.data && response.data.demand_metrics) {
+                  if (response.data && response.data.demand_metrics &&
+                      !response.data.demand_metrics.pending &&
+                      !response.data.demand_metrics.refreshing) {
                     renderDemandMetrics($badge, response.data.demand_metrics);
                   }
                   else {
@@ -440,7 +442,12 @@
         /**
          * Fetch demand metrics.
          */
-        function fetchDemandMetrics(termId, $badge, completeCallback) {
+        function getDemandMetricsPollDelaySeconds(retryAfter, pollAttempt) {
+          const serverDelay = Math.max(1, parseInt(retryAfter, 10) || 2);
+          return Math.min(8, Math.max(serverDelay, 2 + pollAttempt));
+        }
+
+        function fetchDemandMetrics(termId, $badge, completeCallback, options) {
           if (!termId) {
             if (typeof completeCallback === 'function') {
               completeCallback();
@@ -448,32 +455,79 @@
             return;
           }
 
-          $badge.addClass('ttd-kd-loading').html('<span class="ttd-badge-spinner"></span>');
+          options = options || {};
+          const pollAttempt = options.pollAttempt || 0;
+          const maxPolls = options.maxPolls || 10;
+          const pollToken = options.pollToken || (Date.now() + '-' + Math.random());
+
+          if (pollAttempt === 0) {
+            $badge.data('demandPollToken', pollToken);
+          }
+
+          // Keep stale metrics visible while a background refresh is queued.
+          if (!$badge.hasClass('ttd-kd-stale')) {
+            renderDemandPending($badge);
+          }
 
           $.ajax({
             url: '/api/topicalboost/demand',
             type: 'GET',
-            data: { term_id: termId },
+            data: {
+              term_id: termId,
+              force_refresh: pollAttempt > 0 ? 1 : 0
+            },
             success: function(response) {
-              if (response.success && response.data && response.data.cooldown) {
-                renderDemandCooldown($badge, response.data.retry_after_seconds);
+              if ($badge.data('demandPollToken') !== pollToken) {
                 return;
               }
-              if (response.success && response.data) {
-                renderDemandMetrics($badge, response.data);
+
+              const data = response && response.data ? response.data : {};
+              const isPending = !!(response && response.success && data.pending);
+              const hasMetrics = !!(response && response.success &&
+                data.keyword_difficulty !== undefined &&
+                data.traffic_potential !== undefined);
+
+              if (hasMetrics) {
+                renderDemandMetrics($badge, data);
               }
-              else {
+
+              if ((isPending || (hasMetrics && data.refreshing)) && pollAttempt < maxPolls) {
+                const retrySeconds = getDemandMetricsPollDelaySeconds(data.retry_after_seconds, pollAttempt);
+                window.setTimeout(function() {
+                  if ($badge.data('demandPollToken') !== pollToken) return;
+                  fetchDemandMetrics(termId, $badge, completeCallback, {
+                    pollAttempt: pollAttempt + 1,
+                    maxPolls: maxPolls,
+                    pollToken: pollToken
+                  });
+                }, retrySeconds * 1000);
+                return;
+              }
+
+              if (data.cooldown) {
+                renderDemandCooldown($badge, data.retry_after_seconds);
+              }
+              else if (isPending) {
+                renderNoDemandData($badge, 'Demand metrics are taking longer than expected. Click to retry.');
+              }
+              else if (!hasMetrics) {
                 renderNoDemandData($badge, 'No demand data available');
+              }
+
+              if (typeof completeCallback === 'function') {
+                completeCallback();
               }
             },
             error: function(xhr) {
-              if (xhr && xhr.status === 503) {
-                renderDemandCooldown($badge);
+              if ($badge.data('demandPollToken') !== pollToken) {
                 return;
               }
-              renderNoDemandData($badge, 'Failed to load');
-            },
-            complete: function() {
+              if (xhr && xhr.status === 503) {
+                renderDemandCooldown($badge);
+              }
+              else {
+                renderNoDemandData($badge, 'Failed to load');
+              }
               if (typeof completeCallback === 'function') {
                 completeCallback();
               }
@@ -502,10 +556,23 @@
           const kdClass = window.ttdTopicsUtils.getKdClass(kd);
           const label = window.ttdTopicsUtils.getKdLabel(kd);
 
-          $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+          const staleNote = metrics.stale ? '\nRefreshing in the background…' : '';
+
+          $badge.removeClass('ttd-kd-loading ttd-kd-no-data ttd-kd-stale ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
                 .addClass(kdClass)
-                .attr('title', 'Traffic Potential: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')')
+                .toggleClass('ttd-kd-stale', !!metrics.stale)
+                .attr('title', 'Estimated traffic opportunity: ' + tpFormatted + '\nDifficulty: ' + kd + '/100 (' + label + ')' + staleNote)
                 .text(tpFormatted);
+        }
+
+        /**
+         * Keep the badge in a non-blocking loading state while the API worker runs.
+         */
+        function renderDemandPending($badge) {
+          $badge.removeClass('ttd-kd-no-data ttd-kd-stale ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+                .addClass('ttd-kd-loading')
+                .attr('title', 'Fetching demand metrics in the background…')
+                .html('<span class="ttd-badge-spinner"></span>');
         }
 
         /**
@@ -513,7 +580,7 @@
          */
         function renderDemandCooldown($badge, retryAfter) {
           const retryText = retryAfter ? '\nRetry after about ' + retryAfter + ' seconds.' : '';
-          $badge.removeClass('ttd-kd-loading ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+          $badge.removeClass('ttd-kd-loading ttd-kd-stale ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
                 .addClass('ttd-kd-no-data')
                 .attr('title', 'Demand metrics temporarily unavailable.' + retryText + '\n\nClick to retry later')
                 .text('--');
@@ -523,7 +590,7 @@
          * Render the badge when demand metrics are unavailable.
          */
         function renderNoDemandData($badge, title) {
-          $badge.removeClass('ttd-kd-loading ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
+          $badge.removeClass('ttd-kd-loading ttd-kd-stale ttd-kd-easy ttd-kd-medium ttd-kd-hard ttd-kd-very-hard')
                 .addClass('ttd-kd-no-data')
                 .attr('title', title)
                 .text('--');
@@ -547,19 +614,19 @@
          * Auto-fetch demand metrics for focus-topic badges rendered without cached data.
          */
         function runAutoFetchDemandMetrics() {
-          const $noDataBadges = $container.find('.ttd-kd-badge.ttd-kd-no-data');
-          if (!$noDataBadges.length) {
+          const $refreshBadges = $container.find('.ttd-kd-badge.ttd-kd-no-data, .ttd-kd-badge.ttd-kd-stale');
+          if (!$refreshBadges.length) {
             return;
           }
 
           let fetchIndex = 0;
 
           function fetchNextMetric() {
-            if (fetchIndex >= $noDataBadges.length) {
+            if (fetchIndex >= $refreshBadges.length) {
               return;
             }
 
-            const $badge = $noDataBadges.eq(fetchIndex);
+            const $badge = $refreshBadges.eq(fetchIndex);
             fetchIndex++;
 
             if (!$badge.length || $badge.hasClass('ttd-kd-loading')) {

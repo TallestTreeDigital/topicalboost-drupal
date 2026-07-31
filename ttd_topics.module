@@ -4294,12 +4294,15 @@ function ttd_render_kd_badge($term_id, $node_id) {
   $kd_class = ttd_get_kd_class($kd);
   $label = ttd_get_kd_label($kd);
   $tp_formatted = ttd_format_count($tp);
+  $is_stale = !empty($metrics['stale']);
+  $stale_note = $is_stale ? ' | Refreshing in the background…' : '';
 
-  $tooltip = t('Traffic Potential: @tp | Difficulty: @kd/100 (@label) | Click to refresh', [
+  $tooltip = t('Estimated traffic opportunity: @tp | Difficulty: @kd/100 (@label)@stale | Click to refresh', [
     '@tp' => $tp_formatted,
     '@kd' => $kd,
     '@label' => $label,
+    '@stale' => $stale_note,
   ]);
 
-  return '<span class="ttd-kd-badge ' . $kd_class . '" title="' . $tooltip . '" data-term-id="' . $term_id . '">' . $tp_formatted . '</span>';
+  return '<span class="ttd-kd-badge ' . $kd_class . ($is_stale ? ' ttd-kd-stale' : '') . '" title="' . $tooltip . '" data-term-id="' . $term_id . '">' . $tp_formatted . '</span>';
 }

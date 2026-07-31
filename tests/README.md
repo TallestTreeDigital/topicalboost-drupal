@@ -39,6 +39,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-perfor
 php tests/cli/test-sync-cursor-upgrade.php
 php tests/cli/test-hidden-backfill-parity.php
 php tests/cli/test-event-schema-dedup.php
+php tests/cli/test-demand-metrics-async-static.php
 php tests/cli/test-topic-archive-links.php
 php tests/cli/test-topic-archive-managed-filter.php
 ```
@@ -78,6 +79,11 @@ TopicalBoost sync pull jobs.
 
 `test-event-schema-dedup.php` verifies that the Event-to-Thing fallback emits
 one `Thing` type while preserving any other schema types in their original order.
+
+`test-demand-metrics-async-static.php` guards the cross-CMS asynchronous demand
+contract: pending responses are never cached as zero metrics, editor polling is
+bounded and backed off, customer labels remain provider-neutral, and version
+metadata is release-ready.
 
 `test-topic-archive-links.php` guards Search API/archive topic links: taxonomy
 fallbacks, internal and absolute archive URLs, existing query strings and

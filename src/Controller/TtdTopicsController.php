@@ -1592,7 +1592,8 @@ class TtdTopicsController extends ControllerBase {
 
     try {
       $data = $this->getDemandMetricsData($term_id, $keyword, $force_refresh);
-      return new JsonResponse(['success' => TRUE, 'data' => $data]);
+      $status = is_array($data) && !empty($data['pending']) ? 202 : 200;
+      return new JsonResponse(['success' => TRUE, 'data' => $data], $status);
     } catch (\Exception $e) {
       \Drupal::logger('ttd_topics')->error('Error getting demand metrics: @message', ['@message' => $e->getMessage()]);
       return new JsonResponse(['error' => 'Failed to fetch demand metrics'], 500);
@@ -1678,13 +1679,15 @@ class TtdTopicsController extends ControllerBase {
     $request_cached_data = (!empty($cached['data']) && is_array($cached['data'])) ? $cached['data'] : NULL;
     $has_valid_request_cache = $this->hasValidDemandMetricsCache($request_cached_data);
     $has_valid_canonical_cache = $this->hasValidDemandMetricsCache($canonical_cached);
+    $request_cache_stale = $has_valid_request_cache && !empty($request_cached_data['stale']);
+    $canonical_cache_stale = $has_valid_canonical_cache && !empty($canonical_cached['stale']);
 
     // Check cache unless force refresh.
     if (!$force_refresh) {
-      if ($has_valid_request_cache && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
+      if ($has_valid_request_cache && !$request_cache_stale && isset($cached['timestamp']) && (time() - $cached['timestamp']) < $cache_duration) {
         return $request_cached_data;
       }
-      if ($has_valid_canonical_cache) {
+      if ($has_valid_canonical_cache && !$canonical_cache_stale) {
         return $canonical_cached;
       }
     }
@@ -1747,12 +1750,30 @@ class TtdTopicsController extends ControllerBase {
       ]);
 
       $data = json_decode($response->getBody(), TRUE);
+      $is_pending = (int) $response->getStatusCode() === 202
+        || (is_array($data) && (($data['status'] ?? '') === 'pending' || !empty($data['pending'])));
+
+      // A pending response is a queue acknowledgement, not a zero-valued
+      // metric result. Never persist it in either Drupal demand cache.
+      if ($is_pending) {
+        return [
+          'pending' => TRUE,
+          'refreshing' => TRUE,
+          'retry_after_seconds' => max(1, (int) ($data['retry_after_seconds'] ?? 2)),
+          'keyword' => $data['keyword'] ?? $keyword,
+          'message' => 'Demand metrics are loading in the background',
+        ];
+      }
+
       $metrics = [
         'keyword' => $data['keyword'] ?? $keyword,
         'keyword_difficulty' => $data['keyword_difficulty'] ?? 0,
         'search_volume' => $data['search_volume'] ?? 0,
         'traffic_potential' => $data['traffic_potential'] ?? 0,
         'traffic_potential_value' => $data['traffic_potential_value'] ?? 0,
+        'stale' => !empty($data['stale']),
+        'refreshing' => !empty($data['refreshing']),
+        'retry_after_seconds' => max(1, (int) ($data['retry_after_seconds'] ?? 2)),
       ];
 
       // Cache the result for this request path.
@@ -1808,7 +1829,9 @@ class TtdTopicsController extends ControllerBase {
    * Determines whether a cached demand metric entry is usable.
    */
   private function hasValidDemandMetricsCache($metrics): bool {
-    if (!is_array($metrics) || !array_key_exists('traffic_potential', $metrics)) {
+    if (!is_array($metrics)
+      || !empty($metrics['pending'])
+      || !array_key_exists('traffic_potential', $metrics)) {
       return FALSE;
     }
 

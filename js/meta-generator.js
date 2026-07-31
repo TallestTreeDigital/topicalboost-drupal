@@ -352,7 +352,7 @@
                         data-volume="${volume || ''}"
                         ${preChecked ? 'checked' : ''} />
                     <span class="ttd-chip-name">${this.escapeHtml(topic.name)}</span>
-                    ${volumeStr ? '<span class="ttd-chip-volume" title="' + Drupal.t('Traffic Potential') + '">' + volumeStr + '</span>' : ''}
+                    ${volumeStr ? '<span class="ttd-chip-volume" title="' + Drupal.t('Estimated traffic opportunity') + '">' + volumeStr + '</span>' : ''}
                     <span class="ttd-chip-kd ${kdInfo.class}" title="${kdTooltip}"></span>
                 </label>
             `;
@@ -896,7 +896,7 @@
                     $volume.text(volumeStr);
                 } else {
                     // Insert after chip name
-                    $chip.find('.ttd-chip-name').after('<span class="ttd-chip-volume" title="' + Drupal.t('Traffic Potential') + '">' + volumeStr + '</span>');
+                    $chip.find('.ttd-chip-name').after('<span class="ttd-chip-volume" title="' + Drupal.t('Estimated traffic opportunity') + '">' + volumeStr + '</span>');
                 }
             } else if ($volume.length) {
                 $volume.remove();
