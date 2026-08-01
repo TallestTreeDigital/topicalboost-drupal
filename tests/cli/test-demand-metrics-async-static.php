@@ -27,6 +27,11 @@ demand_metrics_assert_contains(
 );
 demand_metrics_assert_contains(
   $controller,
+  "'X-TB-Demand-Metrics-Async' => '1'",
+  'Drupal must explicitly opt into the asynchronous API response contract.'
+);
+demand_metrics_assert_contains(
+  $controller,
   "if (\$is_pending)",
   'The API queue acknowledgement must be handled before metric persistence.'
 );

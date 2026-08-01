@@ -1743,6 +1743,7 @@ class TtdTopicsController extends ControllerBase {
       $response = $client->request('GET', TOPICALBOOST_API_ENDPOINT . $path, [
         'headers' => [
           'X-API-Key' => $api_key,
+          'X-TB-Demand-Metrics-Async' => '1',
           'Content-Type' => 'application/json',
         ],
         'timeout' => 8,
