@@ -256,20 +256,23 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       return [
         'class' => 'ttd-kd-no-data',
         'display' => '--',
-        'title' => $this->t('Traffic potential not yet available. Click to fetch.'),
+        'title' => $this->t('Traffic opportunity not yet available. Click to fetch.'),
       ];
     }
 
     $label = $this->getDifficultyLabel($kd);
     $display = $this->formatCount($traffic_potential);
+    $is_stale = !empty($metrics['stale']);
+    $stale_note = $is_stale ? "\nRefreshing in the background…" : '';
 
     return [
-      'class' => $this->getDifficultyClass($kd),
+      'class' => $this->getDifficultyClass($kd) . ($is_stale ? ' ttd-kd-stale' : ''),
       'display' => $display,
-      'title' => $this->t("Traffic Potential: @traffic\nDifficulty: @difficulty/100 (@label)\n\nClick to refresh", [
+      'title' => $this->t("Estimated traffic opportunity: @traffic\nDifficulty: @difficulty/100 (@label)@stale\n\nClick to refresh", [
         '@traffic' => $display,
         '@difficulty' => $kd,
         '@label' => $label,
+        '@stale' => $stale_note,
       ]),
       'keyword_difficulty' => $kd,
       'traffic_potential' => $traffic_potential,

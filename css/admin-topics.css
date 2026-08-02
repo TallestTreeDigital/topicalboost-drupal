@@ -640,6 +640,11 @@
   color: #999;
 }
 
+.ttd-kd-badge.ttd-kd-stale {
+  outline: 1px dashed currentColor;
+  outline-offset: 1px;
+}
+
 .ttd-kd-badge.ttd-kd-easy {
   background: #d4edda;
   color: #155724;
