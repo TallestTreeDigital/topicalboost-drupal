@@ -13,14 +13,12 @@ if (file_exists($local_config) && filesize($local_config) > 0) {
 
 // Define the API endpoint as a constant (only if not already defined by local-config.php)
 if (!defined('TOPICALBOOST_API_ENDPOINT')) {
-  $use_beta_api = FALSE;
-  try {
-    $use_beta_api = (bool) \Drupal::config('ttd_topics.settings')->get('use_beta_api');
-  }
-  catch (\Throwable $e) {
-    $use_beta_api = FALSE;
-  }
-  define('TOPICALBOOST_API_ENDPOINT', $use_beta_api ? 'https://beta.api.topicalboost.com' : 'https://api.topicalboost.com');
+  define('TOPICALBOOST_API_ENDPOINT', 'https://api.topicalboost.com');
+}
+
+// Declares support for the site-controlled V7 analysis response contract.
+if (!defined('TOPICALBOOST_ANALYSIS_CAPABILITIES')) {
+  define('TOPICALBOOST_ANALYSIS_CAPABILITIES', 'analysis-about-v2,priority-topics-v1');
 }
 
 use Drupal\advancedqueue\Job;
@@ -50,7 +48,19 @@ function ttd_topics_api_headers($api_key) {
   $headers = [
     'Content-Type' => 'application/json',
     'x-api-key' => $api_key,
+    'x-tb-platform' => 'drupal',
+    'x-tb-capabilities' => TOPICALBOOST_ANALYSIS_CAPABILITIES,
   ];
+
+  try {
+    $module_info = \Drupal::service('extension.list.module')->getExtensionInfo('ttd_topics');
+    if (!empty($module_info['version'])) {
+      $headers['x-tb-plugin-version'] = $module_info['version'];
+    }
+  }
+  catch (\Throwable $e) {
+    // Version telemetry is helpful but must never block an API request.
+  }
 
   $site_base_url = ttd_topics_get_site_base_url();
   if ($site_base_url !== '') {
@@ -443,7 +453,6 @@ function ttd_topics_theme($existing, $type, $theme, $path) {
     'ttd_admin_topics' => [
       'variables' => [
         'node' => NULL,
-        'main_entity' => NULL,
         'about_topics' => [],
         'mentions_topics' => [],
         'below_threshold_topics' => [],
@@ -3725,7 +3734,7 @@ function ttd_get_term_salience_category($term_id, $node_id) {
  * Matches TTd\Topics\Entity_DB::compute_tiers():
  * - LLM tiers are authoritative when any entity has one.
  * - Salience-only fallback uses 10% for mainEntity and 5% for about.
- * - Only one mainEntity and at most four about topics are allowed.
+ * - Legacy mainEntity and about share one five-topic focus budget.
  * - User overrides win before natural tier assignment.
  *
  * @param array $entities
@@ -3739,10 +3748,10 @@ function ttd_get_term_salience_category($term_id, $node_id) {
 function ttd_topics_compute_tiers(array $entities, array $overrides = []): array {
   $main_entity_min = 0.10;
   $about_min = 0.05;
-  $max_about = 4;
+  $max_focus_topics = 5;
 
   $main_entity_assigned = FALSE;
-  $about_count = 0;
+  $focus_count = 0;
   $tiers = [];
   $has_llm_tiers = FALSE;
 
@@ -3763,9 +3772,10 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
     $tiers[$entity_id] = $tier;
     if ($tier === 'mainEntity') {
       $main_entity_assigned = TRUE;
+      $focus_count++;
     }
     elseif ($tier === 'about') {
-      $about_count++;
+      $focus_count++;
     }
   }
 
@@ -3778,22 +3788,23 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
 
       $llm_tier = $entity['llm_tier'] ?? NULL;
       if ($llm_tier === 'mainEntity') {
-        if (!$main_entity_assigned) {
+        if (!$main_entity_assigned && $focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'mainEntity';
           $main_entity_assigned = TRUE;
+          $focus_count++;
         }
-        elseif ($about_count < $max_about) {
+        elseif ($focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'about';
-          $about_count++;
+          $focus_count++;
         }
         else {
           $tiers[$entity_id] = 'mentions';
         }
       }
       elseif ($llm_tier === 'about') {
-        if ($about_count < $max_about) {
+        if ($focus_count < $max_focus_topics) {
           $tiers[$entity_id] = 'about';
-          $about_count++;
+          $focus_count++;
         }
         else {
           $tiers[$entity_id] = 'mentions';
@@ -3823,13 +3834,14 @@ function ttd_topics_compute_tiers(array $entities, array $overrides = []): array
     }
 
     $score = $entity['salience_score'] ?? 0;
-    if (!$main_entity_assigned && $score >= $main_entity_min) {
+    if (!$main_entity_assigned && $focus_count < $max_focus_topics && $score >= $main_entity_min) {
       $tiers[$entity_id] = 'mainEntity';
       $main_entity_assigned = TRUE;
+      $focus_count++;
     }
-    elseif ($about_count < $max_about && $score >= $about_min) {
+    elseif ($focus_count < $max_focus_topics && $score >= $about_min) {
       $tiers[$entity_id] = 'about';
-      $about_count++;
+      $focus_count++;
     }
     else {
       $tiers[$entity_id] = 'mentions';
@@ -3880,7 +3892,7 @@ function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience
 /**
  * Get salience data for all entities on a node.
  *
- * Returns array indexed by ttd_id with salience_score and salience_category.
+ * Returns array indexed by ttd_id with salience_score, salience_category, and topic_source.
  * Used by frontend display to order topics by relevance.
  *
  * @param int $node_id
@@ -3889,7 +3901,7 @@ function ttd_topics_clear_stale_tier_overrides(array $overrides, array $salience
  *   Optional loaded node, used to avoid reloading during render.
  *
  * @return array
- *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null]].
+ *   Array of [ttd_id => ['salience_score' => float|null, 'salience_category' => string|null, 'topic_source' => string]].
  */
 function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
   $cache = &drupal_static(__FUNCTION__, []);
@@ -3948,9 +3960,12 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
   $salience_map = [];
   foreach ($results as $row) {
     $entity_id = (int) $row->entity_id;
+    $stored_tier = $row->salience_category ?: NULL;
     $salience_map[(int) $row->entity_id] = [
       'salience_score' => $row->salience_score !== NULL ? (float) $row->salience_score : NULL,
-      'salience_category' => $computed_tiers[$entity_id] ?? ($row->salience_category ?: 'mentions'),
+      'salience_category' => $computed_tiers[$entity_id] ?? ($stored_tier ?: 'mentions'),
+      'llm_tier' => $stored_tier,
+      'topic_source' => $stored_tier ? 'llm' : 'nlp',
       'is_user_override' => isset($overrides[$entity_id]),
     ];
   }
@@ -3960,6 +3975,8 @@ function ttd_get_node_salience_data($node_id, ?EntityInterface $node = NULL) {
       $salience_map[$entity_id] = [
         'salience_score' => NULL,
         'salience_category' => $computed_tiers[$entity_id] ?? $tier,
+        'llm_tier' => NULL,
+        'topic_source' => 'nlp',
         'is_user_override' => TRUE,
       ];
     }

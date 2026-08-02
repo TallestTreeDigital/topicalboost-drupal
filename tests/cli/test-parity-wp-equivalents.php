@@ -4,7 +4,7 @@
  * Drupal CLI parity tests for remaining WordPress plugin test contracts.
  *
  * Run from the Drupal site root with:
- *   drush scr web/modules/custom/topicalboost/tests/cli/test-parity-wp-equivalents.php
+ *   drush scr web/modules/custom/ttd-topics/tests/cli/test-parity-wp-equivalents.php
  */
 
 use Drupal\node\Entity\Node;
@@ -267,7 +267,8 @@ try {
   ttd_parity_wp_require_field('taxonomy_term', 'ttd_topics', 'field_hide');
   ttd_parity_wp_require_field('taxonomy_term', 'ttd_topics', 'field_force_show');
 
-  $menu_links = \Drupal\Component\Serialization\Yaml::decode(file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/ttd_topics.links.menu.yml')) ?: [];
+  $module_root = DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('ttd_topics');
+  $menu_links = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($module_root . '/ttd_topics.links.menu.yml')) ?: [];
   $config_overview_links = array_filter($menu_links, static function (array $definition, string $machine_name): bool {
     return str_starts_with($machine_name, 'topicalboost.')
       && ($definition['parent'] ?? '') === 'system.admin_config_content';
@@ -275,13 +276,53 @@ try {
   ttd_parity_wp_assert(count($config_overview_links) === 1, 'Configuration overview exposes one TopicalBoost entry');
   ttd_parity_wp_assert(isset($config_overview_links['topicalboost.settings_form']), 'Single Configuration overview entry routes to TopicalBoost settings');
 
-  $post_editor_js = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/js/post-editor.js');
-  $admin_topics_css = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/css/admin-topics.css');
-  $admin_topics_template = file_get_contents(DRUPAL_ROOT . '/modules/custom/topicalboost/templates/ttd-admin-topics.html.twig');
+  $post_editor_js = file_get_contents($module_root . '/js/post-editor.js');
+  $always_check_js = file_get_contents($module_root . '/js/editor-always-check.js');
+  $utils_js = file_get_contents($module_root . '/js/utils.js');
+  $admin_topics_css = file_get_contents($module_root . '/css/admin-topics.css');
+  $admin_topics_template = file_get_contents($module_root . '/templates/ttd-admin-topics.html.twig');
+  $module_file = file_get_contents($module_root . '/ttd_topics.module');
+  $watchlist_controller = file_get_contents($module_root . '/src/Controller/WatchlistController.php');
+  $settings_form = file_get_contents($module_root . '/src/Form/SettingsForm.php');
+  $watchlist_js = file_get_contents($module_root . '/js/watchlist.js');
   ttd_parity_wp_assert(strpos($post_editor_js, 'flashFullWarning') !== FALSE, 'Editor drag limits flash a FULL warning like WordPress');
   ttd_parity_wp_assert(strpos($post_editor_js, 'dropEffect = \'none\'') !== FALSE, 'Editor drag limits reject over-capacity drops');
   ttd_parity_wp_assert(strpos($admin_topics_css, 'ttd-warning-flash') !== FALSE, 'Editor warning flash styling exists');
-  ttd_parity_wp_assert(strpos($admin_topics_template, '>4 max<') !== FALSE, 'Editor About limit copy matches WordPress');
+  ttd_parity_wp_assert(strpos($admin_topics_template, '>5 max<') !== FALSE, 'Editor About limit copy matches WordPress');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-main-section') === FALSE, 'Merged editor keeps Main Topic removed');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'data-topic-source') !== FALSE, 'Server-rendered rows retain topic source provenance');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-priority-topic') === FALSE, 'Editor topic rows have no site-wide controls');
+  ttd_parity_wp_assert(strpos($utils_js, 'ttd-priority-topic') === FALSE, 'Dynamic topic rows have no site-wide controls');
+  ttd_parity_wp_assert(strpos($utils_js, 'data-topic-source') !== FALSE, 'Dynamic topic rows retain topic source provenance');
+  ttd_parity_wp_assert(strpos($admin_topics_template, 'ttd-editor-priority-feedback') !== FALSE, 'Editor provides contextual always-check feedback');
+  ttd_parity_wp_assert(strpos($utils_js, 'window.ttdAlwaysCheckTopics.offer') !== FALSE, 'Manual topic additions offer the site-wide action');
+  ttd_parity_wp_assert(strpos($always_check_js, 'Add to Priority Topics') !== FALSE, 'Editor action uses the customer-facing Priority Topics name');
+  ttd_parity_wp_assert(strpos($utils_js, 'capturedDescription') !== FALSE, 'Editor passes known topic descriptions into the Priority Topic action');
+  ttd_parity_wp_assert(strpos($always_check_js, 'requestDescription(entityId, label)') !== FALSE, 'Descriptionless topics open the inline description flow');
+  ttd_parity_wp_assert(strpos($always_check_js, 'prevents false matches based only on its name') !== FALSE, 'Inline guidance explains why a description is required');
+  ttd_parity_wp_assert(strpos($always_check_js, 'ttd-priority-description-submit') !== FALSE && strpos($always_check_js, "prop('disabled', !\$(this).val().trim())") !== FALSE, 'Inline Add remains disabled until a description is entered');
+  ttd_parity_wp_assert(strpos($always_check_js, 'description: description') !== FALSE, 'Editor forwards the inline description to the Priority Topic API');
+  ttd_parity_wp_assert(strpos($admin_topics_css, '.ttd-priority-description-form') !== FALSE, 'Inline Priority Topic description form is styled');
+  ttd_parity_wp_assert(strpos($admin_topics_css, '.gin--dark-mode .ttd-editor-priority-feedback') !== FALSE && strpos($admin_topics_css, '.gin--dark-mode .ttd-priority-description-input') !== FALSE, 'Inline Priority Topic form has a native dark-mode treatment');
+  ttd_parity_wp_assert(strpos($always_check_js, "surface: 'editor'") !== FALSE, 'Always-check mutations include editor telemetry context');
+  ttd_parity_wp_assert(strpos($always_check_js, 'post_id: nodeId') !== FALSE, 'Always-check mutations include node telemetry context');
+  ttd_parity_wp_assert(strpos($always_check_js, "'/api/topicalboost/watchlist/remove'") !== FALSE, 'Contextual action provides Undo');
+  ttd_parity_wp_assert(
+    strpos($watchlist_controller, '\\ttd_topics_api_headers($api_key)') !== FALSE
+      && strpos($module_file, "'x-tb-platform' => 'drupal'") !== FALSE,
+    'Always-check telemetry identifies Drupal as its source'
+  );
+  ttd_parity_wp_assert(strpos($watchlist_controller, "'postId' => \$post_id ?: NULL") !== FALSE, 'Drupal proxy forwards post telemetry context');
+  ttd_parity_wp_assert(strpos($settings_form, 'Priority Topics') !== FALSE, 'Settings provide the canonical management surface');
+  ttd_parity_wp_assert(strpos($settings_form, '/50') === FALSE, 'Settings do not advertise the safety limit as a target');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'CAPACITY_WARNING_THRESHOLD = 40') !== FALSE, 'Capacity guidance appears only near the limit');
+  ttd_parity_wp_assert(strpos($watchlist_js, '50-topic limit reached') !== FALSE, 'Settings explain the limit when it is reached');
+  ttd_parity_wp_assert(strpos($watchlist_js, '$search.prop(\'disabled\', atLimit)') !== FALSE, 'Topic search is disabled at the safety limit');
+  ttd_parity_wp_assert(strpos($settings_form, 'ttd-watchlist-guidance') !== FALSE, 'Priority Topics collect site-specific detection guidance');
+  ttd_parity_wp_assert(strpos($settings_form, 'Required for a custom topic') !== FALSE, 'Settings explain that custom Priority Topics require guidance');
+  ttd_parity_wp_assert(substr_count($watchlist_controller, "'description' => \$description") >= 2, 'Drupal forwards guidance for known and custom topics');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'data-has-description') !== FALSE, 'Descriptionless known topics require guidance before being added');
+  ttd_parity_wp_assert(strpos($watchlist_js, 'Describe what should count as this custom Priority Topic first.') !== FALSE, 'Custom topics are blocked until guidance is present');
 
   \Drupal::configFactory()->getEditable('ttd_topics.settings')
     ->set('post_topic_minimum_display_count', 2)

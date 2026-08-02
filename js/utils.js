@@ -62,35 +62,63 @@
     return 'Very Hard';
   };
 
+  window.ttdTopicsUtils.getTopicSource = function(topic, isManual) {
+    if (isManual) return 'manual';
+
+    const explicitSource = (topic.topic_source || topic.source_type || topic.source || '').toString().toLowerCase();
+    if (explicitSource === 'manual') return 'manual';
+    if (explicitSource === 'llm' || explicitSource.indexOf('llm') !== -1 || explicitSource.indexOf('ai') !== -1) return 'llm';
+    if (topic.llm_tier) return 'llm';
+
+    return 'nlp';
+  };
+
+  window.ttdTopicsUtils.getTopicSourceLabel = function(source) {
+    if (source === 'manual') return 'Editorial';
+    if (source === 'llm') return 'TopicalBoost';
+    return 'Google NLP';
+  };
+
+  window.ttdTopicsUtils.getTopicSourceDescription = function(source) {
+    if (source === 'manual') return 'Added by an editor';
+    if (source === 'llm') return 'Added or reclassified by TopicalBoost';
+    return 'Detected by Google NLP and surfaced by TopicalBoost';
+  };
+
   /**
    * Render a topic item.
    */
   window.ttdTopicsUtils.renderTopicItem = function(topic, type, section) {
-    const isManual = type === 'manual';
+    const displaySection = section === 'mainEntity' ? 'about' : section;
+    const isManual = type === 'manual' || topic.is_manual || topic.manual;
     const ttdId = topic.ttd_id || '';
     const termId = topic.term_id || topic.id || '';
     const count = topic.count || 0;
     const name = topic.name || '';
     const isRejected = topic.rejected || false;
     const countFormatted = this.formatCount(count);
+    const topicSource = this.getTopicSource(topic, isManual);
+    const topicSourceDescription = this.getTopicSourceDescription(topicSource);
 
     // Build classes
     const classes = [
       'topic-item',
       isManual ? 'manual-topic' : 'api-topic',
-      section === 'mainEntity' ? 'main-entity-topic' :
-      section === 'about' ? 'about-topic' :
-      section === 'mentions' ? 'mentions-topic' : 'below-threshold-topic'
+      displaySection === 'about' ? 'about-topic' :
+      displaySection === 'mentions' ? 'mentions-topic' : 'below-threshold-topic',
+      'topic-source-' + topicSource
     ];
     if (isRejected) classes.push('rejected');
 
     let html = '<div class="' + classes.join(' ') + '" ' +
                'data-term-id="' + termId + '" ' +
                'data-ttd-id="' + ttdId + '" ' +
+               'data-topic-source="' + topicSource + '" ' +
+               'title="' + topicSourceDescription + '" ' +
                'draggable="true">';
 
-    // Checkbox for auto topics
-    if (!isManual) {
+    // Checkbox for auto mention topics only.
+    if (!isManual && displaySection !== 'about') {
       html += '<input type="checkbox" name="topics[]" value="' + termId + '" ' +
               (isRejected ? '' : 'checked="checked"') + ' ' +
               'aria-label="Accept ' + name + '" />';
@@ -103,8 +131,8 @@
               'aria-label="Remove ' + name + '" title="Remove this manual topic">×</button>';
     }
 
-    // KD Badge for mainEntity and about
-    if (section === 'mainEntity' || section === 'about') {
+    // KD Badge for About topics.
+    if (displaySection === 'about') {
       html += '<span class="ttd-kd-badge ttd-kd-no-data" title="Click to fetch demand data">--</span>';
     }
 
@@ -112,7 +140,8 @@
     html += '<span class="topic-count" data-count="' + count + '">' + countFormatted + '</span>';
 
     // Topic name
-    html += '<div class="topic-name-container"><label>' + name + '</label></div>';
+    html += '<div class="topic-name-container"><span class="ttd-topic-name-row"><label>' +
+            this.escapeHtml(name) + '</label></span></div>';
 
     // Drag handle
     html += '<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>';
@@ -212,6 +241,7 @@
     const nodeId = $parentContainer.data('node-id');
     const termId = topic.term_id || topic.id;
     const ttdId = topic.ttd_id || termId;
+    const canonicalEntityId = parseInt(topic.ttd_id, 10);
 
     if (!nodeId || !termId) {
       console.error('Missing node ID or term ID');
@@ -220,6 +250,7 @@
 
     // Capture data before clearing DOM
     const capturedName = topic.name;
+    const capturedDescription = topic.description || topic.kg_description || topic.wb_description || '';
 
     // Immediately hide dropdown on click - user expects it to dismiss
     jQuery('#ttd-topics-search').val('');
@@ -279,6 +310,15 @@
             // Update section count
             const count = $mentionsList.find('.topic-item').length;
             $mentionsSection.find('.ttd-section-count').text('(' + count + ')');
+          }
+
+          if (
+            Number.isInteger(canonicalEntityId) &&
+            canonicalEntityId > 0 &&
+            window.ttdAlwaysCheckTopics &&
+            typeof window.ttdAlwaysCheckTopics.offer === 'function'
+          ) {
+            window.ttdAlwaysCheckTopics.offer(canonicalEntityId, capturedName, capturedDescription);
           }
 
         } else {

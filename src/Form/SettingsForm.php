@@ -101,7 +101,7 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
         <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
         <div class="ttd-nav-group-label">Analysis</div>
-        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Watchlist</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Priority Topics</div>
         <div class="ttd-nav-group-label">Advanced</div>
         <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
         <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
@@ -1010,17 +1010,6 @@ class SettingsForm extends ConfigFormBase {
       '#weight' => 1,
     ];
 
-    $form['tabs_container']['content']['developer']['use_beta_api'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Beta Analysis'),
-      '#default_value' => $config->get('use_beta_api') ?: FALSE,
-      '#description' => $this->t('Routes analysis requests to the beta server for testing improvements.'),
-      '#attributes' => ['class' => ['ttd-topics-field-group', 'ttd-topics-toggle']],
-      '#prefix' => '<div class="ttd-topics-toggle-field">',
-      '#suffix' => '</div>',
-      '#weight' => 2,
-    ];
-
     $form['tabs_container']['content']['developer']['error_telemetry_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Error Telemetry'),
@@ -1309,7 +1298,7 @@ class SettingsForm extends ConfigFormBase {
     }
 
     // =========================================================================
-    // Watchlist Tab
+    // Priority Topics Tab
     // =========================================================================
     $form['tabs_container']['content']['watchlist'] = [
       '#type' => 'container',
@@ -1317,18 +1306,21 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     $form['tabs_container']['content']['watchlist']['panel_title'] = [
-      '#markup' => '<h2 class="ttd-panel-title">Entity Watchlist</h2>',
+      '#markup' => '<h2 class="ttd-panel-title">Priority Topics</h2>',
     ];
 
     $form['tabs_container']['content']['watchlist']['description'] = [
-      '#markup' => '<p class="description">' . $this->t('Entities on the watchlist are always checked during analysis. Use this for niche topics your publication frequently covers that analysis might otherwise miss.') . '</p>',
+      '#markup' => '<p class="description">' . $this->t('TopicalBoost double-checks these topics during analysis across the site, helping catch niche or brief mentions that might otherwise be missed.') . '</p>',
     ];
 
     $form['tabs_container']['content']['watchlist']['search_container'] = [
       '#markup' => Markup::create('<div class="ttd-watchlist-search-wrapper">
-        <label for="ttd-watchlist-search">' . $this->t('Add Entity') . '</label>
+        <label for="ttd-watchlist-search">' . $this->t('Add a topic') . '</label>
         <input type="text" id="ttd-watchlist-search" class="form-text" placeholder="' . $this->t('Search for an entity...') . '" autocomplete="off" />
         <div class="ttd-watchlist-spinner" id="ttd-watchlist-spinner"></div>
+        <label for="ttd-watchlist-guidance" style="display:block; margin:12px 0 4px; font-weight:600;">' . $this->t('What should count as this topic?') . ' <span style="font-weight:400;">' . $this->t('(optional for known topics)') . '</span></label>
+        <textarea id="ttd-watchlist-guidance" class="form-textarea" rows="3" maxlength="1024" style="width:100%;" placeholder="' . $this->t('Example: Apply when the article substantively discusses at least two of Russia, China, Iran, and North Korea.') . '"></textarea>
+        <p class="description" style="margin-top:4px;">' . $this->t('Required for a custom topic. Describe the meaning or conditions the analyzer should look for, even when the exact phrase is absent.') . '</p>
         <div class="ttd-watchlist-results" id="ttd-watchlist-results" style="display:none;"></div>
       </div>
       <div id="ttd-watchlist-feedback"></div>'),
@@ -1336,9 +1328,10 @@ class SettingsForm extends ConfigFormBase {
 
     $form['tabs_container']['content']['watchlist']['items_container'] = [
       '#markup' => Markup::create('<div class="ttd-watchlist-items-wrapper">
-        <h4>' . $this->t('Watchlist (<span id="ttd-watchlist-count"><span>0</span></span>/50)') . '</h4>
+        <h4>' . $this->t('Topics (<span id="ttd-watchlist-count"><span>0</span></span>)') . '</h4>
+        <p id="ttd-watchlist-capacity" class="description" aria-live="polite" style="display:none;"></p>
         <div class="ttd-watchlist-items" id="ttd-watchlist-items">
-          <p class="ttd-watchlist-empty">Loading watchlist...</p>
+          <p class="ttd-watchlist-empty">Loading topics...</p>
         </div>
       </div>'),
     ];
@@ -2423,7 +2416,6 @@ class SettingsForm extends ConfigFormBase {
       ->set('include_excerpt', $form_state->getValue('include_excerpt'))
       ->set('batch_size', (int) $form_state->getValue('batch_size'))
       ->set('beta_channel', $form_state->getValue('beta_channel'))
-      ->set('use_beta_api', $form_state->getValue('use_beta_api'))
       ->set('error_telemetry_enabled', $form_state->getValue('error_telemetry_enabled'))
       ->set('disable_event_temporal_properties', $form_state->getValue('disable_event_temporal_properties'))
       ->set('hide_seo_module_ui', $form_state->getValue('hide_seo_module_ui'))

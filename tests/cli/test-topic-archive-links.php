@@ -162,7 +162,6 @@ namespace {
       'topic_archive_query_parameter' => 'topic',
       'topic_archive_value_source' => 'term_id',
       'topic_archive_value_template' => '[value]',
-      'use_beta_api' => FALSE,
     ];
   }
 

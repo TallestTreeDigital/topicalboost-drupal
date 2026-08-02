@@ -21,7 +21,6 @@
         const $topicsListContainer = $container.find('#ttd-topics-list-container');
         const $topicsSearchContainer = $container.find('.ttd-topics-search-container');
         const hasBeenAnalyzed = !!(settings.ttdTopics && settings.ttdTopics.hasBeenAnalyzed);
-
         $container.on('click', '.ttd-wide-rejected-toggle', function(e) {
           e.preventDefault();
           e.stopPropagation();
@@ -48,12 +47,8 @@
         function getSectionLimit($section) {
           const tier = $section.data('section');
 
-          if (tier === 'mainEntity') {
-            return 1;
-          }
-
           if (tier === 'about') {
-            return parseInt($section.data('max-recommended'), 10) || 4;
+            return parseInt($section.data('max-recommended'), 10) || 5;
           }
 
           return null;
@@ -111,13 +106,8 @@
             return;
           }
 
-          const tier = $section.data('section');
-          const message = tier === 'mainEntity'
-            ? Drupal.t('Main Topic is full. Move the current main topic before adding another one.')
-            : Drupal.t('About is full. Move one topic out before adding another one.');
-
           $topicsStatus
-            .text(message)
+            .text(Drupal.t('About is full. Move one topic out before adding another one.'))
             .removeClass('analyzing success')
             .addClass('error')
             .show();
@@ -374,7 +364,7 @@
                 moveTopic($item, $targetSection, newTier);
 
                 // Add/update KD badge for focus topics
-                if (newTier === 'mainEntity' || newTier === 'about') {
+                if (newTier === 'about') {
                   let $badge = $item.find('.ttd-kd-badge');
                   if (!$badge.length) {
                     const $insertAfter = $item.find('input[type="checkbox"]').length ?
@@ -423,12 +413,11 @@
 
           // Update classes
           $item.removeClass('main-entity-topic about-topic mentions-topic below-threshold-topic')
-               .addClass(newTier === 'mainEntity' ? 'main-entity-topic' :
-                        newTier === 'about' ? 'about-topic' :
+               .addClass(newTier === 'about' ? 'about-topic' :
                         newTier === 'mentions' ? 'mentions-topic' : 'below-threshold-topic');
 
           // Remove KD badge if not focus topic
-          if (newTier !== 'mainEntity' && newTier !== 'about') {
+          if (newTier !== 'about') {
             $item.find('.ttd-kd-badge').remove();
           }
 

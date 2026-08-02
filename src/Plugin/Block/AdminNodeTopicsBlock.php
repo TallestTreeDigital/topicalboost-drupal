@@ -89,8 +89,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     $term_ids = array_map(function($topic) { return $topic->id(); }, $topics);
     $post_counts = ttd_topics_get_topic_node_counts($term_ids);
 
-    // Classify topics into tiers
-    $main_entity = NULL;
+    // Classify topics into visible UI tiers. mainEntity is displayed as About.
     $about_topics = [];
     $mentions_topics = [];
     $below_threshold_topics = [];
@@ -116,7 +115,10 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       $count = $post_counts[$term_id] ?? 0;
       $is_manual = in_array($term_id, $manual_topic_ids, TRUE);
       $is_rejected = in_array($term_id, $rejected_topic_ids, TRUE);
+      $source_type = $this->getTopicSource($ttd_id, $is_manual, $salience_data);
       $demand = in_array($tier, ['mainEntity', 'about'], TRUE) ? $this->buildDemandBadgeData($term_id) : NULL;
+
+      $display_tier = $tier === 'mainEntity' ? 'about' : $tier;
 
       $topic_data = [
         'term' => $term,
@@ -124,14 +126,15 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
         'count_display' => $this->formatCount($count),
         'is_manual' => $is_manual,
         'is_rejected' => $is_rejected,
-        'tier' => $tier,
+        'tier' => $display_tier,
+        'source_type' => $source_type,
+        'source_label' => $this->getTopicSourceLabel($source_type),
+        'source_description' => $this->getTopicSourceDescription($source_type),
         'demand' => $demand,
       ];
 
       // Classify by tier
-      if ($tier === 'mainEntity') {
-        $main_entity = $topic_data;
-      } elseif ($tier === 'about') {
+      if ($tier === 'mainEntity' || $tier === 'about') {
         $about_topics[] = $topic_data;
       } elseif ($tier === 'mentions') {
         if ($count >= $threshold_count) {
@@ -144,8 +147,13 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       }
     }
 
-    // Sort like WordPress: count descending, then alphabetically.
+    // Sort like WordPress: manual topics first, then count, alphabetically.
     $sort_topics = function($a, $b) {
+      $a_manual = !empty($a['is_manual']) ? 1 : 0;
+      $b_manual = !empty($b['is_manual']) ? 1 : 0;
+      if ($a_manual !== $b_manual) {
+        return $b_manual - $a_manual;
+      }
       if ($b['count'] !== $a['count']) {
         return $b['count'] - $a['count'];
       }
@@ -158,7 +166,6 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
     return [
       '#theme' => 'ttd_admin_topics',
       '#node' => $node,
-      '#main_entity' => $main_entity,
       '#about_topics' => $about_topics,
       '#mentions_topics' => $mentions_topics,
       '#below_threshold_topics' => $below_threshold_topics,
@@ -170,10 +177,63 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
             'nodeId' => $node->id(),
             'thresholdCount' => $threshold_count,
             'hasBeenAnalyzed' => $has_been_analyzed,
+            'canManageAlwaysCheck' => \Drupal::currentUser()->hasPermission('administer topicalboost configuration'),
           ],
         ],
       ],
     ];
+  }
+
+  /**
+   * Gets the subtle provenance source used for the topic rail color.
+   */
+  private function getTopicSource(int $ttd_id, bool $is_manual, array $salience_data): string {
+    if ($is_manual) {
+      return 'manual';
+    }
+
+    if ($ttd_id && !empty($salience_data[$ttd_id]['topic_source'])) {
+      $source = $salience_data[$ttd_id]['topic_source'];
+      if (in_array($source, ['nlp', 'llm'], TRUE)) {
+        return $source;
+      }
+    }
+
+    return 'nlp';
+  }
+
+  /**
+   * Human label for the topic provenance tooltip.
+   */
+  private function getTopicSourceLabel(string $source): string {
+    switch ($source) {
+      case 'manual':
+        return (string) $this->t('Editorial');
+
+      case 'llm':
+        return (string) $this->t('TopicalBoost');
+
+      case 'nlp':
+      default:
+        return (string) $this->t('Google NLP');
+    }
+  }
+
+  /**
+   * Plain-language provenance explanation for topic tooltips.
+   */
+  private function getTopicSourceDescription(string $source): string {
+    switch ($source) {
+      case 'manual':
+        return (string) $this->t('Added by an editor');
+
+      case 'llm':
+        return (string) $this->t('Added or reclassified by TopicalBoost');
+
+      case 'nlp':
+      default:
+        return (string) $this->t('Detected by Google NLP and surfaced by TopicalBoost');
+    }
   }
 
   /**

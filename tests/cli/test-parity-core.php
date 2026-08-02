@@ -391,14 +391,13 @@ try {
   }
   ttd_parity_assert(!empty($article), 'Schema contains Article graph item');
   ttd_parity_assert(empty($article['mainEntity']), 'Article schema does not emit mainEntity');
-  ttd_parity_assert(in_array($topics['override_main']['name'], ttd_parity_schema_names($article['about'] ?? []), TRUE), 'Schema about includes overridden main-tier topic');
 
   $schema_names = array_merge(
     ttd_parity_schema_names($article['about'] ?? []),
     ttd_parity_schema_names($article['mentions'] ?? [])
   );
 
-  foreach ([$topics['manual_low'], $topics['force_low'], $topics['about_low'], $topics['regular_above']] as $topic) {
+  foreach ([$topics['override_main'], $topics['manual_low'], $topics['force_low'], $topics['about_low'], $topics['regular_above']] as $topic) {
     ttd_parity_assert(in_array($topic['name'], $schema_names, TRUE), "Schema includes visible topic {$topic['name']}");
   }
 
@@ -465,8 +464,19 @@ try {
   ]);
   ttd_parity_assert(($llm_tiers[10] ?? NULL) === 'mainEntity', 'LLM tier computation keeps first mainEntity');
   ttd_parity_assert(($llm_tiers[11] ?? NULL) === 'about', 'LLM tier computation demotes extra mainEntity to about');
-  ttd_parity_assert(count(array_filter($llm_tiers, static fn($tier) => $tier === 'about')) === 4, 'LLM tier computation caps about topics at four');
+  ttd_parity_assert(count(array_filter($llm_tiers, static fn($tier) => in_array($tier, ['mainEntity', 'about'], TRUE))) === 5, 'LLM tier computation caps combined focus topics at five');
   ttd_parity_assert(($llm_tiers[16] ?? NULL) === 'mentions', 'LLM tier computation demotes overflow about to mentions');
+
+  $about_only_tiers = ttd_topics_compute_tiers([
+    ['entity_id' => 20, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 21, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 22, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 23, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 24, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+    ['entity_id' => 25, 'salience_score' => 0.0, 'llm_tier' => 'about'],
+  ]);
+  ttd_parity_assert(count(array_filter($about_only_tiers, static fn($tier) => $tier === 'about')) === 5, 'Future API path keeps five about topics without mainEntity');
+  ttd_parity_assert(($about_only_tiers[25] ?? NULL) === 'mentions', 'Future API path demotes sixth about topic');
 
   $override_tiers = ttd_topics_compute_tiers([
     ['entity_id' => 400, 'salience_score' => 0.50, 'llm_tier' => NULL],
@@ -648,10 +658,9 @@ try {
 
   $computed_schema = \Drupal::service('ttd_topics.schema_generator')->getNodeTopicsSchema($computed_node->id());
   $computed_article = ttd_parity_schema_article($computed_schema);
-  $computed_about_names = ttd_parity_schema_names($computed_article['about'] ?? []);
-  ttd_parity_assert(empty($computed_article['mainEntity']), 'Computed Article schema does not emit mainEntity');
-  ttd_parity_assert(in_array($computed_topics['computed_main']['name'], $computed_about_names, TRUE), 'Schema about includes computed main-tier topic');
-  ttd_parity_assert(in_array($computed_topics['computed_about']['name'], $computed_about_names, TRUE), 'Schema about uses computed salience tier');
+  ttd_parity_assert(empty($computed_article['mainEntity']), 'Article schema does not emit mainEntity for computed salience tier');
+  ttd_parity_assert(in_array($computed_topics['computed_main']['name'], ttd_parity_schema_names($computed_article['about'] ?? []), TRUE), 'Schema about includes computed main salience tier');
+  ttd_parity_assert(in_array($computed_topics['computed_about']['name'], ttd_parity_schema_names($computed_article['about'] ?? []), TRUE), 'Schema about uses computed salience tier');
 
   $schema_files = [
     '16x9' => ttd_parity_create_schema_image_file("tb-parity-16x9-{$suffix}.png"),
