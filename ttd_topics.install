@@ -1877,3 +1877,16 @@ function ttd_topics_update_9109() {
     '@settings' => implode(', ', $added),
   ]);
 }
+
+/**
+ * Add WordPress-equivalent category filtering defaults.
+ */
+function ttd_topics_update_9110() {
+  $config = \Drupal::configFactory()->getEditable('ttd_topics.settings');
+  if ($config->get('enabled_categories') !== NULL) {
+    return t('TopicalBoost category filtering was already configured.');
+  }
+
+  $config->set('enabled_categories', [])->save();
+  return t('Added TopicalBoost category filtering configuration.');
+}

@@ -19,7 +19,8 @@
     includeDrafts: false,
     onlyTopicless: false,
     customFieldFilter: false,
-    customField: ''
+    customField: '',
+    categories: []
   };
 
   // SAFEGUARD: Store analysis state in localStorage for cross-tab synchronization
@@ -61,6 +62,7 @@
       initializeDateRangeButtons();
       initializeCustomFieldFilter();
       initializeContentTypeCards();
+      initializeCategoryFilters();
       initializeFormInteractions($form);
       initializeButtons();
 
@@ -299,6 +301,39 @@
   }
 
   /**
+   * Initialize WordPress-equivalent per-analysis category controls.
+   */
+  function initializeCategoryFilters() {
+    const $selection = $('.ttd-categories-selection');
+    refreshCategoryFilters();
+
+    $selection.once('ttd-category-filters').on('click', '.ttd-category-remove', function (e) {
+      e.preventDefault();
+      const $item = $(this).closest('.ttd-category-item');
+      $item.remove();
+      if ($selection.find('.ttd-category-item').length === 0) {
+        $selection.html('<div class="ttd-empty-message"><div class="ttd-empty-title">No categories selected</div><div class="ttd-empty-action">All categories will be used</div></div>');
+      }
+      refreshCategoryFilters();
+      updateSelectionCount();
+    });
+
+    $selection.on('click', '.ttd-category-item .ttd-only-button', function (e) {
+      e.preventDefault();
+      const $item = $(this).closest('.ttd-category-item');
+      $item.siblings('.ttd-category-item').remove();
+      refreshCategoryFilters();
+      updateSelectionCount();
+    });
+  }
+
+  function refreshCategoryFilters() {
+    currentFilters.categories = $('.ttd-category-input').map(function () {
+      return parseInt($(this).val(), 10);
+    }).get().filter(Number.isInteger);
+  }
+
+  /**
    * Initialize form interactions
    */
   function initializeFormInteractions(formElement) {
@@ -375,6 +410,7 @@
     currentFilters.includeDrafts = $('input[name="include_drafts"]', '#ttd-bulk-analysis-form').is(':checked');
     currentFilters.customFieldFilter = $('#ttd-bulk-analysis-custom-field-filter-toggle').is(':checked') && !$('#ttd-bulk-analysis-custom-field-filter-toggle').is(':disabled');
     currentFilters.customField = currentFilters.customFieldFilter ? ($('#ttd-bulk-analysis-custom-field-select').val() || '') : '';
+    refreshCategoryFilters();
 
     // Content types are updated in real-time via card interactions
   }
@@ -428,7 +464,8 @@
         include_drafts: currentFilters.includeDrafts,
         reanalyze: currentFilters.reanalyze,
         custom_field_filter: currentFilters.customFieldFilter,
-        custom_field: currentFilters.customField
+        custom_field: currentFilters.customField,
+        categories: currentFilters.categories
       })
     })
     .done(function (response) {
@@ -601,7 +638,8 @@
         include_drafts: currentFilters.includeDrafts,
         reanalyze: currentFilters.reanalyze,
         custom_field_filter: currentFilters.customFieldFilter,
-        custom_field: currentFilters.customField
+        custom_field: currentFilters.customField,
+        categories: currentFilters.categories
       })
     })
     .done(function (response) {

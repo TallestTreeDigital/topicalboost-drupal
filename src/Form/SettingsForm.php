@@ -279,6 +279,31 @@ class SettingsForm extends ConfigFormBase {
       '#required' => FALSE,
     ];
 
+    $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+    $category_options = function_exists('ttd_topics_get_category_filter_options')
+      ? ttd_topics_get_category_filter_options($enabled_content_types)
+      : [];
+    $enabled_categories = array_values(array_intersect(
+      array_map('intval', $config->get('enabled_categories') ?: []),
+      array_map('intval', array_keys($category_options)),
+    ));
+
+    $form['tabs_container']['content']['content_tab']['enabled_categories'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Categories'),
+      '#options' => $category_options,
+      '#default_value' => $enabled_categories,
+      '#description' => empty($category_options)
+        ? $this->t('No taxonomy category fields were found on the currently enabled content types.')
+        : $this->t('Limit bulk analysis to content in these taxonomy terms. Leave empty to include all categories.'),
+      '#multiple' => TRUE,
+      '#attributes' => [
+        'class' => ['ttd-topics-field-group', 'ttd-topics-select2'],
+        'data-placeholder' => 'Select categories...',
+      ],
+      '#disabled' => empty($category_options),
+    ];
+
     // Attach our local select2 library to the entire form.
     $form['#attached']['library'][] = 'ttd_topics/select2';
     $form['#attached']['library'][] = 'ttd_topics/topic_count_feedback';
@@ -2376,6 +2401,7 @@ class SettingsForm extends ConfigFormBase {
 
     $config
       ->set('enabled_content_types', $new_content_types)
+      ->set('enabled_categories', array_values(array_unique(array_filter(array_map('intval', $form_state->getValue('enabled_categories') ?: [])))))
       ->set('enable_frontend', $form_state->getValue('enable_frontend'))
       ->set('enable_automatic_mentions', $form_state->getValue('enable_automatic_mentions'))
       ->set('enable_meta_generator', $form_state->getValue('enable_meta_generator'))

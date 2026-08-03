@@ -210,6 +210,122 @@ function ttd_topics_get_topic_url(\Drupal\taxonomy\TermInterface $term, $absolut
 }
 
 /**
+ * Finds taxonomy-reference fields that can act as Drupal categories.
+ *
+ * TopicalBoost's own topic fields are deliberately excluded; this mirrors
+ * WordPress categories as an input filter rather than filtering on the topics
+ * produced by analysis.
+ *
+ * @return array<string, string[]>
+ *   Field names keyed to the taxonomy vocabularies they reference.
+ */
+function ttd_topics_get_category_reference_fields(array $content_types): array {
+  $content_types = array_values(array_unique(array_filter(array_map('strval', $content_types))));
+  if (empty($content_types)) {
+    return [];
+  }
+
+  $excluded_fields = [
+    'field_ttd_topics',
+    'field_manual_topics',
+    'field_ttd_rejected_topics',
+  ];
+  $all_vocabularies = array_keys(\Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->loadMultiple());
+  $fields = [];
+  $field_manager = \Drupal::service('entity_field.manager');
+
+  foreach ($content_types as $bundle) {
+    foreach ($field_manager->getFieldDefinitions('node', $bundle) as $field_name => $definition) {
+      if (in_array($field_name, $excluded_fields, TRUE)
+        || $definition->getType() !== 'entity_reference'
+        || $definition->getSetting('target_type') !== 'taxonomy_term') {
+        continue;
+      }
+
+      $handler_settings = $definition->getSetting('handler_settings') ?: [];
+      $target_bundles = array_keys(array_filter($handler_settings['target_bundles'] ?? []));
+      if (empty($target_bundles)) {
+        $target_bundles = $all_vocabularies;
+      }
+      $target_bundles = array_values(array_diff($target_bundles, ['ttd_topics']));
+      if (empty($target_bundles)) {
+        continue;
+      }
+
+      $fields[$field_name] = array_values(array_unique(array_merge($fields[$field_name] ?? [], $target_bundles)));
+    }
+  }
+
+  ksort($fields);
+  return $fields;
+}
+
+/**
+ * Builds category choices from taxonomy fields on enabled content types.
+ */
+function ttd_topics_get_category_filter_options(array $content_types): array {
+  $field_vocabularies = ttd_topics_get_category_reference_fields($content_types);
+  $vocabulary_ids = [];
+  foreach ($field_vocabularies as $field_vocabulary_ids) {
+    $vocabulary_ids = array_merge($vocabulary_ids, $field_vocabulary_ids);
+  }
+  $vocabulary_ids = array_values(array_unique($vocabulary_ids));
+  if (empty($vocabulary_ids)) {
+    return [];
+  }
+
+  $vocabularies = \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->loadMultiple($vocabulary_ids);
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  $options = [];
+  foreach ($vocabularies as $vocabulary_id => $vocabulary) {
+    foreach ($term_storage->loadTree($vocabulary_id) as $term) {
+      $indent = str_repeat('—', (int) $term->depth);
+      $term_label = ($indent !== '' ? $indent . ' ' : '') . $term->name;
+      $options[(int) $term->tid] = $vocabulary->label() . ' — ' . $term_label;
+    }
+  }
+
+  asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+  return $options;
+}
+
+/**
+ * Applies the WordPress-equivalent category filter to a node query.
+ */
+function ttd_topics_apply_bulk_category_filter($query, array $content_types, array $category_ids, string $node_alias = 'n'): void {
+  $category_ids = array_values(array_unique(array_filter(array_map('intval', $category_ids))));
+  if (empty($category_ids)) {
+    return;
+  }
+
+  $database = \Drupal::database();
+  $field_names = array_keys(ttd_topics_get_category_reference_fields($content_types));
+  $or = $query->orConditionGroup();
+  $joined = 0;
+
+  foreach ($field_names as $field_name) {
+    $table = 'node__' . $field_name;
+    $target_column = $field_name . '_target_id';
+    if (!$database->schema()->tableExists($table) || !$database->schema()->fieldExists($table, $target_column)) {
+      continue;
+    }
+
+    $alias = 'tbcat_' . substr(hash('sha1', $field_name), 0, 8);
+    $query->leftJoin($table, $alias, "{$node_alias}.nid = {$alias}.entity_id AND {$alias}.deleted = 0");
+    $or->condition("{$alias}.{$target_column}", $category_ids, 'IN');
+    $joined++;
+  }
+
+  if ($joined === 0) {
+    $query->condition("{$node_alias}.nid", 0);
+    return;
+  }
+
+  $query->condition($or);
+  $query->distinct();
+}
+
+/**
  * Applies the optional query value pattern used by Search API/Facets URLs.
  */
 function ttd_topics_apply_topic_url_value_template(\Drupal\taxonomy\TermInterface $term, $value, $template) {
@@ -1141,7 +1257,7 @@ function ttd_topics_form_alter(&$form, FormStateInterface $form_state, $form_id)
 /**
  * Helper function to get filtered topics for a node.
  */
-function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
+function ttd_topics_get_filtered_topics_for_node(EntityInterface $node, bool $include_urls = TRUE) {
   $config = \Drupal::config('ttd_topics.settings');
   $min_display_count = (int) ($config->get('post_topic_minimum_display_count') ?? 0);
   $filtered_topics = [];
@@ -1154,14 +1270,17 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       (int) $node_id,
       method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : 0,
       $min_display_count,
+      $include_urls ? 1 : 0,
     ]);
     if (isset($cache[$cache_key])) {
       return $cache[$cache_key];
     }
   }
 
-  // Load the terms from the field_ttd_topics field.
+  // Load all referenced terms together. Accessing `$term_ref->entity` in a
+  // loop causes one entity query per topic on large articles.
   if (!empty($node->field_ttd_topics)) {
+    $topics = $node->get('field_ttd_topics')->referencedEntities();
     $rejected_term_ids = $node->hasField('field_ttd_rejected_topics')
       ? array_map('intval', array_column($node->get('field_ttd_rejected_topics')->getValue(), 'target_id'))
       : [];
@@ -1170,8 +1289,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       : [];
     $term_ids = [];
     $term_entity_ids = [];
-    foreach ($node->field_ttd_topics as $term_ref) {
-      $term = $term_ref->entity;
+    foreach ($topics as $term) {
       if (!$term) {
         continue;
       }
@@ -1195,8 +1313,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
       ? ttd_topics_get_curation_scores(array_values($term_entity_ids))
       : [];
 
-    foreach ($node->field_ttd_topics as $term_ref) {
-      $term = $term_ref->entity;
+    foreach ($topics as $term) {
       if ($term) {
         $tid = (int) $term->id();
         $is_manual = in_array($tid, $manual_term_ids, TRUE);
@@ -1230,7 +1347,7 @@ function ttd_topics_get_filtered_topics_for_node(EntityInterface $node) {
         if ($is_manual || $is_force_show || $is_high_salience || $count >= $min_display_count) {
           $filtered_topics[] = [
             'term' => $term,
-            'url' => ttd_topics_get_topic_url($term),
+            'url' => $include_urls ? ttd_topics_get_topic_url($term) : NULL,
             'count' => $count,
             'salience_score' => $entity_salience['salience_score'],
             'salience_category' => $tier,

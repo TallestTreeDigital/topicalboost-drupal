@@ -8,6 +8,12 @@ ttd_topics.settings:
       sequence:
         type: string
         label: 'Content type machine name'
+    enabled_categories:
+      type: sequence
+      label: 'Enabled category term IDs'
+      sequence:
+        type: integer
+        label: 'Taxonomy term ID'
     enable_frontend:
       type: boolean
       label: 'Display topics on frontend'
