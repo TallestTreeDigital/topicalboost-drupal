@@ -83,6 +83,13 @@ class BulkAnalysisForm extends FormBase {
 
     $config = $this->configFactory->get('ttd_topics.settings');
     $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
+    $category_options = function_exists('ttd_topics_get_category_filter_options')
+      ? ttd_topics_get_category_filter_options($enabled_content_types)
+      : [];
+    $enabled_categories = array_values(array_intersect(
+      array_map('intval', $config->get('enabled_categories') ?: []),
+      array_map('intval', array_keys($category_options)),
+    ));
 
     // Get all content types.
     $content_types = $this->entityTypeManager->getStorage('node_type')->loadMultiple();
@@ -279,8 +286,8 @@ class BulkAnalysisForm extends FormBase {
       '#markup' => $this->buildContentTypesGrid($content_type_options, $enabled_content_types),
     ];
 
-    // Category filter placeholder. Drupal does not have a configured category
-    // filter yet, but the row is present to match the WordPress workflow.
+    // Category filters mirror the WordPress defaults and can be narrowed for
+    // this analysis with Remove/Only controls.
     $form['categories'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ttd-bulk-analysis-section', 'ttd-categories-section']],
@@ -295,7 +302,7 @@ class BulkAnalysisForm extends FormBase {
 
     $form['categories']['content'] = [
       '#type' => 'markup',
-      '#markup' => Markup::create($this->buildCategoriesMarkup()),
+      '#markup' => Markup::create($this->buildCategoriesMarkup($enabled_categories, $category_options)),
     ];
 
     // Selection Status.
@@ -623,19 +630,41 @@ class BulkAnalysisForm extends FormBase {
   /**
    * Builds the categories row markup.
    */
-  private function buildCategoriesMarkup(): string {
-    return '<div class="ttd-filter-group">
+  private function buildCategoriesMarkup(array $enabled_categories, array $category_options): string {
+    $markup = '<div class="ttd-filter-group">
       <div class="ttd-filter-header">
         <span class="ttd-section-label">' . $this->t('Default from Settings • Click × to Remove for This Analysis') . '</span>
         <a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#tab-content" class="ttd-edit-link ttd-edit-link--pencil" title="' . $this->t('Edit Default in Settings') . '"></a>
       </div>
-      <div class="ttd-categories-selection">
-        <div class="ttd-empty-message">
-          <div class="ttd-empty-title">' . $this->t('No categories enabled') . '</div>
-          <div class="ttd-empty-action">' . $this->t('Enable categories in settings or leave empty to use all categories') . '</div>
-        </div>
-      </div>
-    </div>';
+      <div class="ttd-categories-selection">';
+
+    if (empty($enabled_categories)) {
+      $markup .= '<div class="ttd-empty-message">
+        <div class="ttd-empty-title">' . $this->t('No categories enabled') . '</div>
+        <div class="ttd-empty-action">' . $this->t('Enable categories in settings or leave empty to use all categories') . '</div>
+      </div>';
+    }
+    else {
+      $markup .= '<ul class="ttd-category-list">';
+      foreach ($enabled_categories as $category_id) {
+        if (!isset($category_options[$category_id])) {
+          continue;
+        }
+        $label = htmlspecialchars((string) $category_options[$category_id], ENT_QUOTES, 'UTF-8');
+        $category_id = (int) $category_id;
+        $markup .= '<li class="ttd-category-parent ttd-category-item" data-category-id="' . $category_id . '">
+          <span class="ttd-category-name">' . $label . '</span>
+          <div class="ttd-category-actions">
+            <button type="button" class="ttd-only-button" title="' . $this->t('Only analyze this category') . '">' . $this->t('Only') . '</button>
+            <button type="button" class="ttd-category-remove" title="' . $this->t('Remove category') . '" aria-label="' . $this->t('Remove @category', ['@category' => $category_options[$category_id]]) . '">&times;</button>
+          </div>
+          <input type="hidden" name="ttd_bulk_analysis_categories[]" value="' . $category_id . '" class="ttd-category-input">
+        </li>';
+      }
+      $markup .= '</ul>';
+    }
+
+    return $markup . '</div></div>';
   }
 
   /**

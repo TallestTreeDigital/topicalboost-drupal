@@ -194,6 +194,16 @@ function ttd_parity_wp_custom_field_filtered_count(object $filter_owner, Node $n
   return (int) $query->countQuery()->execute()->fetchField();
 }
 
+function ttd_parity_wp_category_filtered_count(array $node_ids, array $category_ids): int {
+  $query = \Drupal::database()->select('node_field_data', 'n');
+  $query->fields('n', ['nid']);
+  $query->condition('n.nid', array_map('intval', $node_ids), 'IN');
+  $query->condition('n.type', 'article');
+  $query->condition('n.status', 1);
+  ttd_topics_apply_bulk_category_filter($query, ['article'], $category_ids);
+  return (int) $query->countQuery()->execute()->fetchField();
+}
+
 function ttd_parity_wp_meta_preview(string $content): string {
   return ttd_parity_wp_invoke_private(new \Drupal\ttd_topics\Controller\MetaGeneratorController(), 'getCleanContentPreview', [$content]);
 }
@@ -611,6 +621,73 @@ try {
     ttd_parity_wp_custom_field_filtered_count($bulk_batch_send, $bulk_node, $custom_field_filters) === 1,
     'Bulk send custom-field filter counts multi-value field nodes once'
   );
+
+  $category_fields = ttd_topics_get_category_reference_fields(['article']);
+  ttd_parity_wp_assert(isset($category_fields['field_tags']), 'Drupal category filter discovers taxonomy fields without treating TopicalBoost topics as categories');
+  $category_field = isset($category_fields['field_tags']) ? 'field_tags' : array_key_first($category_fields);
+  $category_vocabulary = $category_field ? ($category_fields[$category_field][0] ?? NULL) : NULL;
+  if (!$category_field || !$category_vocabulary) {
+    throw new RuntimeException('A taxonomy reference field is required for bulk category parity testing.');
+  }
+
+  $category_match = Term::create(['vid' => $category_vocabulary, 'name' => "TB Parity Category Match {$suffix}"]);
+  $category_match->save();
+  $GLOBALS['created_terms'][] = (int) $category_match->id();
+  $category_other = Term::create(['vid' => $category_vocabulary, 'name' => "TB Parity Category Other {$suffix}"]);
+  $category_other->save();
+  $GLOBALS['created_terms'][] = (int) $category_other->id();
+
+  $bulk_node->set($category_field, [
+    ['target_id' => (int) $category_match->id()],
+    ['target_id' => (int) $category_other->id()],
+  ])->save();
+  $category_other_node = ttd_parity_wp_create_node("TB Parity Category Other Node {$suffix}");
+  $category_other_node->set($category_field, [['target_id' => (int) $category_other->id()]])->save();
+
+  $category_options = ttd_topics_get_category_filter_options(['article']);
+  ttd_parity_wp_assert(isset($category_options[(int) $category_match->id()]), 'Settings category choices include terms from enabled content types');
+  ttd_parity_wp_assert(
+    ttd_parity_wp_category_filtered_count([(int) $bulk_node->id(), (int) $category_other_node->id()], [(int) $category_match->id()]) === 1,
+    'Bulk category filter includes only content assigned to the selected category'
+  );
+  ttd_parity_wp_assert(
+    ttd_parity_wp_category_filtered_count([(int) $bulk_node->id()], [(int) $category_match->id(), (int) $category_other->id()]) === 1,
+    'Bulk category filter counts multi-category content once'
+  );
+
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')
+    ->set('enabled_content_types', ['article'])
+    ->set('enabled_categories', [(int) $category_match->id(), (int) $category_other->id()])
+    ->save();
+  $category_count_response = $bulk_filter_controller->getNodeCount(new Request([], [], [], [], [], [], json_encode([
+    'content_types' => ['article'],
+    'include_drafts' => FALSE,
+    'reanalyze' => TRUE,
+    'categories' => [(int) $category_match->id()],
+  ])));
+  $category_count_data = json_decode($category_count_response->getContent(), TRUE);
+  ttd_parity_wp_assert((int) ($category_count_data['data']['count'] ?? 0) === 1, 'Bulk count endpoint applies the selected category filter');
+
+  $category_batch_filters = [
+    'content_types' => ['article'],
+    'start_date' => '',
+    'end_date' => '',
+    'include_drafts' => FALSE,
+    'only_topicless' => FALSE,
+    'reanalyze' => TRUE,
+    'custom_field_filter' => FALSE,
+    'custom_field' => '',
+    'categories' => [(int) $category_match->id()],
+  ];
+  $category_batch_nodes = ttd_parity_wp_invoke_private($bulk_batch_send, 'getNodesData', [$category_batch_filters, 1, 35]);
+  ttd_parity_wp_assert(array_keys($category_batch_nodes) === [(int) $bulk_node->id()], 'Bulk send jobs apply the same selected category filter as the count endpoint');
+
+  $bulk_analysis_js = file_get_contents(dirname(__DIR__, 2) . '/js/bulk_analysis.js');
+  $bulk_analysis_form = file_get_contents(dirname(__DIR__, 2) . '/src/Form/BulkAnalysisForm.php');
+  ttd_parity_wp_assert(strpos($bulk_analysis_js, 'categories: currentFilters.categories') !== FALSE, 'Bulk analysis requests send selected categories');
+  ttd_parity_wp_assert(strpos($bulk_analysis_form, 'ttd_bulk_analysis_categories[]') !== FALSE, 'Bulk analysis renders configured category controls instead of a placeholder');
+
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')->set('enabled_categories', [])->save();
   $bulk_response = $bulk_controller->initiateAnalysis(new Request([], [], [], [], [], [], json_encode([
     'content_types' => ['article'],
     'start_date' => date('Y-m-d', strtotime('-1 day')),

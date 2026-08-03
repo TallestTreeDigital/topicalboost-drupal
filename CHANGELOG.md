@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.21] - 2026-08-03
+
+### Added
+- Add WordPress-equivalent taxonomy category defaults and per-run Remove/Only controls to Drupal bulk analysis.
+
+### Changed
+- Batch topic and alias loading during schema generation to keep query counts bounded on articles with many topics.
+
 ## [2.0.17] - 2026-07-11
 
 ### Changed

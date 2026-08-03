@@ -1,4 +1,5 @@
 enabled_content_types: []
+enabled_categories: []
 enable_frontend: false
 enable_automatic_mentions: true
 enable_meta_generator: false

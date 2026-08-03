@@ -50,6 +50,13 @@ class SchemaGenerator {
   protected $aliasManager;
 
   /**
+   * Request-local alias entity rows keyed by canonical TopicalBoost ID.
+   *
+   * @var array<int, array<int, array<string, mixed>>>
+   */
+  protected array $schemaAliasEntities = [];
+
+  /**
    * Constructs a new SchemaGenerator.
    *
    * @param \Drupal\Core\Database\Connection $database
@@ -202,6 +209,7 @@ class SchemaGenerator {
     $schema_topic_ttd_ids = $this->collectTopicTtdIds($schema_topics);
     $entity_data_by_id = $this->getEntitiesDataBatch($schema_topic_ttd_ids);
     $schema_types_by_id = $this->getEntitySchemaTypesBatch($schema_topic_ttd_ids);
+    $this->primeAliasEntitiesForSchema($schema_topic_ttd_ids);
 
     $main_entity_items = $this->formatTopicsForSchema($schema_topics['mainEntity'], $base_url, $entity_data_by_id, $schema_types_by_id);
     $about_items = $this->formatTopicsForSchema($schema_topics['about'], $base_url, $entity_data_by_id, $schema_types_by_id);
@@ -507,7 +515,9 @@ class SchemaGenerator {
     }
 
     if (function_exists('ttd_topics_get_filtered_topics_for_node')) {
-      $filtered_topics = \ttd_topics_get_filtered_topics_for_node($node);
+      // Schema builds archive URLs in one batch below, so do not resolve each
+      // term URL through Drupal's alias manager here.
+      $filtered_topics = \ttd_topics_get_filtered_topics_for_node($node, FALSE);
       $term_ids = [];
       foreach ($filtered_topics as $topic_data) {
         if (!empty($topic_data['term']) && $topic_data['term'] instanceof TermInterface) {
@@ -1156,26 +1166,51 @@ class SchemaGenerator {
    * Loads local alias entity rows so canonical schema can preserve duplicate IDs.
    */
   protected function getAliasEntitiesForSchema(array $entity): array {
-    if (!$this->database->schema()->tableExists('ttd_entity_aliases')) {
-      return [];
-    }
-
     $canonical_id = (int) ($entity['ttd_id'] ?? $entity['id'] ?? 0);
     if ($canonical_id <= 0) {
       return [];
     }
 
+    if (!array_key_exists($canonical_id, $this->schemaAliasEntities)) {
+      $this->primeAliasEntitiesForSchema([$canonical_id]);
+    }
+
+    return $this->schemaAliasEntities[$canonical_id] ?? [];
+  }
+
+  /**
+   * Loads alias rows for multiple canonical entities in one query.
+   */
+  protected function primeAliasEntitiesForSchema(array $canonical_ids): void {
+    $canonical_ids = array_values(array_unique(array_filter(array_map('intval', $canonical_ids))));
+    $missing_ids = array_values(array_filter(
+      $canonical_ids,
+      fn(int $canonical_id): bool => !array_key_exists($canonical_id, $this->schemaAliasEntities),
+    ));
+    if (empty($missing_ids)) {
+      return;
+    }
+
+    foreach ($missing_ids as $canonical_id) {
+      $this->schemaAliasEntities[$canonical_id] = [];
+    }
+
+    if (!$this->database->schema()->tableExists('ttd_entity_aliases')) {
+      return;
+    }
+
     $query = $this->database->select('ttd_entity_aliases', 'ea');
     $query->join('ttd_entities', 'e', 'e.ttd_id = ea.alias_entity_id');
     $query->fields('e')
-      ->condition('ea.canonical_entity_id', $canonical_id);
+      ->addField('ea', 'canonical_entity_id', '_canonical_entity_id');
+    $query->condition('ea.canonical_entity_id', $missing_ids, 'IN');
 
-    $aliases = [];
     foreach ($query->execute() as $record) {
-      $aliases[] = (array) $record;
+      $alias = (array) $record;
+      $canonical_id = (int) $alias['_canonical_entity_id'];
+      unset($alias['_canonical_entity_id']);
+      $this->schemaAliasEntities[$canonical_id][] = $alias;
     }
-
-    return $aliases;
   }
 
   /**

@@ -145,6 +145,9 @@ class BulkAnalysisController extends ControllerBase {
     }
 
     $this->applyCustomFieldFilter($query, $filters);
+    if (function_exists('ttd_topics_apply_bulk_category_filter')) {
+      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories']);
+    }
 
     $count = $query->countQuery()->execute()->fetchField();
 
@@ -589,6 +592,9 @@ class BulkAnalysisController extends ControllerBase {
     }
 
     $this->applyCustomFieldFilter($query, $filters);
+    if (function_exists('ttd_topics_apply_bulk_category_filter')) {
+      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories']);
+    }
 
     return $query->countQuery()->execute()->fetchField();
   }
@@ -971,6 +977,15 @@ class BulkAnalysisController extends ControllerBase {
    */
   private function parseFilters(Request $request) {
     $content = json_decode($request->getContent(), TRUE);
+    $content = is_array($content) ? $content : [];
+    $configured_categories = array_values(array_unique(array_filter(array_map(
+      'intval',
+      $this->configFactory->get('ttd_topics.settings')->get('enabled_categories') ?: [],
+    ))));
+    $requested_categories = array_key_exists('categories', $content)
+      ? array_values(array_unique(array_filter(array_map('intval', (array) $content['categories']))))
+      : $configured_categories;
+    $categories = array_values(array_intersect($requested_categories, $configured_categories));
 
     return [
       'content_types' => $content['content_types'] ?? [],
@@ -981,6 +996,7 @@ class BulkAnalysisController extends ControllerBase {
       'reanalyze' => $content['reanalyze'] ?? FALSE,
       'custom_field_filter' => $content['custom_field_filter'] ?? FALSE,
       'custom_field' => $content['custom_field'] ?? '',
+      'categories' => $categories,
     ];
   }
 

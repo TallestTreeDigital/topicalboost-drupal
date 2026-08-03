@@ -99,8 +99,8 @@ demand_metrics_assert_contains(
 );
 demand_metrics_assert_contains(
   $info,
-  'version: 2.0.20',
-  'Drupal module version must be bumped beyond the published 2.0.19 release.'
+  'version: 2.0.21',
+  'Drupal module version must include the category parity and schema batching release.'
 );
 
 $public_files = [
