@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.22] - 2026-08-05
+
+### Changed
+- Report the site's configured minimum topic post count so TopicalBoost Analytics uses the same topic-portfolio threshold as Drupal.
+
 ## [2.0.21] - 2026-08-03
 
 ### Added

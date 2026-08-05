@@ -170,6 +170,7 @@ class TtdSyncService {
       'curationScoreThreshold' => function_exists('ttd_topics_curation_score_threshold')
         ? \ttd_topics_curation_score_threshold()
         : max(0.0, min(5.0, (float) ($config->get('curation_score_threshold') ?? 2))),
+      'topicMinimumPostCount' => max(0, (int) ($config->get('post_topic_minimum_display_count') ?? 10)),
       'curationScoresLastSyncedAt' => $this->formatTimestampForApi(\Drupal::state()->get(static::CURATION_LAST_SYNC_KEY)),
       'curationScoreTerms' => count($scores),
       'curationSuppressedTerms' => $suppressed,
