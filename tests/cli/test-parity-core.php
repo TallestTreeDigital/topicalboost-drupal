@@ -23,6 +23,7 @@ $GLOBALS['created_files'] = [];
 $GLOBALS['created_ttd_ids'] = [];
 $GLOBALS['created_schema_type_ids'] = [];
 $original_threshold = \Drupal::config('ttd_topics.settings')->get('post_topic_minimum_display_count');
+$original_frontend_enabled = \Drupal::config('ttd_topics.settings')->get('enable_frontend');
 $suffix = time() . '_' . random_int(1000, 9999);
 $base_ttd_id = 970000000 + random_int(10000, 90000);
 $schema_type_id = $base_ttd_id + 9000;
@@ -300,6 +301,7 @@ try {
 
   \Drupal::configFactory()->getEditable('ttd_topics.settings')
     ->set('post_topic_minimum_display_count', 2)
+    ->set('enable_frontend', TRUE)
     ->save();
 
   $topics = [];
@@ -377,6 +379,82 @@ try {
   ttd_parity_assert(!in_array($topics['hidden_about']['name'], $visible_names, TRUE), 'Hidden topic is excluded even when high-salience');
   ttd_parity_assert(!in_array($topics['rejected_about']['name'], $visible_names, TRUE), 'Rejected topic is excluded even when high-salience');
   ttd_parity_assert(ttd_get_topic_tier((int) $topics['override_main']['term']->id(), (int) $main_node->id()) === 'mainEntity', 'Tier override wins over API salience');
+
+  $candidate_term_ids = array_map(static fn($topic) => (int) $topic['term']->id(), $topics);
+  $rendered_term_ids = ttd_topics_get_rendered_topic_ids_for_terms($candidate_term_ids);
+  foreach (['manual_low', 'force_low', 'about_low', 'override_main', 'regular_above'] as $key) {
+    ttd_parity_assert(
+      in_array((int) $topics[$key]['term']->id(), $rendered_term_ids, TRUE),
+      "Published renderer exposes {$key} as an archive threshold exception"
+    );
+  }
+  foreach (['regular_low', 'hidden_about', 'rejected_about'] as $key) {
+    ttd_parity_assert(
+      !in_array((int) $topics[$key]['term']->id(), $rendered_term_ids, TRUE),
+      "Published renderer does not expose {$key} as an archive threshold exception"
+    );
+  }
+
+  $sitemap_links = [];
+  foreach ($topics as $key => $topic) {
+    $sitemap_links[$key] = [
+      'meta' => [
+        'entity_info' => [
+          'entity_type' => 'taxonomy_term',
+          'id' => (int) $topic['term']->id(),
+        ],
+      ],
+    ];
+  }
+  ttd_topics_simple_sitemap_links_alter($sitemap_links, 'default');
+  foreach (['manual_low', 'force_low', 'about_low', 'override_main', 'regular_above'] as $key) {
+    ttd_parity_assert(isset($sitemap_links[$key]), "Sitemap retains eligible {$key} topic");
+  }
+  foreach (['regular_low', 'hidden_about', 'rejected_about'] as $key) {
+    ttd_parity_assert(!isset($sitemap_links[$key]), "Sitemap excludes ineligible {$key} topic");
+  }
+
+  $anonymous = new \Drupal\Core\Session\AnonymousUserSession();
+  foreach (['manual_low', 'force_low', 'about_low', 'override_main', 'regular_above'] as $key) {
+    $access = ttd_topics_entity_access($topics[$key]['term'], 'view', $anonymous);
+    ttd_parity_assert(!$access->isForbidden(), "Anonymous archive remains available for eligible {$key} topic");
+  }
+  foreach (['regular_low', 'hidden_about', 'rejected_about'] as $key) {
+    $access = ttd_topics_entity_access($topics[$key]['term'], 'view', $anonymous);
+    ttd_parity_assert($access->isForbidden(), "Anonymous archive returns 404 for ineligible {$key} topic");
+  }
+
+  if (\Drupal::moduleHandler()->moduleExists('simple_sitemap')) {
+    $sitemap_generator = \Drupal::service('simple_sitemap.generator');
+    $sitemap_generator->setSitemaps();
+    $sitemap_generator->entityManager()->setBundleSettings('taxonomy_term', 'ttd_topics', [
+      'index' => TRUE,
+      'priority' => 0.5,
+      'changefreq' => '',
+      'include_images' => FALSE,
+    ]);
+    $refresh_completed = FALSE;
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+      \Drupal::state()->set(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE, \Drupal::time()->getRequestTime() - 1);
+      if (ttd_topics_maybe_refresh_simple_sitemap()) {
+        $refresh_completed = TRUE;
+        break;
+      }
+    }
+    ttd_parity_assert($refresh_completed, 'Deferred refresh completes through the installed Simple XML Sitemap module');
+    $sitemap_generator->setSitemaps();
+    $sitemap_xml = (string) $sitemap_generator->getContent();
+    ttd_parity_assert($sitemap_xml !== '', 'Installed Simple XML Sitemap module generated XML');
+
+    foreach (['manual_low', 'force_low', 'about_low', 'override_main', 'regular_above'] as $key) {
+      $url = $topics[$key]['term']->toUrl('canonical', ['absolute' => TRUE])->toString();
+      ttd_parity_assert(strpos($sitemap_xml, $url) !== FALSE, "Generated XML retains eligible {$key} topic");
+    }
+    foreach (['regular_low', 'hidden_about', 'rejected_about'] as $key) {
+      $url = $topics[$key]['term']->toUrl('canonical', ['absolute' => TRUE])->toString();
+      ttd_parity_assert(strpos($sitemap_xml, $url) === FALSE, "Generated XML excludes ineligible {$key} topic");
+    }
+  }
 
   $schema = \Drupal::service('ttd_topics.schema_generator')->getNodeTopicsSchema($main_node->id());
   $article = ttd_parity_schema_article($schema);
@@ -805,6 +883,9 @@ finally {
       ->set('post_topic_minimum_display_count', $original_threshold)
       ->save();
   }
+  \Drupal::configFactory()->getEditable('ttd_topics.settings')
+    ->set('enable_frontend', $original_frontend_enabled)
+    ->save();
 
   $node_storage = \Drupal::entityTypeManager()->getStorage('node');
   foreach (array_reverse(array_unique($GLOBALS['created_nodes'])) as $nid) {

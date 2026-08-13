@@ -1182,6 +1182,9 @@ class TtdSyncService {
 
     \Drupal::state()->set(static::CURATION_LAST_SYNC_KEY, \Drupal::time()->getRequestTime());
     \Drupal\Core\Cache\Cache::invalidateTags(['ttd_topics:curation_scores']);
+    if (($stats['updated'] + $stats['removed']) > 0 && function_exists('ttd_topics_schedule_sitemap_refresh')) {
+      \ttd_topics_schedule_sitemap_refresh();
+    }
     $this->reportSiteMetrics();
 
     return $stats;

@@ -39,6 +39,11 @@ services:
     tags:
       - { name: event_subscriber }
 
+  ttd_topics.topic_sitemap_refresh_subscriber:
+    class: Drupal\ttd_topics\EventSubscriber\TopicSitemapRefreshSubscriber
+    tags:
+      - { name: event_subscriber }
+
   ttd_topics.error_telemetry:
     class: Drupal\ttd_topics\Service\ErrorTelemetryService
     arguments: ['@config.factory', '@state']

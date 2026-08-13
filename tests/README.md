@@ -42,6 +42,8 @@ php tests/cli/test-event-schema-dedup.php
 php tests/cli/test-demand-metrics-async-static.php
 php tests/cli/test-topic-archive-links.php
 php tests/cli/test-topic-archive-managed-filter.php
+php tests/cli/test-sitemap-eligibility-refresh.php
+php tests/cli/test-sitemap-eligibility-behavior.php
 ```
 
 `test-parity-core.php` covers:
@@ -93,6 +95,14 @@ and missing-value fallback behavior.
 `test-topic-archive-managed-filter.php` guards the optional one-click Search
 API setup: archive View detection, scoped index field creation and reindexing,
 hidden query filtering, cache variation, permissions, and invalid URL values.
+
+`test-sitemap-eligibility-refresh.php` guards Simple XML Sitemap filtering and
+deferred regeneration: the correct vocabulary ID, batched eligibility lookups,
+threshold and curation parity, mutation debouncing, and 3.x/4.x generator APIs.
+
+`test-sitemap-eligibility-behavior.php` executes the sitemap filter against
+isolated topic, count, visibility, and vocabulary fixtures, then verifies the
+deferred regeneration flow through both supported generator APIs.
 
 `test-parity-performance.php` maps the WordPress performance/query-count tests
 to Drupal schema and topic hot paths:

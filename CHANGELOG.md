@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.23] - 2026-08-13
+
+### Fixed
+- Keep rendered Manual, Main, and About topics available in the sitemap and align sitemap eligibility with anonymous archive access.
+
+### Changed
+- Refresh sitemap eligibility after relevant topic, content, curation, and settings changes with a short debounced background regeneration.
+
 ## [2.0.22] - 2026-08-05
 
 ### Changed

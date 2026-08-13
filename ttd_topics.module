@@ -21,6 +21,9 @@ if (!defined('TOPICALBOOST_ANALYSIS_CAPABILITIES')) {
   define('TOPICALBOOST_ANALYSIS_CAPABILITIES', 'analysis-about-v2,priority-topics-v1');
 }
 
+const TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE = 'ttd_topics.sitemap_refresh_due';
+const TTD_TOPICS_SITEMAP_REFRESH_DELAY = 60;
+
 use Drupal\advancedqueue\Job;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Ajax\AjaxResponse;
@@ -683,11 +686,146 @@ function ttd_topics_reset_runtime_caches() {
   foreach ([
     'ttd_topics_get_filtered_topics_for_node',
     'ttd_topics_get_topic_node_counts',
+    'ttd_topics_get_rendered_topic_ids_for_terms',
     'ttd_get_node_salience_data',
     'ttd_get_topic_tier:nodes',
     'ttd_get_topic_tier:terms',
   ] as $cache_name) {
     drupal_static_reset($cache_name);
+  }
+}
+
+/**
+ * Decide whether a topic should be excluded from anonymous archives/sitemaps.
+ *
+ * A rendered assignment means the frontend exposes the topic as Manual,
+ * Main, About, or promoted on at least one published node.
+ */
+function ttd_topics_should_exclude_public_topic(
+  bool $is_force_show,
+  bool $is_hidden,
+  bool $should_curate,
+  bool $is_below_threshold,
+  bool $is_rendered
+): bool {
+  if ($is_hidden) {
+    return TRUE;
+  }
+
+  if ($is_force_show || $is_rendered) {
+    return FALSE;
+  }
+
+  return !$should_curate || $is_below_threshold;
+}
+
+/**
+ * Schedule one sitemap regeneration after topic eligibility changes.
+ *
+ * A state marker keeps bulk analysis from creating one sitemap job per node.
+ * The first mutation starts the debounce window; later mutations reuse it.
+ */
+function ttd_topics_schedule_sitemap_refresh(): void {
+  static $eligibility_cache_invalidated = FALSE;
+  if (!$eligibility_cache_invalidated) {
+    Cache::invalidateTags(['ttd_topics:archive_eligibility']);
+    $eligibility_cache_invalidated = TRUE;
+  }
+
+  $state = \Drupal::state();
+  if (!$state->get(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE)) {
+    $state->set(
+      TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE,
+      \Drupal::time()->getRequestTime() + TTD_TOPICS_SITEMAP_REFRESH_DELAY
+    );
+  }
+}
+
+/**
+ * Regenerate Simple XML Sitemap after the debounce window expires.
+ *
+ * Supports the public APIs used by both the 3.x and 4.x module lines. The
+ * sitemap module remains optional.
+ */
+function ttd_topics_maybe_refresh_simple_sitemap(): bool {
+  $state = \Drupal::state();
+  $due = (int) $state->get(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE, 0);
+  if ($due === 0 || $due > \Drupal::time()->getRequestTime()) {
+    return FALSE;
+  }
+
+  if (!\Drupal::moduleHandler()->moduleExists('simple_sitemap') || !\Drupal::hasService('simple_sitemap.generator')) {
+    $state->delete(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE);
+    return FALSE;
+  }
+
+  try {
+    $generator = \Drupal::service('simple_sitemap.generator');
+    $queue_worker = NULL;
+    if (\Drupal::hasService('simple_sitemap.queue_worker')) {
+      $queue_worker = \Drupal::service('simple_sitemap.queue_worker');
+    }
+    elseif (is_callable([$generator, 'getQueueWorker'])) {
+      $queue_worker = $generator->getQueueWorker();
+    }
+    $generation_in_progress = $queue_worker
+      && is_callable([$queue_worker, 'generationInProgress'])
+      && $queue_worker->generationInProgress();
+
+    // Clear first so a concurrent mutation can create a new marker while the
+    // sitemap snapshot is being regenerated.
+    $state->delete(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE);
+
+    // Continue an existing bounded generation instead of replacing its queue.
+    // Large sites can need several cron passes to publish all sitemap chunks.
+    if (!$generation_in_progress) {
+      if (is_callable([$generator, 'setSitemaps'])) {
+        $generator->setSitemaps();
+      }
+      elseif (is_callable([$generator, 'setVariants'])) {
+        $generator->setVariants(TRUE);
+      }
+      if (!is_callable([$generator, 'rebuildQueue'])) {
+        throw new \RuntimeException('The installed Simple XML Sitemap generator has no rebuildQueue method.');
+      }
+      $generator->rebuildQueue();
+    }
+
+    if (is_callable([$generator, 'generateSitemap'])) {
+      $generator->generateSitemap('backend');
+    }
+    elseif (is_callable([$generator, 'generate'])) {
+      $generator->generate('backend');
+    }
+    else {
+      throw new \RuntimeException('The installed Simple XML Sitemap generator has no generation method.');
+    }
+
+    if ($queue_worker
+      && is_callable([$queue_worker, 'generationInProgress'])
+      && $queue_worker->generationInProgress()) {
+      if (!$state->get(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE)) {
+        $state->set(
+          TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE,
+          \Drupal::time()->getRequestTime() + TTD_TOPICS_SITEMAP_REFRESH_DELAY
+        );
+      }
+      return FALSE;
+    }
+
+    return TRUE;
+  }
+  catch (\Throwable $e) {
+    if (!$state->get(TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE)) {
+      $state->set(
+        TTD_TOPICS_SITEMAP_REFRESH_DUE_STATE,
+        \Drupal::time()->getRequestTime() + TTD_TOPICS_SITEMAP_REFRESH_DELAY
+      );
+    }
+    \Drupal::logger('ttd_topics')->warning('Deferred sitemap refresh failed and will retry on cron: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+    return FALSE;
   }
 }
 
@@ -1908,6 +2046,11 @@ function ttd_topics_entity_update(EntityInterface $entity) {
     ttd_topics_reset_runtime_caches();
   }
 
+  if (($entity instanceof NodeInterface && $entity->hasField('field_ttd_topics'))
+    || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_schedule_sitemap_refresh();
+  }
+
   if (!($entity instanceof NodeInterface)) {
     return;
   }
@@ -1935,6 +2078,11 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
   }
+
+  if (($entity instanceof NodeInterface && $entity->hasField('field_ttd_topics'))
+    || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_schedule_sitemap_refresh();
+  }
 }
 
 /**
@@ -1943,6 +2091,11 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
 function ttd_topics_entity_delete(EntityInterface $entity) {
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
+  }
+
+  if (($entity instanceof NodeInterface && $entity->hasField('field_ttd_topics'))
+    || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
+    ttd_topics_schedule_sitemap_refresh();
   }
 }
 
@@ -2029,6 +2182,7 @@ function ttd_topics_cron() {
 
   $state = \Drupal::state();
   $now = \Drupal::time()->getRequestTime();
+  ttd_topics_maybe_refresh_simple_sitemap();
   $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
   $queue = $queue_storage->load('ttd_topics_analysis');
 
@@ -2516,6 +2670,8 @@ function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountIn
       if (!$frontend_enabled && !ttd_topics_account_has_required_permission($account)) {
         return AccessResult::forbidden()
           ->addCacheableDependency($entity)
+          ->addCacheableDependency($config)
+          ->addCacheTags(['ttd_topics:archive_eligibility'])
           ->addCacheContexts(['user.permissions']);
       }
 
@@ -2524,17 +2680,36 @@ function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountIn
         && $entity instanceof Term
         && function_exists('ttd_topics_term_should_curate')
         && !ttd_topics_term_should_curate($entity);
+      $needs_rendered_exception = !$is_force_show
+        && ($count < $min_display_count || $blocked_by_curation);
+      $is_rendered = $needs_rendered_exception
+        && in_array(
+          (int) $entity->id(),
+          ttd_topics_get_rendered_topic_ids_for_terms([(int) $entity->id()]),
+          TRUE
+        );
 
       // Return 404 if hidden, suppressed by curation, or below minimum count for anonymous users.
-      if (($entity->get('field_hide')->value || $blocked_by_curation || (!$is_force_show && $count < $min_display_count)) && $account->isAnonymous()) {
+      $is_hidden = (bool) $entity->get('field_hide')->value;
+      $should_exclude = ttd_topics_should_exclude_public_topic(
+        $is_force_show,
+        $is_hidden,
+        !$blocked_by_curation,
+        $count < $min_display_count,
+        $is_rendered
+      );
+
+      if ($should_exclude && $account->isAnonymous()) {
         return AccessResult::forbidden()
           ->addCacheableDependency($entity)
-          ->addCacheTags(['ttd_topics:curation_scores']);
+          ->addCacheableDependency($config)
+          ->addCacheTags(['ttd_topics:curation_scores', 'ttd_topics:archive_eligibility']);
       }
 
       return AccessResult::neutral()
         ->addCacheableDependency($entity)
-        ->addCacheTags(['ttd_topics:curation_scores']);
+        ->addCacheableDependency($config)
+        ->addCacheTags(['ttd_topics:curation_scores', 'ttd_topics:archive_eligibility']);
     }
   }
   return AccessResult::neutral();
@@ -2845,41 +3020,186 @@ function ttd_topics_page_attachments(array &$attachments) {
 /**
  * Implements hook_simple_sitemap_links_alter().
  */
-function ttd_topics_simple_sitemap_links_alter(array &$links) {
-  // Get minimum display count from config.
+function ttd_topics_simple_sitemap_links_alter(array &$links, $sitemap_variant = NULL) {
   $config = \Drupal::config('ttd_topics.settings');
-  $min_display_count = $config->get('post_topic_minimum_display_count');
-
+  $taxonomy_links = [];
   foreach ($links as $key => $link) {
-    // Check if this is a taxonomy term link for topicalboost.
-    if (isset($link['entity_info'])
-        && $link['entity_info']['entity_type'] === 'taxonomy_term'
-        && $link['entity_info']['bundle'] === 'topicalboost') {
-
-      $term = \Drupal::entityTypeManager()
-        ->getStorage('taxonomy_term')
-        ->load($link['entity_info']['id']);
-
-      if ($term) {
-        // Check if term is hidden.
-        if ($term->get('field_hide')->value) {
-          unset($links[$key]);
-          continue;
-        }
-
-        // Check post count.
-        $count = \Drupal::database()->select('taxonomy_index', 'ti')
-          ->condition('tid', $term->id())
-          ->countQuery()
-          ->execute()
-          ->fetchField();
-
-        if ($count < $min_display_count) {
-          unset($links[$key]);
-        }
+    // Simple XML Sitemap 3.x nests this metadata under `meta`; newer
+    // releases can expose it at the top level.
+    $entity_info = $link['entity_info'] ?? ($link['meta']['entity_info'] ?? []);
+    if (($entity_info['entity_type'] ?? '') === 'taxonomy_term'
+      && !empty($entity_info['id'])) {
+      $bundle = $entity_info['bundle'] ?? NULL;
+      if ($bundle === NULL || $bundle === 'ttd_topics') {
+        $taxonomy_links[$key] = (int) $entity_info['id'];
       }
     }
   }
+
+  if (empty($taxonomy_links)) {
+    return;
+  }
+
+  $candidate_ids = array_values(array_unique($taxonomy_links));
+  $loaded_terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadMultiple($candidate_ids);
+  $topic_links = [];
+  $terms = [];
+  foreach ($taxonomy_links as $key => $term_id) {
+    $term = $loaded_terms[$term_id] ?? NULL;
+    if ($term && $term->bundle() === 'ttd_topics') {
+      $topic_links[$key] = $term_id;
+      $terms[$term_id] = $term;
+    }
+  }
+
+  if (empty($topic_links)) {
+    return;
+  }
+
+  // The public archive is inaccessible to anonymous visitors when frontend
+  // topic pages are disabled, so none of its terms belong in the sitemap.
+  if (!(bool) $config->get('enable_frontend')) {
+    foreach (array_keys($topic_links) as $key) {
+      unset($links[$key]);
+    }
+    return;
+  }
+
+  $term_ids = array_values(array_unique($topic_links));
+  $counts = ttd_topics_get_topic_node_counts($term_ids);
+  $entity_ids = [];
+  foreach ($terms as $term) {
+    if ($term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()) {
+      $entity_ids[] = (int) $term->get('field_ttd_id')->value;
+    }
+  }
+  $scores_by_entity = ttd_topics_get_curation_scores($entity_ids);
+  $min_display_count = max(0, (int) ($config->get('post_topic_minimum_display_count') ?? 10));
+  $eligibility = [];
+  $rendered_candidates = [];
+
+  foreach ($topic_links as $key => $term_id) {
+    $term = $terms[$term_id] ?? NULL;
+    if (!$term) {
+      unset($links[$key]);
+      continue;
+    }
+
+    $is_force_show = $term->hasField('field_force_show')
+      && !$term->get('field_force_show')->isEmpty()
+      && (bool) $term->get('field_force_show')->value;
+    $is_hidden = $term->hasField('field_hide')
+      && !$term->get('field_hide')->isEmpty()
+      && (bool) $term->get('field_hide')->value;
+    $should_curate = ttd_topics_term_should_curate($term, $scores_by_entity);
+    $is_below_threshold = (int) ($counts[$term_id] ?? 0) < $min_display_count;
+    $eligibility[$term_id] = [
+      'force_show' => $is_force_show,
+      'hidden' => $is_hidden,
+      'should_curate' => $should_curate,
+      'below_threshold' => $is_below_threshold,
+    ];
+
+    if (!$is_force_show && !$is_hidden && (!$should_curate || $is_below_threshold)) {
+      $rendered_candidates[] = $term_id;
+    }
+  }
+
+  $rendered_ids = array_fill_keys(
+    ttd_topics_get_rendered_topic_ids_for_terms($rendered_candidates),
+    TRUE
+  );
+
+  foreach ($topic_links as $key => $term_id) {
+    $state = $eligibility[$term_id] ?? NULL;
+    if (!$state) {
+      unset($links[$key]);
+      continue;
+    }
+
+    $is_rendered = isset($rendered_ids[$term_id]);
+    if (ttd_topics_should_exclude_public_topic(
+      $state['force_show'],
+      $state['hidden'],
+      $state['should_curate'],
+      $state['below_threshold'],
+      $is_rendered
+    )) {
+      unset($links[$key]);
+    }
+  }
+}
+
+/**
+ * Find candidate topics exposed by the article renderer on published nodes.
+ *
+ * Related nodes are loaded in bounded batches and evaluated with the same
+ * helper used for frontend topic links. This keeps Manual, Main, About,
+ * overrides, rejection, and curation consistent without adding work to
+ * normal requests or retaining every node in memory.
+ *
+ * @param int[] $term_ids
+ *   Candidate topic term IDs.
+ * @param callable|null $topic_loader
+ *   Optional topic loader for isolated tests.
+ *
+ * @return int[]
+ *   Rendered candidate term IDs.
+ */
+function ttd_topics_get_rendered_topic_ids_for_terms(array $term_ids, $topic_loader = NULL): array {
+  $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
+  if (empty($term_ids)) {
+    return [];
+  }
+
+  $candidate_map = array_fill_keys($term_ids, TRUE);
+  $query = \Drupal::database()->select('taxonomy_index', 'ti');
+  $query->innerJoin('node_field_data', 'nfd', 'nfd.nid = ti.nid AND nfd.status = 1');
+  $query->fields('ti', ['nid', 'tid']);
+  $query->condition('ti.tid', $term_ids, 'IN');
+  $rows = $query->execute()->fetchAll();
+  if (empty($rows)) {
+    return [];
+  }
+
+  $node_ids = [];
+  foreach ($rows as $row) {
+    $node_ids[(int) $row->nid] = TRUE;
+  }
+
+  $rendered = [];
+  $node_storage = \Drupal::entityTypeManager()->getStorage('node');
+  foreach (array_chunk(array_keys($node_ids), 250) as $node_id_chunk) {
+    $nodes = $node_storage->loadMultiple($node_id_chunk);
+    $all_candidates_rendered = FALSE;
+    foreach ($nodes as $node) {
+      $topics = is_callable($topic_loader)
+        ? $topic_loader($node)
+        : ttd_topics_get_filtered_topics_for_node($node, FALSE);
+      foreach ($topics as $topic) {
+        $term = $topic['term'] ?? NULL;
+        $term_id = $term ? (int) $term->id() : 0;
+        if (isset($candidate_map[$term_id])) {
+          $rendered[$term_id] = TRUE;
+        }
+      }
+
+      if (count($rendered) === count($candidate_map)) {
+        $all_candidates_rendered = TRUE;
+        break;
+      }
+    }
+    $node_storage->resetCache($node_id_chunk);
+    drupal_static_reset('ttd_topics_get_filtered_topics_for_node');
+    drupal_static_reset('ttd_topics_get_topic_node_counts');
+    drupal_static_reset('ttd_get_node_salience_data');
+
+    if ($all_candidates_rendered) {
+      break;
+    }
+  }
+
+  return array_map('intval', array_keys($rendered));
 }
 
 /**
