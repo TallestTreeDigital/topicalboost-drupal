@@ -2064,7 +2064,13 @@ function ttd_topics_entity_update(EntityInterface $entity) {
 
   $is_newly_published = $entity->isPublished() && $entity->original && !$entity->original->isPublished();
 
-  if ($is_newly_published) {
+  // The publish hook can run before an asynchronously queued analysis creates
+  // the API content row. Only records with a completed analysis need the
+  // lightweight URL-only update; new analyses already send the published URL.
+  $has_completed_analysis = $entity->hasField('field_ttd_last_analyzed')
+    && !$entity->get('field_ttd_last_analyzed')->isEmpty();
+
+  if ($is_newly_published && $has_completed_analysis) {
     /** @var \Drupal\ttd_topics\Service\TtdTopicsAnalysisService $analysis_service */
     $analysis_service = \Drupal::service('ttd_topics.analysis_service');
     $analysis_service->updateContentUrl($entity);

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.24] - 2026-08-15
+
+### Fixed
+- Skip the URL-only publish update until node analysis has completed, preventing expected `Content not found` responses while an asynchronous analysis is still creating the API content record.
+
 ## [2.0.23] - 2026-08-13
 
 ### Fixed

@@ -34,6 +34,7 @@ themselves.
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-core.php
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-wp-equivalents.php
 ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-parity-performance.php
+ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-publish-url-update-guard.php
 
 # From the module root, no Drupal bootstrap required.
 php tests/cli/test-sync-cursor-upgrade.php
