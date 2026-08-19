@@ -4,6 +4,14 @@ debug_stub:
   dependencies:
     - core/drupal
 
+csrf:
+  js:
+    js/csrf.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+
 ttd_topics.styles:
   css:
     theme:
@@ -30,6 +38,7 @@ author_manager:
     - core/jquery
     - core/drupal
     - core/once
+    - ttd_topics/csrf
 
 progress_bars:
   css:
@@ -69,6 +78,7 @@ api_validation:
     - core/jquery
     - core/drupal
     - ttd_topics/debug_stub
+    - ttd_topics/csrf
 
 admin_notices:
   css:
@@ -113,6 +123,7 @@ bulk_analysis:
     - core/once
     - ttd_topics/jquery_once_polyfill
     - ttd_topics/debug_stub
+    - ttd_topics/csrf
 
 ttd_topics_admin:
   js:
@@ -210,6 +221,7 @@ admin_topics:
     - core/drupalSettings
     - core/once
     - ttd_topics/jquery_once_polyfill
+    - ttd_topics/csrf
 
 combined_tabs:
   js:
@@ -325,6 +337,7 @@ watchlist:
     - core/jquery
     - core/drupal
     - core/once
+    - ttd_topics/csrf
 
 sync:
   css:
@@ -336,6 +349,7 @@ sync:
     - core/jquery
     - core/drupal
     - core/once
+    - ttd_topics/csrf
 
 troubleshoot:
   css:
@@ -347,3 +361,4 @@ troubleshoot:
     - core/jquery
     - core/drupal
     - core/once
+    - ttd_topics/csrf

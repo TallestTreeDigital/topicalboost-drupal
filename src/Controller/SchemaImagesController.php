@@ -4,6 +4,7 @@ namespace Drupal\ttd_topics\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\file\Entity\File;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,18 +52,28 @@ class SchemaImagesController extends ControllerBase {
     if (!$node) {
       return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
     }
+    $account = \Drupal::currentUser();
+    if (!$node->access('update', $account)) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Access denied'], 403);
+    }
 
     // Get source image.
     $source_file = NULL;
+    $uploaded_source = FALSE;
     if ($request->files->has('schema_image')) {
       $source_file = $this->createSourceFileFromUpload($request, $nid);
       if (!$source_file) {
         return new JsonResponse(['success' => FALSE, 'message' => 'Uploaded image could not be saved'], 400);
       }
+      $uploaded_source = TRUE;
     }
 
     if ($fid) {
-      $source_file = File::load($fid);
+      $candidate_file = File::load($fid);
+      if (!$candidate_file || !$candidate_file->access('view', $account) || !$this->isAllowedSourceFile($candidate_file, $node, $account)) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Source image access denied'], 403);
+      }
+      $source_file = $candidate_file;
     }
 
     // Fall back to node's featured image.
@@ -72,6 +83,9 @@ class SchemaImagesController extends ControllerBase {
 
     if (!$source_file) {
       return new JsonResponse(['success' => FALSE, 'message' => 'No source image found'], 400);
+    }
+    if (!$uploaded_source && !$source_file->access('view', $account)) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Source image access denied'], 403);
     }
 
     $source_path = \Drupal::service('file_system')->realpath($source_file->getFileUri());
@@ -202,6 +216,9 @@ class SchemaImagesController extends ControllerBase {
     if (!$node) {
       return new JsonResponse(['success' => FALSE], 404);
     }
+    if (!$node->access('view', \Drupal::currentUser())) {
+      return new JsonResponse(['success' => FALSE], 403);
+    }
 
     $images = [];
     $field_map = [
@@ -259,6 +276,9 @@ class SchemaImagesController extends ControllerBase {
     $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
     if (!$node) {
       return new JsonResponse(['success' => FALSE], 404);
+    }
+    if (!$node->access('update', \Drupal::currentUser())) {
+      return new JsonResponse(['success' => FALSE], 403);
     }
 
     $field_map = [
@@ -380,6 +400,18 @@ class SchemaImagesController extends ControllerBase {
   }
 
   /**
+   * Checks that an explicit file is owned by the caller or belongs to the node.
+   */
+  protected function isAllowedSourceFile(File $file, $node, AccountInterface $account): bool {
+    $node_source = $this->getSourceFileFromNode($node);
+    if ($node_source && (int) $node_source->id() === (int) $file->id()) {
+      return TRUE;
+    }
+
+    return $account->isAuthenticated() && (int) $file->getOwnerId() === (int) $account->id();
+  }
+
+  /**
    * Persist an uploaded source image so the generator can crop it.
    */
   protected function createSourceFileFromUpload(Request $request, int $nid): ?File {
@@ -406,6 +438,7 @@ class SchemaImagesController extends ControllerBase {
     $file = File::create([
       'uri' => $copied_uri,
       'filename' => basename($copied_uri),
+      'uid' => \Drupal::currentUser()->id(),
       'status' => 1,
     ]);
     $file->save();

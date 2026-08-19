@@ -91,7 +91,7 @@ class BulkAnalysisController extends ControllerBase {
               'poll' => \Drupal::url('topicalboost.bulk_analysis.poll'),
               'apply_results' => \Drupal::url('topicalboost.bulk_analysis.apply_results'),
             ],
-            'nonce' => \Drupal::csrfToken()->get('ttd_bulk_analysis'),
+            'nonce' => \Drupal::csrfToken()->get('rest'),
           ],
         ],
       ],

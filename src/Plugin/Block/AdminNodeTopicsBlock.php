@@ -173,6 +173,7 @@ class AdminNodeTopicsBlock extends BlockBase implements BlockPluginInterface, Co
       '#attached' => [
         'library' => ['ttd_topics/admin_topics'],
         'drupalSettings' => [
+          'topicalboostCsrfToken' => \Drupal::csrfToken()->get('rest'),
           'ttdTopics' => [
             'nodeId' => $node->id(),
             'thresholdCount' => $threshold_count,

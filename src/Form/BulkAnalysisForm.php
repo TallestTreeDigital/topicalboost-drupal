@@ -414,7 +414,7 @@ class BulkAnalysisForm extends FormBase {
         'poll' => Url::fromRoute('topicalboost.bulk_analysis.poll')->toString(),
         'apply_results' => Url::fromRoute('topicalboost.bulk_analysis.apply_results')->toString(),
       ],
-      'nonce' => \Drupal::csrfToken()->get('ttd_bulk_analysis'),
+      'nonce' => \Drupal::csrfToken()->get('rest'),
       'enabled_content_types' => $enabled_content_types,
       'debug_mode' => \Drupal::config('ttd_topics.settings')->get('debug_mode') ?: FALSE,
     ];

@@ -60,9 +60,9 @@
 
         fetch(endpoint, {
           method: 'POST',
-          headers: {
+          headers: Drupal.topicalboostCsrfHeaders({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify({
             api_key: apiKey
           })

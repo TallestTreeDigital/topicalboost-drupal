@@ -31,9 +31,9 @@
           fetch(endpoint, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: {
+            headers: Drupal.topicalboostCsrfHeaders({
               'Content-Type': 'application/json'
-            },
+            }),
             body: JSON.stringify({ field_name: fieldName })
           })
             .then(function (response) {

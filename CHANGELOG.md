@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.25] - 2026-08-19
+
+### Security
+- Keep the configured TopicalBoost site API key on the server for dashboard widgets and proxy widget data only for authorized users.
+- Require Drupal CSRF request-header tokens on state-changing TopicalBoost routes.
+- Restrict schema-image operations to authorized nodes and reject unrelated file IDs as image sources.
+- Remove one-off reprocessing artifacts from the public Drupal package.
+
 ## [2.0.24] - 2026-08-15
 
 ### Fixed

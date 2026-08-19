@@ -45,6 +45,7 @@ topicalboost.bulk_analysis.count:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.bulk_analysis.initiate:
   path: '/api/topicalboost/bulk-analysis/initiate'
@@ -53,6 +54,7 @@ topicalboost.bulk_analysis.initiate:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.bulk_analysis.progress:
   path: '/api/topicalboost/bulk-analysis/progress'
@@ -69,6 +71,7 @@ topicalboost.bulk_analysis.reset:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.bulk_analysis.poll:
   path: '/api/topicalboost/bulk-analysis/poll'
@@ -85,6 +88,7 @@ topicalboost.bulk_analysis.apply_results:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.validate_key:
   path: '/api/topicalboost/validate-api-key'
@@ -93,6 +97,7 @@ topicalboost.api.validate_key:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.author_field_mapping:
   path: '/api/topicalboost/author-field-mapping'
@@ -101,6 +106,7 @@ topicalboost.api.author_field_mapping:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.author_settings:
   path: '/api/topicalboost/author-settings'
@@ -109,6 +115,7 @@ topicalboost.api.author_settings:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.field_inspector:
   path: '/admin/config/content/topicalboost/custom-fields/{node}'
@@ -235,6 +242,7 @@ ttd_topics.update_tier:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 ttd_topics.remove_tier:
   path: '/api/topicalboost/tier/remove'
@@ -243,6 +251,7 @@ ttd_topics.remove_tier:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 ttd_topics.update_topics:
   path: '/api/topicalboost/topics/update'
@@ -251,6 +260,7 @@ ttd_topics.update_topics:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 ttd_topics.demand_metrics:
   path: '/api/topicalboost/demand'
@@ -267,6 +277,7 @@ ttd_topics.run_analysis:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
     node: \d+
 
 topicalboost.api.pinned_posts_search:
@@ -292,6 +303,7 @@ topicalboost.api.toggle_topic_visibility:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
     taxonomy_term: \d+
 
 # Health Checks Page
@@ -327,6 +339,7 @@ topicalboost.api.toggle_force_show:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
     taxonomy_term: \d+
 
 # Queue Status Page
@@ -345,7 +358,16 @@ topicalboost.widgets:
     _title: 'Top Stories & Citations'
     _controller: '\Drupal\ttd_topics\Controller\WidgetsController::page'
   requirements:
-    _permission: 'access content overview'
+    _custom_access: '\Drupal\ttd_topics\Controller\WidgetsController::access'
+
+topicalboost.widgets.proxy:
+  path: '/api/topicalboost/widgets/{resource}'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\WidgetsController::proxy'
+  methods: [GET]
+  requirements:
+    _custom_access: '\Drupal\ttd_topics\Controller\WidgetsController::access'
+    resource: 'appearances|citations|citers'
 
 # Schema Images API endpoints
 topicalboost.api.schema_images.generate:
@@ -355,6 +377,7 @@ topicalboost.api.schema_images.generate:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.schema_images.status:
   path: '/api/topicalboost/schema-images/status'
@@ -371,6 +394,7 @@ topicalboost.api.schema_images.clear:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.changelog:
   path: '/api/topicalboost/changelog'
@@ -396,6 +420,7 @@ topicalboost.api.watchlist.search:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.watchlist.add:
   path: '/api/topicalboost/watchlist/add'
@@ -404,6 +429,7 @@ topicalboost.api.watchlist.add:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.watchlist.create_custom:
   path: '/api/topicalboost/watchlist/create-custom'
@@ -412,6 +438,7 @@ topicalboost.api.watchlist.create_custom:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.watchlist.remove:
   path: '/api/topicalboost/watchlist/remove'
@@ -420,6 +447,7 @@ topicalboost.api.watchlist.remove:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 # Sync API endpoints
 topicalboost.api.sync.check:
@@ -437,6 +465,7 @@ topicalboost.api.sync.start:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.sync.progress:
   path: '/api/topicalboost/sync/progress'
@@ -453,6 +482,7 @@ topicalboost.api.sync.cancel:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 # Social Meta Generation API endpoints
 topicalboost.api.meta.generate_social:
@@ -512,6 +542,7 @@ topicalboost.api.clear_analysis_flags:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.handle_stuck_posts:
   path: '/api/topicalboost/troubleshoot/stuck-posts'
@@ -520,6 +551,7 @@ topicalboost.api.handle_stuck_posts:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.clear_polling_flag:
   path: '/api/topicalboost/troubleshoot/clear-polling-flag'
@@ -528,6 +560,7 @@ topicalboost.api.clear_polling_flag:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.clear_rejected_topics:
   path: '/api/topicalboost/troubleshoot/clear-rejected-topics'
@@ -536,6 +569,7 @@ topicalboost.api.clear_rejected_topics:
   methods: [POST]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.entity_info:
   path: '/api/topicalboost/entity-info'
@@ -544,6 +578,7 @@ topicalboost.api.entity_info:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.search_countries.get:
   path: '/api/topicalboost/search-countries'
@@ -560,6 +595,7 @@ topicalboost.api.search_countries.save:
   methods: [PUT]
   requirements:
     _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
 
 # Topic term management
 topicalboost.api.create_topic_term:
@@ -569,6 +605,7 @@ topicalboost.api.create_topic_term:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.get_term_by_ttd_id:
   path: '/api/topicalboost/topic-term/by-ttd-id'
@@ -577,6 +614,7 @@ topicalboost.api.get_term_by_ttd_id:
   methods: [POST]
   requirements:
     _permission: 'administer nodes'
+    _csrf_request_header_token: 'TRUE'
 
 topicalboost.api.meta_settings:
   path: '/api/topicalboost/meta/settings'

@@ -94,6 +94,9 @@ class TroubleshootController extends ControllerBase {
       '#rejected_posts' => $rejected_posts,
       '#attached' => [
         'library' => ['ttd_topics/troubleshoot'],
+        'drupalSettings' => [
+          'topicalboostCsrfToken' => \Drupal::csrfToken()->get('rest'),
+        ],
       ],
     ];
 

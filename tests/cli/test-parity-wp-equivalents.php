@@ -869,11 +869,18 @@ try {
     ttd_parity_wp_assert($fallback_sizes === $expected_fallback_sizes, 'Schema falls back to featured image in WordPress-equivalent schema ratios');
 
     $schema_images_controller = new \Drupal\ttd_topics\Controller\SchemaImagesController();
-    $image_response = $schema_images_controller->generate(new Request([], [
-      'nid' => (int) $schema_node_a->id(),
-      'focal_x' => 0.5,
-      'focal_y' => 0.5,
-    ]));
+    $account_switcher = \Drupal::service('account_switcher');
+    $account_switcher->switchTo(\Drupal\user\Entity\User::load(1));
+    try {
+      $image_response = $schema_images_controller->generate(new Request([], [
+        'nid' => (int) $schema_node_a->id(),
+        'focal_x' => 0.5,
+        'focal_y' => 0.5,
+      ]));
+    }
+    finally {
+      $account_switcher->switchBack();
+    }
     $image_data = json_decode($image_response->getContent(), TRUE);
     $generated_sizes = [];
     foreach (($image_data['images'] ?? []) as $image) {

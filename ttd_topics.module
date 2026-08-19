@@ -1015,6 +1015,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         $form['#attached']['library'][] = 'ttd_topics/meta_generator';
       }
       $form['#attached']['library'][] = 'ttd_topics/admin_topics';
+      $form['#attached']['drupalSettings']['topicalboostCsrfToken'] = \Drupal::csrfToken()->get('rest');
       $form['#attached']['library'][] = 'ttd_topics/combined_tabs';
       if ($schema_images_available) {
         $form['#attached']['library'][] = 'ttd_topics/schema_images';

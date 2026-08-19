@@ -75,6 +75,7 @@ class SettingsForm extends ConfigFormBase {
     $form['#attached']['library'][] = 'ttd_topics/coverage';
     $form['#attached']['library'][] = 'ttd_topics/code_examples';
     $form['#attached']['library'][] = 'ttd_topics/bulk_analysis';
+    $form['#attached']['drupalSettings']['topicalboostCsrfToken'] = \Drupal::csrfToken()->get('rest');
 
     // Page header with title.
     $form['page_header'] = [
@@ -1318,7 +1319,7 @@ class SettingsForm extends ConfigFormBase {
         'poll' => Url::fromRoute('topicalboost.bulk_analysis.poll')->toString(),
         'apply_results' => Url::fromRoute('topicalboost.bulk_analysis.apply_results')->toString(),
       ];
-      $form['#attached']['drupalSettings']['ttd_topics']['nonce'] = \Drupal::csrfToken()->get('ttd_bulk_analysis');
+      $form['#attached']['drupalSettings']['ttd_topics']['nonce'] = \Drupal::csrfToken()->get('rest');
       $form['#attached']['drupalSettings']['ttd_topics']['enabled_content_types'] = $bulk_enabled_content_types;
     }
 
