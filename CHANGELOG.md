@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.29] - 2026-09-24
+
+### Fixed
+- Restore the complete organization logo box border in Schema settings and separate it from the divider above.
+
 ## [2.0.28] - 2026-09-24
 
 ### Fixed

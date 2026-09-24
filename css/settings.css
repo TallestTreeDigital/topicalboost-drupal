@@ -1079,11 +1079,10 @@ html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mo
   object-fit: contain;
 }
 
-.ttd-settings-panel fieldset {
-  border: 1px solid #e2e4e7;
-  border-radius: 3px;
-  padding: 12px 16px;
-  margin: 12px 0;
+.ttd-settings-wrap #edit-branding {
+  border: 1px solid var(--gin-border-color, #e2e4e7);
+  border-radius: 8px;
+  margin: 20px 0 0;
 }
 
 .ttd-settings-panel fieldset legend {
