@@ -105,7 +105,7 @@
 .ttd-settings-content {
   flex: 1;
   min-width: 0;
-  padding: 20px 24px 4px;
+  padding: 20px 24px 28px;
 }
 
 .ttd-settings-content-header {
@@ -1066,6 +1066,19 @@ html:not(.gin--dark-mode):not([data-color-scheme="dark"]) body:not(.gin--dark-mo
 }
 
 /* Branding / Logo section in Schema tab */
+.ttd-logo-preview {
+  margin: 0 0 12px;
+}
+
+.ttd-logo-preview__image {
+  display: block;
+  max-width: 240px;
+  max-height: 120px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
 .ttd-settings-panel fieldset {
   border: 1px solid #e2e4e7;
   border-radius: 3px;

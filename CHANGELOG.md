@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.28] - 2026-09-24
+
+### Fixed
+- Show the selected organization logo in Schema settings, including after Drupal's upload and remove updates.
+- Add space below the Schema settings content so the logo box does not crowd the panel edge.
+
 ## [2.0.27] - 2026-09-24
 
 ### Fixed

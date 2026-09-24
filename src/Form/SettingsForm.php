@@ -48,6 +48,28 @@ class SettingsForm extends ConfigFormBase {
   }
 
   /**
+   * Shows the selected logo inside Drupal's managed file widget.
+   */
+  public static function addLogoPreview(array $element, FormStateInterface $form_state) {
+    $file = !empty($element['#files']) ? reset($element['#files']) : NULL;
+    if ($file && str_starts_with($file->getMimeType(), 'image/')) {
+      $element['preview'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ttd-logo-preview']],
+        '#weight' => -6,
+        'image' => [
+          '#theme' => 'image',
+          '#uri' => $file->getFileUri(),
+          '#alt' => t('Organization logo preview'),
+          '#attributes' => ['class' => ['ttd-logo-preview__image']],
+        ],
+      ];
+    }
+
+    return $element;
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function getEditableConfigNames() {
@@ -805,6 +827,7 @@ class SettingsForm extends ConfigFormBase {
       '#description' => $this->t('Use a PNG, JPEG, GIF, or WebP image up to 5 MB. Remove the image to use the site theme logo.'),
       '#upload_location' => 'public://logos/',
       '#upload_validators' => $logo_validators,
+      '#after_build' => [[static::class, 'addLogoPreview']],
     ];
 
     // =========================================================================
