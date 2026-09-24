@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.26] - 2026-09-24
+
+### Fixed
+- Restore the organization logo uploader in Schema settings on Drupal 10 and 11. Save and remove the selected file correctly.
+- Generate the uploaded logo URL through Drupal's file URL service.
+
 ## [2.0.25] - 2026-08-19
 
 ### Security

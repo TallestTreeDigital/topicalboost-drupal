@@ -783,8 +783,28 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     $form['tabs_container']['content']['schema']['branding'] = [
-      '#type' => 'hidden',
-      '#default_value' => $config->get('organization_logo_fid') ?: '',
+      '#type' => 'fieldset',
+      '#title' => $this->t('Organization logo'),
+      '#attributes' => ['class' => ['ttd-topics-field-group']],
+    ];
+
+    $logo_validators = class_exists('\Drupal\file\Plugin\Validation\Constraint\FileExtensionConstraint')
+      ? [
+        'FileExtension' => ['extensions' => 'png jpg jpeg gif webp'],
+        'FileSizeLimit' => ['fileLimit' => 5 * 1024 * 1024],
+      ]
+      : [
+        'file_validate_extensions' => ['png jpg jpeg gif webp'],
+        'file_validate_size' => [5 * 1024 * 1024],
+      ];
+
+    $form['tabs_container']['content']['schema']['branding']['organization_logo_upload'] = [
+      '#type' => 'managed_file',
+      '#title' => $this->t('Upload logo'),
+      '#default_value' => $config->get('organization_logo_fid') ? [(int) $config->get('organization_logo_fid')] : [],
+      '#description' => $this->t('Use a PNG, JPEG, GIF, or WebP image up to 5 MB. Remove the image to use the site theme logo.'),
+      '#upload_location' => 'public://logos/',
+      '#upload_validators' => $logo_validators,
     ];
 
     // =========================================================================
@@ -2336,9 +2356,9 @@ class SettingsForm extends ConfigFormBase {
 
     // Handle logo file upload.
     $logo_fid = $config->get('organization_logo_fid');
-    $upload_values = $form_state->getValue(['branding', 'organization_logo_upload']);
-    if ($upload_values) {
-      $logo_fid = $upload_values[0];
+    $upload_values = $form_state->getValue('organization_logo_upload');
+    if (is_array($upload_values)) {
+      $logo_fid = $upload_values ? reset($upload_values) : NULL;
       // Make the file permanent.
       if ($logo_fid) {
         $file = \Drupal::entityTypeManager()->getStorage('file')->load($logo_fid);

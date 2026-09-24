@@ -1395,7 +1395,7 @@ class SchemaGenerator {
     if (!empty($logo_fid)) {
       $file = \Drupal::entityTypeManager()->getStorage('file')->load($logo_fid);
       if ($file) {
-        return file_create_url($file->getFileUri());
+        return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
       }
     }
 

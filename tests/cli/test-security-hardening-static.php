@@ -126,6 +126,7 @@ security_assert(strpos($widget_ts, 'topicalboostProxyBase') !== FALSE, 'Top Stor
 security_assert(strpos($widget_ts, 'apiKey: config.topicalBoostApiKey,\n        sortBy') === FALSE, 'Top Stories widget does not put its key in the query string');
 security_assert(substr_count($citations_ts, "headers['x-topicalboost-api-key'] = this.topicalBoostApiKey") >= 2, 'Citations widget sends direct-embed keys in request headers');
 security_assert(strpos($citations_ts, 'topicalboostProxyBase') !== FALSE, 'Citations widget supports a server-side data proxy without a browser key');
+security_assert(substr_count($citations_ts, 'if (!this.container || (!this.topicalBoostApiKey && !this.proxyBaseUrl)) return;') >= 2, 'Citations widget initializes and renders through the server-side proxy without a browser key');
 security_assert(strpos($citations_ts, 'apiKey=${encodeURIComponent(this.topicalBoostApiKey)}') === FALSE, 'Citations widget does not put its key in the query string');
 
 $allowlist = security_file($monorepo . '/scripts/drupal-public-files.txt');
