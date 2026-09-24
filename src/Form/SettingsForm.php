@@ -2355,17 +2355,14 @@ class SettingsForm extends ConfigFormBase {
     }
 
     // Handle logo file upload.
-    $logo_fid = $config->get('organization_logo_fid');
     $upload_values = $form_state->getValue('organization_logo_upload');
-    if (is_array($upload_values)) {
-      $logo_fid = $upload_values ? reset($upload_values) : NULL;
-      // Make the file permanent.
-      if ($logo_fid) {
-        $file = \Drupal::entityTypeManager()->getStorage('file')->load($logo_fid);
-        if ($file) {
-          $file->setPermanent();
-          $file->save();
-        }
+    $logo_fid = is_array($upload_values) && $upload_values ? reset($upload_values) : NULL;
+    // Make the file permanent.
+    if ($logo_fid) {
+      $file = \Drupal::entityTypeManager()->getStorage('file')->load($logo_fid);
+      if ($file) {
+        $file->setPermanent();
+        $file->save();
       }
     }
 
