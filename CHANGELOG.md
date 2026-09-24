@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.30] - 2026-09-24
+
+### Fixed
+- Omit placeholder WebSite schema descriptions when the site has no slogan.
+
 ## [2.0.29] - 2026-09-24
 
 ### Fixed

@@ -105,7 +105,10 @@ class SchemaGenerator {
     // Get site configuration - all dynamic.
     $site_config = \Drupal::config('system.site');
     $site_name = $site_config->get('name') ?: 'Your Organization';
-    $site_slogan = $site_config->get('slogan') ?: 'Your organization\'s mission';
+    $site_slogan = trim((string) $site_config->get('slogan'));
+    if (strcasecmp($site_slogan, "Your organization's mission") === 0) {
+      $site_slogan = '';
+    }
 
     // Get base URL dynamically.
     $base_url = \Drupal::request()->getSchemeAndHttpHost();
