@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.31] - 2026-09-25
+
+### Fixed
+- Reload SEO meta topics after a topic is moved, removed, accepted, or rejected, so Generate no longer offers topics that left About.
+- Clear the topic list and disable Generate when no About topics remain.
+
 ## [2.0.30] - 2026-09-24
 
 ### Fixed

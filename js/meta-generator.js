@@ -292,6 +292,9 @@
                 $list.html('<span class="ttd-meta-no-keywords">' + Drupal.t('No Main/About topics. Add manually or drag from mentions.') + '</span>');
                 $columns.hide();
                 $keywordsRow.addClass('ttd-meta-keywords-standalone');
+                // Clear any selection from an earlier load so Generate can't use a removed topic.
+                this.state.selectedKeywords = [];
+                this.$container.find('.ttd-meta-generate-btn').prop('disabled', true);
                 return;
             }
 
@@ -1054,6 +1057,25 @@
                     }, overrides);
                 }
 
+                let keywordsRequest = 0;
+
+                function fetchKeywords() {
+                    const requestId = ++keywordsRequest;
+                    $.ajax({
+                        url: apiBase + '/keywords/' + nodeId,
+                        type: 'GET',
+                        success: function(response) {
+                            // Ignore responses that a later topic change has replaced.
+                            if (requestId !== keywordsRequest) {
+                                return;
+                            }
+                            if (response.success && response.data && response.data.keywords) {
+                                generator.loadKeywords(response.data.keywords);
+                            }
+                        }
+                    });
+                }
+
                 function initMetaGenerator() {
                     const options = buildOptions();
                     generator.init($container, options);
@@ -1061,19 +1083,21 @@
                     if (options.hideKeywords) {
                         generator.loadKeywords([]);
                     } else {
-                        $.ajax({
-                            url: apiBase + '/keywords/' + nodeId,
-                            type: 'GET',
-                            success: function(response) {
-                                if (response.success && response.data && response.data.keywords) {
-                                    generator.loadKeywords(response.data.keywords);
-                                }
-                            }
-                        });
+                        fetchKeywords();
                     }
                 }
 
                 let initialized = false;
+
+                // Reload About topics after the editor saves a topic change. Before
+                // this, the keyword list kept its page-load state until a reload.
+                if (!overrides.hideKeywords) {
+                    $(document).on('ttd:tierUpdated', debounce(function() {
+                        if (initialized) {
+                            fetchKeywords();
+                        }
+                    }, 300));
+                }
 
                 function tryInit() {
                     if (!initialized && $container.is(':visible')) {

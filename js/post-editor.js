@@ -44,6 +44,14 @@
         let draggedTermId = null;
         const draggableTopicSelector = '.topic-item.api-topic, .topic-item.manual-topic';
 
+        // Tell the meta generator that saved topics changed, so it reloads its
+        // About topics instead of keeping the list from page load.
+        function notifyTopicsChanged() {
+          $(document).trigger('ttd:tierUpdated', {
+            hasFocusTopics: $container.find('.ttd-about-section .ttd-topics-list .topic-item').length > 0
+          });
+        }
+
         function getSectionLimit($section) {
           const tier = $section.data('section');
 
@@ -184,6 +192,7 @@
             success: function(response) {
               if (response.success) {
                 $topicItem.toggleClass('rejected', !isAccepted);
+                notifyTopicsChanged();
               } else {
                 $checkbox.prop('checked', !isAccepted);
                 console.error('Failed to update topic:', response);
@@ -336,6 +345,7 @@
               success: function(response) {
                 if (response.success) {
                   moveTopic($item, $targetSection, newTier);
+                  notifyTopicsChanged();
                 }
               },
               error: function(xhr, status, error) {
@@ -382,6 +392,8 @@
                     fetchDemandMetrics(draggedTermId, $badge);
                   }
                 }
+
+                notifyTopicsChanged();
               } else {
                 console.error('Failed to update tier:', response);
               }
@@ -685,6 +697,7 @@
               if (response.success) {
                 $item.remove();
                 updateSectionCounts();
+                notifyTopicsChanged();
               }
             },
             error: function(xhr, status, error) {
