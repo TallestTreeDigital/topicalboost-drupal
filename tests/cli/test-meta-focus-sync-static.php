@@ -36,6 +36,17 @@ if (!preg_match("/No Main\\/About topics[\\s\\S]{0,400}selectedKeywords = \\[\\]
   $failures[] = 'meta-generator.js must clear the selection and disable Generate when no About topics remain.';
 }
 
+$controller = file_get_contents($root . '/src/Controller/MetaGeneratorController.php');
+$start = strpos($controller, 'public function getKeywords(');
+$end = $start === FALSE ? FALSE : strpos($controller, 'public function ', $start + 10);
+$keyword_list = ($start === FALSE) ? '' : substr($controller, $start, $end === FALSE ? NULL : $end - $start);
+if ($keyword_list === '') {
+  $failures[] = 'MetaGeneratorController::getKeywords() was not found.';
+}
+elseif (strpos($keyword_list, 'minimum_display_count') !== FALSE || strpos($keyword_list, '$threshold_count') !== FALSE) {
+  $failures[] = 'The SEO keyword list must offer every About topic, regardless of the minimum display count.';
+}
+
 if ($failures) {
   fwrite(STDERR, implode(PHP_EOL, $failures) . PHP_EOL);
   exit(1);

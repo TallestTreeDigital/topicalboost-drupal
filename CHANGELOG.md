@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.32] - 2026-09-25
+
+### Fixed
+- Offer every About topic in SEO meta generation. The minimum display count no longer hides new topics from the keyword list.
+
 ## [2.0.31] - 2026-09-25
 
 ### Fixed

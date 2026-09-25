@@ -36,11 +36,6 @@ class MetaGeneratorController extends ControllerBase {
     }
 
     $topics = $node->get('field_ttd_topics')->referencedEntities();
-    $term_ids = array_map(static fn($term) => (int) $term->id(), $topics);
-    $term_counts = function_exists('ttd_topics_get_topic_node_counts')
-      ? \ttd_topics_get_topic_node_counts($term_ids)
-      : [];
-    $threshold_count = (int) (\Drupal::config('ttd_topics.settings')->get('post_topic_minimum_display_count') ?? 10);
     $manual_term_ids = $node->hasField('field_manual_topics')
       ? array_map('intval', array_column($node->get('field_manual_topics')->getValue(), 'target_id'))
       : [];
@@ -67,11 +62,8 @@ class MetaGeneratorController extends ControllerBase {
         continue;
       }
 
-      $is_forced = $term->hasField('field_force_show') && !$term->get('field_force_show')->isEmpty() && (bool) $term->get('field_force_show')->value;
-      $count = (int) ($term_counts[$term_id] ?? 0);
-      if ($tier === 'about' && !$is_manual && !$is_forced && $count < $threshold_count) {
-        continue;
-      }
+      // Offer every About topic the editor shows. The minimum display count
+      // only controls public topic pages, not which keyword an editor can pick.
 
       $metrics = function_exists('ttd_get_demand_metrics') ? \ttd_get_demand_metrics($term_id) : NULL;
       $kd = $metrics['keyword_difficulty'] ?? NULL;
