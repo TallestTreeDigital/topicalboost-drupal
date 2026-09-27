@@ -2056,6 +2056,16 @@ function ttd_topics_entity_update(EntityInterface $entity) {
     return;
   }
 
+  try {
+    \Drupal::service('ttd_topics.analytics_inventory')->queueNode($entity);
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('ttd_topics')->warning('Failed to queue Analytics inventory update for node @nid: @message', [
+      '@nid' => $entity->id(),
+      '@message' => $e->getMessage(),
+    ]);
+  }
+
   $config = \Drupal::config('ttd_topics.settings');
   $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
 
@@ -2090,6 +2100,18 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
     || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_schedule_sitemap_refresh();
   }
+
+  if ($entity instanceof NodeInterface) {
+    try {
+      \Drupal::service('ttd_topics.analytics_inventory')->queueNode($entity);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue Analytics inventory insert for node @nid: @message', [
+        '@nid' => $entity->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
+  }
 }
 
 /**
@@ -2103,6 +2125,18 @@ function ttd_topics_entity_delete(EntityInterface $entity) {
   if (($entity instanceof NodeInterface && $entity->hasField('field_ttd_topics'))
     || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_schedule_sitemap_refresh();
+  }
+
+  if ($entity instanceof NodeInterface) {
+    try {
+      \Drupal::service('ttd_topics.analytics_inventory')->queueNode($entity, TRUE);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue Analytics inventory deletion for node @nid: @message', [
+        '@nid' => $entity->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
   }
 }
 
@@ -2192,6 +2226,15 @@ function ttd_topics_cron() {
   ttd_topics_maybe_refresh_simple_sitemap();
   $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
   $queue = $queue_storage->load('ttd_topics_analysis');
+
+  try {
+    \Drupal::service('ttd_topics.analytics_inventory')->queueProbeIfDue();
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('ttd_topics')->warning('Failed to queue Analytics inventory probe: @message', [
+      '@message' => $e->getMessage(),
+    ]);
+  }
 
   // One-shot backfill: push pre-existing local hidden topics into TopicalBoost.
   $local_hidden_backfill_queued = FALSE;

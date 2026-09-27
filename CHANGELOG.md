@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.33] - 2026-09-27
+
+### Added
+- Send published Drupal article metadata to TTd Analytics in bounded batches and after node changes.
+- Include Fordham's public staff and external author bylines, taxonomy terms, and publication dates.
+
 ## [2.0.32] - 2026-09-25
 
 ### Fixed

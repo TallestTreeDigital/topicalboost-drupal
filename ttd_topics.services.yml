@@ -47,3 +47,7 @@ services:
   ttd_topics.error_telemetry:
     class: Drupal\ttd_topics\Service\ErrorTelemetryService
     arguments: ['@config.factory', '@state']
+
+  ttd_topics.analytics_inventory:
+    class: Drupal\ttd_topics\Service\AnalyticsInventoryService
+    arguments: ['@config.factory', '@state', '@entity_type.manager', '@database', '@http_client', '@lock', '@datetime.time']
