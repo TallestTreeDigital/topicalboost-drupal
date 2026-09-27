@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.34] - 2026-09-27
+
+### Fixed
+- Allow staging sites to disable Analytics inventory transmission through Drupal state.
+
 ## [2.0.33] - 2026-09-27
 
 ### Added

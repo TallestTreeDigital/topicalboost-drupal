@@ -24,6 +24,7 @@ class AnalyticsInventoryService {
   public const BATCH_JOB_TYPE = 'ttd_analytics_inventory_batch';
   public const NODE_JOB_TYPE = 'ttd_analytics_inventory_node';
   public const ENABLED_STATE_KEY = 'topicalboost.analytics_inventory.enabled';
+  public const DISABLED_STATE_KEY = 'topicalboost.analytics_inventory.disabled';
   public const CONTENT_TYPES_STATE_KEY = 'topicalboost.analytics_inventory.content_types';
   public const LAST_PROBE_STATE_KEY = 'topicalboost.analytics_inventory.last_probe';
   public const LAST_FULL_SYNC_STATE_KEY = 'topicalboost.analytics_inventory.last_full_sync';
@@ -44,6 +45,9 @@ class AnalyticsInventoryService {
    * Queue the weekly entitlement probe when it is due.
    */
   public function queueProbeIfDue(): bool {
+    if ($this->state->get(self::DISABLED_STATE_KEY, FALSE)) {
+      return FALSE;
+    }
     $now = $this->time->getRequestTime();
     $last_probe = (int) $this->state->get(self::LAST_PROBE_STATE_KEY, 0);
     if ($last_probe > 0 && ($now - $last_probe) < self::PROBE_INTERVAL) {
@@ -57,6 +61,10 @@ class AnalyticsInventoryService {
    * Probe the TopicalBoost API and queue a full sync when entitled.
    */
   public function probe(): array {
+    if ($this->state->get(self::DISABLED_STATE_KEY, FALSE)) {
+      $this->state->set(self::ENABLED_STATE_KEY, FALSE);
+      return ['enabled' => FALSE, 'queued' => FALSE];
+    }
     $status = $this->request('GET', '/analytics/content-inventory/status');
     $enabled = !empty($status['enabled']) && !empty($status['connected']);
     $this->state->set(self::ENABLED_STATE_KEY, $enabled);
@@ -265,7 +273,8 @@ class AnalyticsInventoryService {
   }
 
   public function isEnabled(): bool {
-    return (bool) $this->state->get(self::ENABLED_STATE_KEY, FALSE);
+    return !$this->state->get(self::DISABLED_STATE_KEY, FALSE)
+      && (bool) $this->state->get(self::ENABLED_STATE_KEY, FALSE);
   }
 
   protected function isNodeInScope(NodeInterface $node): bool {
