@@ -2179,47 +2179,11 @@ class TtdTopicsController extends ControllerBase {
         $database->insert('ttd_entities')->fields($fields)->execute();
       }
 
-      // Find or create taxonomy term.
-      $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
-
-      // Look up by field_ttd_id.
-      $terms = $term_storage->loadByProperties([
-        'vid' => 'ttd_topics',
-        'field_ttd_id' => (string) $ttd_id,
-      ]);
-
-      if (!empty($terms)) {
-        $term = reset($terms);
-        $term_id = $term->id();
+      $term = \Drupal\ttd_topics\Service\TopicTermResolver::resolve($name, $ttd_id, TRUE, $topic_data['wb_description'] ?? '');
+      if (!$term) {
+        throw new \RuntimeException('Could not resolve the TopicalBoost topic.');
       }
-      else {
-        // Check by name to avoid duplicates.
-        $terms_by_name = $term_storage->loadByProperties([
-          'vid' => 'ttd_topics',
-          'name' => $name,
-        ]);
-
-        if (!empty($terms_by_name)) {
-          $term = reset($terms_by_name);
-          $term_id = $term->id();
-          // Link it if not already.
-          if ($term->hasField('field_ttd_id') && empty($term->get('field_ttd_id')->value)) {
-            $term->set('field_ttd_id', (string) $ttd_id);
-            $term->save();
-          }
-        }
-        else {
-          // Create new term.
-          $term = $term_storage->create([
-            'vid' => 'ttd_topics',
-            'name' => $name,
-            'description' => ['value' => $topic_data['wb_description'] ?? '', 'format' => 'plain_text'],
-            'field_ttd_id' => (string) $ttd_id,
-          ]);
-          $term->save();
-          $term_id = $term->id();
-        }
-      }
+      $term_id = $term->id();
 
       // Optionally add to node.
       if ($add_to_post && $node_id) {
@@ -2265,7 +2229,7 @@ class TtdTopicsController extends ControllerBase {
         'data' => [
           'term_id' => $term_id,
           'ttd_id' => $ttd_id,
-          'name' => $name,
+          'name' => $term->getName(),
         ],
       ]);
     }
@@ -2337,28 +2301,9 @@ class TtdTopicsController extends ControllerBase {
     $description = $entity['wb_description'] ?? '';
 
     try {
-      // Check if a term with this name already exists.
-      $existing = $term_storage->loadByProperties([
-        'vid' => 'ttd_topics',
-        'name' => $name,
-      ]);
-
-      if (!empty($existing)) {
-        $term = reset($existing);
-        // Link it.
-        if ($term->hasField('field_ttd_id')) {
-          $term->set('field_ttd_id', (string) $ttd_id);
-          $term->save();
-        }
-      }
-      else {
-        $term = $term_storage->create([
-          'vid' => 'ttd_topics',
-          'name' => $name,
-          'description' => ['value' => $description, 'format' => 'plain_text'],
-          'field_ttd_id' => (string) $ttd_id,
-        ]);
-        $term->save();
+      $term = \Drupal\ttd_topics\Service\TopicTermResolver::resolve($name, $ttd_id, TRUE, $description);
+      if (!$term) {
+        throw new \RuntimeException('Could not resolve the TopicalBoost topic.');
       }
 
       return new JsonResponse([

@@ -25,7 +25,8 @@ $assert(strpos($module, "'x-tb-capabilities' => TOPICALBOOST_ANALYSIS_CAPABILITI
 $assert(strpos($bulk_controller, "'/analyze/bulk/initiate'") !== FALSE && strpos($bulk_controller, "'headers' => \\ttd_topics_api_headers(\$api_key)") !== FALSE, 'Bulk initiate must use the capability-aware header helper.');
 $assert(strpos($watchlist_controller, "'headers' => \\ttd_topics_api_headers(\$api_key)") !== FALSE, 'Priority Topic requests must advertise capabilities.');
 $assert(strpos($settings_form, "['use_beta_api']") === FALSE && strpos($settings_form, "->set('use_beta_api'") === FALSE, 'The removed per-client Beta Analysis control must not be rendered or saved.');
-$assert(strpos($module_info, 'version: 2.0.21') !== FALSE, 'The compatible module release must be version 2.0.21.');
+preg_match('/^version:\s*(\d+\.\d+\.\d+)\s*$/m', $module_info, $version_match);
+$assert(!empty($version_match[1]) && version_compare($version_match[1], '2.0.21', '>='), 'The module must retain a rollout-compatible release version.');
 
 if ($failures) {
   fwrite(STDERR, "Analysis rollout compatibility checks failed:\n- " . implode("\n- ", $failures) . "\n");

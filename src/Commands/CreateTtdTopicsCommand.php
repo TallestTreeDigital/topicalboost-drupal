@@ -2,7 +2,6 @@
 
 namespace Drupal\ttd_topics\Commands;
 
-use Drupal\taxonomy\Entity\Term;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\Console\Helper\ProgressBar;
 
@@ -108,23 +107,14 @@ class CreateTtdTopicsCommand extends DrushCommands {
 
         $ttd_id = (string) $entity->ttd_id;
         if (isset($term_map[$ttd_id])) {
+          // Keep editor labels when rebuilding terms from API metadata.
           $term = $term_map[$ttd_id];
-          if ($term->label() !== $name) {
-            $term->setName($name);
-            $term->save();
-            $stats['updated']++;
-          }
         }
         else {
-          Term::create([
-            'vid' => 'ttd_topics',
-            'name' => $name,
-            'field_ttd_id' => $ttd_id,
-            'description' => [
-              'value' => $entity->wb_description ?? '',
-              'format' => 'plain_text',
-            ],
-          ])->save();
+          $term = \Drupal\ttd_topics\Service\TopicTermResolver::resolve($name, $ttd_id, TRUE, $entity->wb_description ?? '');
+          if (!$term) {
+            throw new \RuntimeException('Could not resolve the TopicalBoost topic.');
+          }
           $stats['created']++;
         }
 

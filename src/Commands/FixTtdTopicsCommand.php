@@ -68,19 +68,10 @@ class FixTtdTopicsCommand extends DrushCommands {
    * Fix a TTD Topic term by setting the correct ttd_id.
    */
   private function fixTtdTopic($entity) {
-    $existing_terms = \Drupal::entityTypeManager()
-      ->getStorage('taxonomy_term')
-      ->loadByProperties([
-        'vid' => 'ttd_topics',
-        'name' => $entity->name ?? $entity->nl_name ?? $entity->kg_name ?? $entity->wb_name ?? 'Unnamed Entity',
-      ]);
-
-    if (!empty($existing_terms)) {
-      $term = reset($existing_terms);
-      // Update term with the correct ttd_id.
-      $term->set('field_ttd_id', (string) $entity->ttd_id);
-      $term->save();
-    }
+    \Drupal\ttd_topics\Service\TopicTermResolver::resolve(
+      $entity->name ?? $entity->nl_name ?? $entity->kg_name ?? $entity->wb_name ?? 'Unnamed Entity',
+      $entity->ttd_id
+    );
   }
 
 }

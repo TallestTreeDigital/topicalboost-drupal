@@ -4,7 +4,6 @@ namespace Drupal\ttd_topics\Service;
 
 use Drupal\node\NodeInterface;
 use Drupal\ttd_topics\Event\AnalysisCompleteEvent;
-use Drupal\taxonomy\Entity\Term;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 
@@ -383,7 +382,6 @@ class TtdTopicsAnalysisService {
       return NULL;
     }
 
-    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
     $database = \Drupal::database();
 
     // First, check if the entity exists in the ttd_entities table.
@@ -453,65 +451,8 @@ class TtdTopicsAnalysisService {
     $this->handleRelatedData($ttd_id, 'schema_types', $entity_data['schema_types'] ?? []);
     $this->handleRelatedData($ttd_id, 'wb_categories', $entity_data['wb_categories'] ?? []);
 
-    // Now, try to load the term by the TTD ID.
-    $terms = $term_storage->loadByProperties([
-      'vid' => 'ttd_topics',
-      'field_ttd_id' => (string) $ttd_id,
-    ]);
-
-    if (!empty($terms)) {
-      $term = reset($terms);
-      return $term->id();
-    }
-
-    // If not found, try to load by name.
-    $terms = $term_storage->loadByProperties([
-      'vid' => 'ttd_topics',
-      'name' => $name,
-    ]);
-
-    if (!empty($terms)) {
-      $term = reset($terms);
-
-      // Update the term with TTD ID if it's missing.
-              if ($term->get('field_ttd_id')->isEmpty()) {
-          $term->set('field_ttd_id', (string) $ttd_id);
-        $term->save();
-      }
-      return $term->id();
-    }
-
-    // If still not found, create a new term only if we're saving permanently
-    if ($save_entity) {
-      try {
-        $term = Term::create([
-          'vid' => 'ttd_topics',
-          'name' => $name,
-          'field_ttd_id' => (string) $ttd_id,
-        ]);
-
-        $term->save();
-
-        // Verify the term was saved successfully.
-        if ($term->id()) {
-          return $term->id();
-        }
-        else {
-          \Drupal::logger('ttd_topics')->error('Term @name was created but has no ID', ['@name' => $name]);
-          return NULL;
-        }
-      }
-      catch (\Exception $e) {
-        \Drupal::logger('ttd_topics')->error('Error creating term @name: @message', [
-          '@name' => $name,
-          '@message' => $e->getMessage(),
-        ]);
-        return NULL;
-      }
-    }
-
-    // For temporary analysis, don't create new terms - return NULL
-    return NULL;
+    $term = TopicTermResolver::resolve($name, $ttd_id, $save_entity);
+    return $term ? $term->id() : NULL;
   }
 
   /**

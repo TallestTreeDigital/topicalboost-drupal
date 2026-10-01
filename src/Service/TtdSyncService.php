@@ -1574,47 +1574,7 @@ class TtdSyncService {
    * Get or create a topic term by TopicalBoost entity ID.
    */
   private function getOrCreateTerm($name, $ttd_id, array $entity_data) {
-    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
-    $terms = $term_storage->loadByProperties([
-      'vid' => 'ttd_topics',
-      'field_ttd_id' => (string) $ttd_id,
-    ]);
-
-    if (!empty($terms)) {
-      $term = reset($terms);
-      if ($term->label() !== $name) {
-        $term->setName($name);
-        $term->save();
-      }
-      return $term;
-    }
-
-    $terms = $term_storage->loadByProperties([
-      'vid' => 'ttd_topics',
-      'name' => $name,
-    ]);
-
-    if (!empty($terms)) {
-      $term = reset($terms);
-      if ($term->hasField('field_ttd_id') && $term->get('field_ttd_id')->isEmpty()) {
-        $term->set('field_ttd_id', (string) $ttd_id);
-        $term->save();
-      }
-      return $term;
-    }
-
-    $term = Term::create([
-      'vid' => 'ttd_topics',
-      'name' => $name,
-      'field_ttd_id' => (string) $ttd_id,
-      'description' => [
-        'value' => $entity_data['wb_description'] ?? '',
-        'format' => 'plain_text',
-      ],
-    ]);
-    $term->save();
-
-    return $term;
+    return TopicTermResolver::resolve($name, $ttd_id, TRUE, $entity_data['wb_description'] ?? '');
   }
 
   /**
