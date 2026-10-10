@@ -174,7 +174,7 @@ class WatchlistController extends ControllerBase {
     if (empty($description)) {
       return new JsonResponse([
         'success' => FALSE,
-        'data' => ['message' => 'Describe what should count as this custom Priority Topic'],
+        'data' => ['message' => 'Describe what should count as this custom topic before adding it to the Watchlist'],
       ], 400);
     }
     if (strlen($description) > 1024) {

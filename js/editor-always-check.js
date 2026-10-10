@@ -59,7 +59,7 @@
       .appendTo($feedback);
 
     $('<button type="button" class="button-link ttd-always-check-action"></button>')
-      .text(Drupal.t('Add to Priority Topics'))
+      .text(Drupal.t('Add to Watchlist'))
       .on('click', function() {
         if (description) {
           addToAlwaysCheck(entityId, label, $(this), description);
@@ -84,11 +84,11 @@
       .text(Drupal.t('This tells TopicalBoost what the topic means and prevents false matches based only on its name.'))
       .appendTo($form);
 
-    const $description = $('<textarea class="ttd-priority-description-input" rows="2" maxlength="1024" aria-label="' + Drupal.t('Priority Topic description') + '" placeholder="' + Drupal.t('Describe the meaning, related concepts, or conditions that should count.') + '"></textarea>')
+    const $description = $('<textarea class="ttd-priority-description-input" rows="2" maxlength="1024" aria-label="' + Drupal.t('Watchlist description') + '" placeholder="' + Drupal.t('Describe the meaning, related concepts, or conditions that should count.') + '"></textarea>')
       .appendTo($form);
     const $actions = $('<div class="ttd-priority-description-actions"></div>').appendTo($form);
     const $submit = $('<button type="button" class="button button--primary ttd-priority-description-submit" disabled></button>')
-      .text(Drupal.t('Add Priority Topic'))
+      .text(Drupal.t('Add to Watchlist'))
       .on('click', function() {
         const value = $description.val().trim();
         if (!value) return;
@@ -123,7 +123,7 @@
       })
     }).done(function(response) {
       if (!response || !response.success) {
-        showError(Drupal.t('Could not update Priority Topics.'));
+        showError(Drupal.t('Could not update Watchlist.'));
         return;
       }
 
@@ -143,7 +143,7 @@
       appendDismiss($feedback);
       scheduleHide(8000);
     }).fail(function() {
-      showError(Drupal.t('Could not update Priority Topics.'));
+      showError(Drupal.t('Could not update Watchlist.'));
     });
   }
 

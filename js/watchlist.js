@@ -163,7 +163,7 @@
           var createHtml = '<div class="ttd-watchlist-no-results-wrapper">';
           createHtml += '<div class="ttd-watchlist-result-item ttd-watchlist-no-results">No matching entities found in knowledge bases.</div>';
           createHtml += '<div class="ttd-watchlist-result-item ttd-watchlist-create-custom" data-name="' + escAttr(query) + '">';
-          createHtml += '<div class="ttd-watchlist-result-name">Create "' + escHtml(query) + '" as a custom Priority Topic</div>';
+          createHtml += '<div class="ttd-watchlist-result-name">Create "' + escHtml(query) + '" as a custom topic on the Watchlist</div>';
           createHtml += '<div class="ttd-watchlist-result-desc">Not found in Google KG or Wikidata &mdash; guidance is required</div>';
           createHtml += '</div></div>';
           $results.html(createHtml).show();
@@ -172,7 +172,7 @@
             var name = $(this).data('name');
             var guidance = $guidance.val() || '';
             if (!guidance.trim()) {
-              showFeedback('Describe what should count as this custom Priority Topic first.', 'error');
+              showFeedback('Describe what should count as this custom topic before adding it to the Watchlist.', 'error');
               $guidance.trigger('focus');
               return;
             }
@@ -202,7 +202,7 @@
           var name = $(this).data('name');
           var guidance = $guidance.val() || '';
           if (!guidance.trim() && String($(this).data('has-description')) !== '1') {
-            showFeedback('Add guidance so the analyzer knows what should count as this Priority Topic.', 'error');
+            showFeedback('Add guidance so the analyzer knows what should count as this topic on the Watchlist.', 'error');
             $guidance.trigger('focus');
             return;
           }
@@ -239,11 +239,11 @@
           renderWatchlist();
           showFeedback('Topic will receive an extra check across the site', 'success');
         } else {
-          showFeedback((response.data && response.data.message) || 'Failed to add Priority Topic', 'error');
+          showFeedback((response.data && response.data.message) || 'Failed to add topic to Watchlist', 'error');
         }
       },
       error: function () {
-        showFeedback('Failed to add Priority Topic', 'error');
+        showFeedback('Failed to add topic to Watchlist', 'error');
       }
     });
   }
@@ -256,7 +256,7 @@
 
     $results.hide();
     $search.val('');
-    showFeedback('Creating custom Priority Topic...', 'info');
+    showFeedback('Adding custom topic to Watchlist...', 'info');
 
     $.ajax({
       url: '/api/topicalboost/watchlist/create-custom',
@@ -271,11 +271,11 @@
           renderWatchlist();
           showFeedback('Custom topic will receive an extra check across the site', 'success');
         } else {
-          showFeedback((response.data && response.data.message) || 'Failed to create custom Priority Topic', 'error');
+          showFeedback((response.data && response.data.message) || 'Failed to add custom topic to Watchlist', 'error');
         }
       },
       error: function () {
-        showFeedback('Failed to create custom Priority Topic', 'error');
+        showFeedback('Failed to add custom topic to Watchlist', 'error');
       }
     });
   }
@@ -296,12 +296,12 @@
           showFeedback('Topic removed', 'success');
         } else {
           $chip.css('opacity', '1');
-          showFeedback('Failed to remove Priority Topic', 'error');
+          showFeedback('Failed to remove topic from Watchlist', 'error');
         }
       },
       error: function () {
         $chip.css('opacity', '1');
-        showFeedback('Failed to remove Priority Topic', 'error');
+        showFeedback('Failed to remove topic from Watchlist', 'error');
       }
     });
   }

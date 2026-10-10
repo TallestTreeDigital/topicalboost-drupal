@@ -124,7 +124,7 @@ class SettingsForm extends ConfigFormBase {
         <div class="ttd-nav-item" data-tab="tab-topiclist">Topic List</div>
         <div class="ttd-nav-item" data-tab="tab-behavior">Behavior</div>
         <div class="ttd-nav-group-label">Analysis</div>
-        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Priority Topics</div>
+        <div class="ttd-nav-item" data-tab="tab-watchlist" data-has-settings="false">Watchlist</div>
         <div class="ttd-nav-group-label">Advanced</div>
         <div class="ttd-nav-item" data-tab="tab-widgets">Widgets</div>
         <div class="ttd-nav-item" data-tab="tab-schema">Schema &amp; URL</div>
@@ -1367,7 +1367,7 @@ class SettingsForm extends ConfigFormBase {
     }
 
     // =========================================================================
-    // Priority Topics Tab
+    // Watchlist Tab
     // =========================================================================
     $form['tabs_container']['content']['watchlist'] = [
       '#type' => 'container',
@@ -1375,7 +1375,7 @@ class SettingsForm extends ConfigFormBase {
     ];
 
     $form['tabs_container']['content']['watchlist']['panel_title'] = [
-      '#markup' => '<h2 class="ttd-panel-title">Priority Topics</h2>',
+      '#markup' => '<h2 class="ttd-panel-title">Watchlist</h2>',
     ];
 
     $form['tabs_container']['content']['watchlist']['description'] = [
@@ -2815,7 +2815,7 @@ class SettingsForm extends ConfigFormBase {
 
       $status_labels = [];
       if ($is_hidden) {
-        $status_labels[] = 'Hidden';
+        $status_labels[] = 'On Blocklist';
       }
       if ($count < $min_display_count) {
         $status_labels[] = 'Below threshold';

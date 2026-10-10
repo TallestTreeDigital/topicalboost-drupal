@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.37] - 2026-10-10
+
+### Changed
+- Rename Priority Topics to Watchlist and topic hiding controls to Blocklist. Saved settings and public output behavior remain unchanged.
+
 ## [2.0.36] - 2026-10-10
 
 ### Fixed
