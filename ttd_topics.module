@@ -1848,8 +1848,8 @@ function ttd_topics_form_taxonomy_term_ttd_topics_form_alter(&$form, FormStateIn
   if ($term->hasField('field_hide') && $term->get('field_hide')->getFieldDefinition()->getType() == 'boolean') {
     // The field should already be present in the form, we just need to adjust its properties.
     if (isset($form['field_hide'])) {
-      $form['field_hide']['widget']['value']['#title'] = t('Add to Blocklist');
-      $form['field_hide']['widget']['value']['#description'] = t('Topics on the site Blocklist do not appear in public topic lists or schema.');
+      $form['field_hide']['widget']['value']['#title'] = t('Hide this topic');
+      $form['field_hide']['widget']['value']['#description'] = t('If checked, this topic will be hidden from public topic lists and schema on this site.');
       // Move it to the top of the form.
       $form['field_hide']['#weight'] = -5;
     }

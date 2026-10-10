@@ -276,10 +276,10 @@ class TtdTopicsController extends ControllerBase {
 
       // Hidden badge is clickable to unhide; visible topics above threshold get a hover-only "Hide" link.
       if ($is_hidden) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Remove from Blocklist">On Blocklist</a>';
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Click to unhide">Hidden</a>';
       }
       elseif (!$is_below_threshold) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Add to site Blocklist">Blocklist</a>';
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Hide from public display">Hide</a>';
       }
       if ($is_below_threshold) {
         $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
@@ -339,7 +339,7 @@ class TtdTopicsController extends ControllerBase {
       $filter_parts[] = 'with ' . $min_posts . '+ posts';
     }
     if (!empty($visibility)) {
-      $visibility_labels = ['hidden' => 'Blocklist only', 'visible' => 'visible only', 'below' => 'below threshold'];
+      $visibility_labels = ['hidden' => 'hidden only', 'visible' => 'visible only', 'below' => 'below threshold'];
       $filter_parts[] = $visibility_labels[$visibility] ?? $visibility;
     }
     $filter_text = !empty($filter_parts) ? ' (' . implode(' and ', $filter_parts) . ')' : '';
@@ -421,8 +421,8 @@ class TtdTopicsController extends ControllerBase {
         '#title_display' => 'invisible',
         '#options' => [
           '' => $this->t('- Action -'),
-          'ttd_hide' => $this->t('Add to Blocklist'),
-          'ttd_unhide' => $this->t('Remove from Blocklist'),
+          'ttd_hide' => $this->t('Hide'),
+          'ttd_unhide' => $this->t('Unhide'),
         ],
         '#parents' => ['ttd_topics_bulk_action'],
       ],
@@ -558,7 +558,7 @@ class TtdTopicsController extends ControllerBase {
 
         $status_indicators = [];
         if ($is_hidden) {
-          $status_indicators[] = '<span class="status-hidden" title="On the site Blocklist">On Blocklist</span>';
+          $status_indicators[] = '<span class="status-hidden" title="Hidden from public display">Hidden</span>';
         }
         if ($is_below_threshold) {
           $status_indicators[] = '<span class="status-below-threshold" title="Below minimum display count">Below threshold</span>';
@@ -1895,7 +1895,7 @@ class TtdTopicsController extends ControllerBase {
     $html .= '<div class="ttd-new-topics-empty" style="display:none;">No new topics found in this time period.</div>';
 
     $html .= '<table class="ttd-new-topics-table" style="display:none;">';
-    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Blocklist</th><th>Force Show</th></tr></thead>';
+    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Hide</th><th>Force Show</th></tr></thead>';
     $html .= '<tbody id="ttd-new-topics-body"></tbody>';
     $html .= '</table>';
     $html .= '<div class="ttd-new-topics-pagination" style="display:none;"></div>';

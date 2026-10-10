@@ -2815,7 +2815,7 @@ class SettingsForm extends ConfigFormBase {
 
       $status_labels = [];
       if ($is_hidden) {
-        $status_labels[] = 'On Blocklist';
+        $status_labels[] = 'Hidden';
       }
       if ($count < $min_display_count) {
         $status_labels[] = 'Below threshold';

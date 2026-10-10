@@ -81,7 +81,7 @@
                   '<td>' + escapeHtml(topic.created) + '</td>' +
                   '<td>' + topic.post_count + '</td>' +
                   '<td>' + escapeHtml(schemaTypes) + '</td>' +
-                  '<td><button type="button" class="button ttd-toggle-hide' + hideClass + '" data-tid="' + topic.tid + '" data-current="' + (topic.is_hidden ? '1' : '0') + '"' + disabled + '>' + (topic.is_hidden ? 'On Blocklist' : 'Visible') + '</button></td>' +
+                  '<td><button type="button" class="button ttd-toggle-hide' + hideClass + '" data-tid="' + topic.tid + '" data-current="' + (topic.is_hidden ? '1' : '0') + '"' + disabled + '>' + (topic.is_hidden ? 'Hidden' : 'Visible') + '</button></td>' +
                   '<td><button type="button" class="button ttd-toggle-force-show' + forceShowClass + '" data-tid="' + topic.tid + '" data-current="' + (topic.force_show ? '1' : '0') + '"' + disabled + '>' + (topic.force_show ? 'Forced' : 'Normal') + '</button></td>' +
                   '</tr>';
                 $tbody.append(row);
@@ -135,7 +135,7 @@
               if (data.success) {
                 var hidden = !isHidden;
                 $button.data('current', hidden ? '1' : '0');
-                $button.text(hidden ? 'On Blocklist' : 'Visible');
+                $button.text(hidden ? 'Hidden' : 'Visible');
                 $button.toggleClass('active', hidden);
               }
             },

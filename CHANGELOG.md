@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.38] - 2026-10-10
+
+### Fixed
+- Restore Hide and Unhide wording for topic visibility controls. Keep Watchlist for configured analysis topics.
+
 ## [2.0.37] - 2026-10-10
 
 ### Changed
