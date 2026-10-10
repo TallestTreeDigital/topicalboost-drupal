@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.36] - 2026-10-10
+
+### Fixed
+- Include visible assigned topics in article schema when their internal mapping or entity record is missing.
+- Use the public topic URL as the schema identity when no valid external ID is available.
+- Keep valid Google and Wikidata identities ahead of the topic URL fallback.
+
 ## [2.0.34] - 2026-09-27
 
 ### Fixed

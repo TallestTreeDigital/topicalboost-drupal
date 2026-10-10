@@ -40,6 +40,7 @@ ddev exec drush scr web/modules/custom/topicalboost/tests/cli/test-publish-url-u
 php tests/cli/test-sync-cursor-upgrade.php
 php tests/cli/test-hidden-backfill-parity.php
 php tests/cli/test-event-schema-dedup.php
+php tests/cli/test-schema-visible-topics-unit.php
 php tests/cli/test-demand-metrics-async-static.php
 php tests/cli/test-topic-archive-links.php
 php tests/cli/test-topic-archive-managed-filter.php
@@ -82,6 +83,18 @@ TopicalBoost sync pull jobs.
 
 `test-event-schema-dedup.php` verifies that the Event-to-Thing fallback emits
 one `Thing` type while preserving any other schema types in their original order.
+
+`test-schema-visible-topics-unit.php` runs 13 cases against the real schema
+formatter. It covers missing internal mappings, absent entity rows, missing or
+invalid external IDs, identity precedence, public archive links and hidden
+topics. An optional source path runs the same cases against an earlier generator.
+
+`test-schema-visible-topics-runtime.php` compares saved Drupal assignments with
+generated schema. It covers manual and forced topics, count thresholds, tiers,
+hidden and rejected topics, public links, repeated output and a 120-topic article.
+Run it on an isolated site database. Set `TTD_SCHEMA_TEST_DATABASE` to that
+database name before using `drush scr`. The script removes its fixtures and
+restores its settings. It does not call the TopicalBoost API.
 
 `test-demand-metrics-async-static.php` guards the cross-CMS asynchronous demand
 contract: pending responses are never cached as zero metrics, editor polling is

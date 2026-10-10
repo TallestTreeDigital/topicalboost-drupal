@@ -539,10 +539,6 @@ class SchemaGenerator {
         $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
           ? (int) $term->get('field_ttd_id')->value
           : 0;
-        if (!$ttd_id) {
-          continue;
-        }
-
         $tier = $topic_data['salience_tier'] ?? ($topic_data['salience_category'] ?? 'mentions');
         if (!in_array($tier, ['mainEntity', 'about', 'mentions'], TRUE)) {
           $tier = 'mentions';
@@ -550,6 +546,7 @@ class SchemaGenerator {
 
         $grouped[$tier][] = (object) [
           'tid' => $term_id,
+          'term' => $term,
           'name' => $term->label(),
           'field_ttd_id_value' => $ttd_id,
           'field_hide_value' => 0,
@@ -597,10 +594,6 @@ class SchemaGenerator {
       $ttd_id = $term->hasField('field_ttd_id') && !$term->get('field_ttd_id')->isEmpty()
         ? (int) $term->get('field_ttd_id')->value
         : 0;
-      if (!$ttd_id) {
-        continue;
-      }
-
       $count = (int) ($term_counts[$term_id] ?? 0);
       $tier = $salience_data[$ttd_id]['salience_category'] ?? 'mentions';
       if (!in_array($tier, ['mainEntity', 'about', 'mentions'], TRUE)) {
@@ -616,6 +609,7 @@ class SchemaGenerator {
       $alias = $term_aliases[$term_id] ?? '/taxonomy/term/' . $term_id;
       $topic = (object) [
         'tid' => $term_id,
+        'term' => $term,
         'name' => $term->label(),
         'field_ttd_id_value' => $ttd_id,
         'field_hide_value' => 0,
@@ -714,16 +708,19 @@ class SchemaGenerator {
       }
 
       $ttd_id = (int) $topic->field_ttd_id_value;
-      $entity = $entity_data_by_id !== NULL
-        ? ($entity_data_by_id[$ttd_id] ?? NULL)
-        : $this->getEntityData($ttd_id);
-      if (!$entity) {
-        continue;
+      $entity = [];
+      if ($ttd_id > 0) {
+        $entity = $entity_data_by_id !== NULL
+          ? ($entity_data_by_id[$ttd_id] ?? [])
+          : ($this->getEntityData($ttd_id) ?: []);
       }
 
-      $schema_types = $schema_types_by_id !== NULL
-        ? ($schema_types_by_id[$ttd_id] ?? [])
-        : $this->getEntitySchemaTypes($ttd_id);
+      $schema_types = [];
+      if ($entity) {
+        $schema_types = $schema_types_by_id !== NULL
+          ? ($schema_types_by_id[$ttd_id] ?? [])
+          : $this->getEntitySchemaTypes($ttd_id);
+      }
       if (empty($schema_types)) {
         $schema_types = ['Thing'];
       }
@@ -740,15 +737,26 @@ class SchemaGenerator {
         'url' => !empty($entity['official_website']) ? $entity['official_website'] : $base_url . $topic->alias,
       ];
 
-      if (!empty($entity['mid'])) {
-        $kg_id = $this->formatKgId($entity['mid']);
-        if ($kg_id) {
-          $output_data['@id'] = $kg_id;
+      $identity = $this->formatKgId($entity['mid'] ?? NULL);
+      if (!$identity && !empty($entity['wb_qid'])) {
+        $identity = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
+      }
+      if (!$identity) {
+        // Visible assignments can outlive their entity row or external ID.
+        // Use the public topic link and label until that mapping is available.
+        $topic_url = $base_url . $topic->alias;
+        if ($config->get('topic_url_mode') === 'archive_query'
+          && ($topic->term ?? NULL) instanceof TermInterface && function_exists('ttd_topics_get_topic_url')) {
+          $topic_url = \ttd_topics_get_topic_url($topic->term, TRUE);
         }
+        $url_parts = parse_url($topic_url);
+        if (!$url_parts || empty($url_parts['host']) || !in_array($url_parts['scheme'] ?? '', ['http', 'https'], TRUE)) {
+          continue;
+        }
+        $identity = $topic_url;
+        $entity['name'] = $topic->name;
       }
-      elseif (!empty($entity['wb_qid'])) {
-        $output_data['@id'] = 'https://www.wikidata.org/wiki/' . $entity['wb_qid'];
-      }
+      $output_data['@id'] = $identity;
 
       // Format the entity data (skip temporal properties for demoted Events).
       $effective_type = $schema_types[0];
