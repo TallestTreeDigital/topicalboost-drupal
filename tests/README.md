@@ -46,6 +46,7 @@ php tests/cli/test-topic-archive-links.php
 php tests/cli/test-topic-archive-managed-filter.php
 php tests/cli/test-sitemap-eligibility-refresh.php
 php tests/cli/test-sitemap-eligibility-behavior.php
+php tests/cli/test-node-access-unit.php
 ```
 
 `test-parity-core.php` covers:
@@ -80,6 +81,11 @@ files plus the runtime parity scripts above.
 new sync jobs must include `after_id`, legacy jobs missing `after_id` must cancel
 without retrying, and the update hook must clear only non-processing
 TopicalBoost sync pull jobs.
+
+`test-node-access-unit.php` runs the real editor controllers against small
+stubs. A caller with the route permission but without access to a node gets a
+403 and changes nothing. Topic search and lookup do not read topics from a node
+the caller cannot view.
 
 `test-event-schema-dedup.php` verifies that the Event-to-Thing fallback emits
 one `Thing` type while preserving any other schema types in their original order.

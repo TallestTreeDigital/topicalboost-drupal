@@ -91,10 +91,11 @@
   window.ttdTopicsUtils.renderTopicItem = function(topic, type, section) {
     const displaySection = section === 'mainEntity' ? 'about' : section;
     const isManual = type === 'manual' || topic.is_manual || topic.manual;
-    const ttdId = topic.ttd_id || '';
-    const termId = topic.term_id || topic.id || '';
+    const ttdId = this.escapeHtml(topic.ttd_id || '');
+    const termId = this.escapeHtml(topic.term_id || topic.id || '');
     const count = topic.count || 0;
     const name = topic.name || '';
+    const escapedName = this.escapeHtml(name);
     const isRejected = topic.rejected || false;
     const countFormatted = this.formatCount(count);
     const topicSource = this.getTopicSource(topic, isManual);
@@ -121,14 +122,14 @@
     if (!isManual && displaySection !== 'about') {
       html += '<input type="checkbox" name="topics[]" value="' + termId + '" ' +
               (isRejected ? '' : 'checked="checked"') + ' ' +
-              'aria-label="Accept ' + name + '" />';
+              'aria-label="Accept ' + escapedName + '" />';
     }
 
     // Remove button for manual topics
     if (isManual) {
       html += '<button type="button" class="remove-topic" ' +
               'data-term-id="' + termId + '" ' +
-              'aria-label="Remove ' + name + '" title="Remove this manual topic">×</button>';
+              'aria-label="Remove ' + escapedName + '" title="Remove this manual topic">×</button>';
     }
 
     // KD Badge for About topics.
@@ -137,11 +138,11 @@
     }
 
     // Topic count
-    html += '<span class="topic-count" data-count="' + count + '">' + countFormatted + '</span>';
+    html += '<span class="topic-count" data-count="' + this.escapeHtml(count) + '">' + countFormatted + '</span>';
 
     // Topic name
     html += '<div class="topic-name-container"><span class="ttd-topic-name-row"><label>' +
-            this.escapeHtml(name) + '</label></span></div>';
+            escapedName + '</label></span></div>';
 
     // Drag handle
     html += '<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>';

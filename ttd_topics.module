@@ -1848,8 +1848,8 @@ function ttd_topics_form_taxonomy_term_ttd_topics_form_alter(&$form, FormStateIn
   if ($term->hasField('field_hide') && $term->get('field_hide')->getFieldDefinition()->getType() == 'boolean') {
     // The field should already be present in the form, we just need to adjust its properties.
     if (isset($form['field_hide'])) {
-      $form['field_hide']['widget']['value']['#title'] = t('Hide this topic');
-      $form['field_hide']['widget']['value']['#description'] = t('If checked, this topic will be hidden from public topic lists and schema on this site.');
+      $form['field_hide']['widget']['value']['#title'] = t('Block site-wide');
+      $form['field_hide']['widget']['value']['#description'] = t('Hides this topic from public topic lists and schema on all current and future posts on this site.');
       // Move it to the top of the form.
       $form['field_hide']['#weight'] = -5;
     }
@@ -3483,8 +3483,8 @@ function ttd_topics_bulk_terms_submit(array &$form, FormStateInterface $form_sta
   if ($updated > 0) {
     \Drupal::service('cache_tags.invalidator')->invalidateTags($cache_tags);
     $message = $hide
-      ? \Drupal::translation()->formatPlural($updated, '1 topic hidden.', '@count topics hidden.')
-      : \Drupal::translation()->formatPlural($updated, '1 topic unhidden.', '@count topics unhidden.');
+      ? \Drupal::translation()->formatPlural($updated, '1 topic added to the blocklist.', '@count topics added to the blocklist.')
+      : \Drupal::translation()->formatPlural($updated, '1 topic removed from the blocklist.', '@count topics removed from the blocklist.');
     \Drupal::messenger()->addStatus($message);
   }
   else {

@@ -11,6 +11,9 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Controller for SEO Meta Generation API endpoints.
+ *
+ * The routes check only a site-wide permission, so each handler also checks
+ * access to the node it reads or changes.
  */
 class MetaGeneratorController extends ControllerBase {
 
@@ -26,6 +29,13 @@ class MetaGeneratorController extends ControllerBase {
    *   JSON response with keywords array.
    */
   public function getKeywords(NodeInterface $node) {
+    if (!$node->access('view')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'message' => 'Access denied',
+      ], 403);
+    }
+
     $keywords = [];
 
     if (!$node->hasField('field_ttd_topics')) {
@@ -153,6 +163,12 @@ class MetaGeneratorController extends ControllerBase {
         'data' => ['message' => 'Node not found'],
       ], 404);
     }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
+    }
 
     try {
       // Get post content preview (cleaned, first ~5000 chars).
@@ -249,6 +265,12 @@ class MetaGeneratorController extends ControllerBase {
         'success' => FALSE,
         'data' => ['message' => 'Node not found'],
       ], 404);
+    }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
     }
 
     try {
@@ -542,6 +564,12 @@ class MetaGeneratorController extends ControllerBase {
         'data' => ['message' => 'Node not found'],
       ], 404);
     }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
+    }
 
     try {
       $body = $node->hasField('body') ? $node->get('body')->value : '';
@@ -643,6 +671,12 @@ class MetaGeneratorController extends ControllerBase {
         'data' => ['message' => 'Node not found'],
       ], 404);
     }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
+    }
 
     try {
       $seo_module = $this->detectSeoModule();
@@ -711,6 +745,12 @@ class MetaGeneratorController extends ControllerBase {
         'success' => FALSE,
         'data' => ['message' => 'Node not found'],
       ], 404);
+    }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
     }
 
     try {
@@ -789,6 +829,12 @@ class MetaGeneratorController extends ControllerBase {
         'data' => ['message' => 'Node not found'],
       ], 404);
     }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
+    }
 
     try {
       if ($node->hasField('field_ttd_pending_meta_title')) {
@@ -841,6 +887,12 @@ class MetaGeneratorController extends ControllerBase {
         'success' => FALSE,
         'data' => ['message' => 'Node not found'],
       ], 404);
+    }
+    if (!$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
     }
 
     try {

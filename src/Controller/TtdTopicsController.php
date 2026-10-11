@@ -12,6 +12,9 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Returns responses for TopicalBoost routes.
+ *
+ * Editor routes check only a site-wide permission, so handlers that take a
+ * node ID also check access to that node.
  */
 class TtdTopicsController extends ControllerBase {
 
@@ -274,12 +277,12 @@ class TtdTopicsController extends ControllerBase {
       // Build name cell with inline badges.
       $name_markup = '<a href="' . $edit_url->toString() . '" class="ttd-topic-name">' . htmlspecialchars($row->name, ENT_QUOTES) . '</a>';
 
-      // Hidden badge is clickable to unhide; visible topics above threshold get a hover-only "Hide" link.
+      // Blocked badge removes the topic from the blocklist; other topics offer Block.
       if ($is_hidden) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Click to unhide">Hidden</a>';
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hidden ttd-toggle-visibility" title="Remove from this site\'s blocklist">Blocked</a>';
       }
       elseif (!$is_below_threshold) {
-        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Hide from public display">Hide</a>';
+        $name_markup .= ' <a href="' . $toggle_url->toString() . '" class="ttd-status-badge ttd-status-badge--hide-action ttd-toggle-visibility" title="Add to this site\'s blocklist">Block</a>';
       }
       if ($is_below_threshold) {
         $name_markup .= ' <span class="ttd-status-badge ttd-status-badge--below" title="Below minimum display count of ' . $min_display_count . '">Below threshold</span>';
@@ -339,7 +342,7 @@ class TtdTopicsController extends ControllerBase {
       $filter_parts[] = 'with ' . $min_posts . '+ posts';
     }
     if (!empty($visibility)) {
-      $visibility_labels = ['hidden' => 'hidden only', 'visible' => 'visible only', 'below' => 'below threshold'];
+      $visibility_labels = ['hidden' => 'blocklist only', 'visible' => 'visible only', 'below' => 'below threshold'];
       $filter_parts[] = $visibility_labels[$visibility] ?? $visibility;
     }
     $filter_text = !empty($filter_parts) ? ' (' . implode(' and ', $filter_parts) . ')' : '';
@@ -421,8 +424,8 @@ class TtdTopicsController extends ControllerBase {
         '#title_display' => 'invisible',
         '#options' => [
           '' => $this->t('- Action -'),
-          'ttd_hide' => $this->t('Hide'),
-          'ttd_unhide' => $this->t('Unhide'),
+          'ttd_hide' => $this->t('Add to blocklist'),
+          'ttd_unhide' => $this->t('Remove from blocklist'),
         ],
         '#parents' => ['ttd_topics_bulk_action'],
       ],
@@ -485,7 +488,7 @@ class TtdTopicsController extends ControllerBase {
     return new JsonResponse([
       'success' => TRUE,
       'hidden' => !$current,
-      'message' => !$current ? 'Topic hidden' : 'Topic visible',
+      'message' => !$current ? 'Topic added to blocklist' : 'Topic removed from blocklist',
     ]);
   }
 
@@ -558,7 +561,7 @@ class TtdTopicsController extends ControllerBase {
 
         $status_indicators = [];
         if ($is_hidden) {
-          $status_indicators[] = '<span class="status-hidden" title="Hidden from public display">Hidden</span>';
+          $status_indicators[] = '<span class="status-hidden" title="On this site\'s blocklist">Blocked</span>';
         }
         if ($is_below_threshold) {
           $status_indicators[] = '<span class="status-below-threshold" title="Below minimum display count">Below threshold</span>';
@@ -943,6 +946,12 @@ class TtdTopicsController extends ControllerBase {
       $analysis_request = $state->get($state_key);
 
       if ($analysis_in_progress && !empty($analysis_request['request_id'])) {
+        if (!$node_entity->access('update')) {
+          return new JsonResponse([
+            'error' => TRUE,
+            'message' => $this->t('Access denied.'),
+          ], 403);
+        }
         $analysis_service = \Drupal::service('ttd_topics.analysis_service');
 
         try {
@@ -1116,7 +1125,7 @@ class TtdTopicsController extends ControllerBase {
     $existing_tids = [];
     if ($node_id) {
       $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
-      if ($node && $node->hasField('field_ttd_topics')) {
+      if ($node && $node->access('view') && $node->hasField('field_ttd_topics')) {
         $existing_tids = array_column($node->get('field_ttd_topics')->getValue(), 'target_id');
       }
     }
@@ -1251,7 +1260,7 @@ class TtdTopicsController extends ControllerBase {
       $existing_tids = [];
       if ($node_id) {
         $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
-        if ($node && $node->hasField('field_ttd_topics')) {
+        if ($node && $node->access('view') && $node->hasField('field_ttd_topics')) {
           $existing_tids = array_map('intval', array_column($node->get('field_ttd_topics')->getValue(), 'target_id'));
         }
       }
@@ -1321,6 +1330,9 @@ class TtdTopicsController extends ControllerBase {
       $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
       if (!$node) {
         return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
+      }
+      if (!$node->access('update')) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Access denied'], 403);
       }
 
       // Get current tier_overrides
@@ -1425,6 +1437,9 @@ class TtdTopicsController extends ControllerBase {
       if (!$node) {
         return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
       }
+      if (!$node->access('update')) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Access denied'], 403);
+      }
 
       // Get current tier_overrides
       $tier_overrides = $node->get('field_tier_overrides')->value ?? [];
@@ -1483,6 +1498,9 @@ class TtdTopicsController extends ControllerBase {
       $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
       if (!$node) {
         return new JsonResponse(['success' => FALSE, 'message' => 'Node not found'], 404);
+      }
+      if (!$node->access('update')) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Access denied'], 403);
       }
 
       $topic_id_int = (int) $topic_id;
@@ -1604,6 +1622,10 @@ class TtdTopicsController extends ControllerBase {
    * Queue analysis for a single node from the editor.
    */
   public function runAnalysis(NodeInterface $node, Request $request) {
+    if (!$node->access('update')) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Access denied'], 403);
+    }
+
     try {
       $state = \Drupal::state();
       $state_key = 'ttd_topics.single_analysis_request.' . $node->id();
@@ -1855,7 +1877,7 @@ class TtdTopicsController extends ControllerBase {
   }
 
   /**
-   * Extracts retry-after seconds from the expected demand metrics 503 response.
+   * Extracts retry-after seconds from a demand metrics limit or outage.
    */
   private function getDemandMetricsRetryAfter(\Exception $e): ?int {
     if (!$e instanceof \GuzzleHttp\Exception\RequestException || !$e->hasResponse()) {
@@ -1863,7 +1885,7 @@ class TtdTopicsController extends ControllerBase {
     }
 
     $response = $e->getResponse();
-    if ((int) $response->getStatusCode() !== 503) {
+    if (!in_array((int) $response->getStatusCode(), [429, 503], TRUE)) {
       return NULL;
     }
 
@@ -1895,7 +1917,7 @@ class TtdTopicsController extends ControllerBase {
     $html .= '<div class="ttd-new-topics-empty" style="display:none;">No new topics found in this time period.</div>';
 
     $html .= '<table class="ttd-new-topics-table" style="display:none;">';
-    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Hide</th><th>Force Show</th></tr></thead>';
+    $html .= '<thead><tr><th>Name</th><th>Created</th><th>Post Count</th><th>Schema Types</th><th>Blocklist</th><th>Force Show</th></tr></thead>';
     $html .= '<tbody id="ttd-new-topics-body"></tbody>';
     $html .= '</table>';
     $html .= '<div class="ttd-new-topics-pagination" style="display:none;"></div>';
@@ -2146,6 +2168,16 @@ class TtdTopicsController extends ControllerBase {
         'success' => FALSE,
         'data' => ['message' => 'Missing required topic data (name and ttd_id)'],
       ], 400);
+    }
+
+    if ($add_to_post && $node_id) {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load($node_id);
+      if ($node && !$node->access('update')) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'data' => ['message' => 'Access denied'],
+        ], 403);
+      }
     }
 
     $database = \Drupal::database();

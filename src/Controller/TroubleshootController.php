@@ -242,6 +242,16 @@ class TroubleshootController extends ControllerBase {
 
     $node_storage = \Drupal::entityTypeManager()->getStorage('node');
 
+    // Check every node first so a denied node leaves the whole batch unchanged.
+    foreach ($node_storage->loadMultiple($nids) as $node) {
+      if (!$node->access('update')) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'data' => ['message' => 'Access denied'],
+        ], 403);
+      }
+    }
+
     foreach ($nids as $nid) {
       $node = $node_storage->load($nid);
       if (!$node || !$node->hasField('field_ttd_analysis_in_progress')) {
@@ -287,6 +297,9 @@ class TroubleshootController extends ControllerBase {
 
     if ($nid) {
       $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+      if ($node && !$node->access('update')) {
+        return new JsonResponse(['success' => FALSE], 403);
+      }
       if ($node && $node->hasField('field_ttd_analysis_needs_polling')) {
         $node->set('field_ttd_analysis_needs_polling', FALSE);
         $node->save();
@@ -311,6 +324,12 @@ class TroubleshootController extends ControllerBase {
     }
 
     $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+    if ($node && !$node->access('update')) {
+      return new JsonResponse([
+        'success' => FALSE,
+        'data' => ['message' => 'Access denied'],
+      ], 403);
+    }
     if ($node && $node->hasField('field_ttd_rejected_topics')) {
       $node->set('field_ttd_rejected_topics', NULL);
       $node->save();
