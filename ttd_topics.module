@@ -1126,6 +1126,7 @@ function ttd_topics_form_node_form_alter(&$form, FormStateInterface $form_state,
         'postUrl' => ttd_topics_get_node_absolute_url($node),
         'postTitle' => $node->getTitle(),
         'ogImageUrl' => ttd_topics_get_social_meta_image_url($node),
+        'socialFocusTopic' => \Drupal::keyValue('ttd_topics.social_focus_topic')->get((string) $node->id(), ''),
         'apiBase' => '/api/topicalboost/meta',
         'nonce' => \Drupal::csrfToken()->get('ttd_meta_generator'),
         'existingSocialMeta' => ($existing_og_title && $existing_og_description) ? [
@@ -2128,6 +2129,7 @@ function ttd_topics_entity_delete(EntityInterface $entity) {
   }
 
   if ($entity instanceof NodeInterface) {
+    \Drupal::keyValue('ttd_topics.social_focus_topic')->delete((string) $entity->id());
     try {
       \Drupal::service('ttd_topics.analytics_inventory')->queueNode($entity, TRUE);
     }

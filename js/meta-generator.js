@@ -28,6 +28,8 @@
             debounceDelay: 150,
             minKeywords: 1,
             hideKeywords: false,
+            selectedKeyword: '',
+            keywordsHint: Drupal.t('Topics in your About tier. SEO meta targets these as keywords.'),
             numOptions: 5,
             storagePrefix: 'ttd_meta_draft_',
             radioNameSuffix: '',
@@ -164,7 +166,7 @@
                 <div class="ttd-meta-generator">
                     <!-- Keywords Row -->
                     <div class="ttd-meta-keywords-row${hideKeywords ? ' ttd-keywords-hidden' : ''}"${hideKeywords ? ' style="display:none"' : ''}>
-                        <span class="ttd-meta-keywords-label">${Drupal.t('ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${Drupal.t('Topics in your About tier. Social meta generates from the article content directly.')}">[?]</span></span>
+                        <span class="ttd-meta-keywords-label">${Drupal.t('ABOUT TOPICS')} <span class="ttd-meta-keywords-info" title="${this.escapeAttr(this.options.keywordsHint)}">[?]</span></span>
                         <div class="ttd-meta-keywords-chips" id="ttd-keywords-list">
                             <span class="ttd-meta-loading-inline">${Drupal.t('Loading...')}</span>
                         </div>
@@ -288,6 +290,16 @@
                 return;
             }
 
+            // Social meta can still be generated from the article alone.
+            if ((!topics || topics.length === 0) && this.options.minKeywords === 0) {
+                $list.html('<span class="ttd-meta-no-keywords">' + Drupal.t('No About topics. Titles will come from the article alone.') + '</span>');
+                $columns.show();
+                $keywordsRow.addClass('ttd-meta-keywords-standalone');
+                this.state.selectedKeywords = [];
+                this.$container.find('.ttd-meta-generate-btn').prop('disabled', false);
+                return;
+            }
+
             if (!topics || topics.length === 0) {
                 $list.html('<span class="ttd-meta-no-keywords">' + Drupal.t('No Main/About topics. Add manually or drag from mentions.') + '</span>');
                 $columns.hide();
@@ -305,7 +317,7 @@
             const aboutTopics = topics.filter(t => t.tier === 'mainEntity' || t.tier === 'about');
             const displayTopics = aboutTopics.length > 0 ? aboutTopics : topics;
 
-            // Find best keyword to pre-select (lowest KD).
+            // Pre-select the editor's topic, else the lowest KD.
             let bestIndex = 0;
             let lowestKD = Infinity;
             displayTopics.forEach((topic, index) => {
@@ -315,6 +327,13 @@
                     bestIndex = index;
                 }
             });
+            // A saved pick wins, then the caller's default (Social uses the SEO tab's pick).
+            const preferred = this.options.selectedKeyword ||
+                (typeof this.options.defaultKeyword === 'function' ? this.options.defaultKeyword() : '');
+            const savedIndex = displayTopics.findIndex(t => t.name === preferred);
+            if (savedIndex !== -1) {
+                bestIndex = savedIndex;
+            }
 
             let html = '';
 
@@ -425,7 +444,7 @@
             }
 
             const $generateBtn = this.$container.find('.ttd-meta-generate-btn');
-            $generateBtn.prop('disabled', this.state.selectedKeywords.length === 0);
+            $generateBtn.prop('disabled', this.state.selectedKeywords.length < this.options.minKeywords);
         },
 
         /**
@@ -463,7 +482,7 @@
                         this.state.descriptionOptions = response.data.variations.map(v => this.unescapeText(v.description));
 
                         // Prepend original post title for SEO only, so users can compare.
-                        if (this.options.postTitle && !this.options.hideKeywords) {
+                        if (this.options.postTitle && !this.options.isSocial) {
                             this.state.titleOptions = [this.options.postTitle, ...generatedTitles];
                             this.state.originalTitleIndex = 0; // Track which is the original
                         } else {
@@ -970,6 +989,9 @@
     // Export for global use
     window.TTDMetaGenerator = MetaGenerator;
 
+    // The SEO generator, so the Social tab can start from its topic.
+    let seoMetaGenerator = null;
+
     /**
      * Drupal behavior for meta generator.
      */
@@ -998,6 +1020,9 @@
 
                 const generator = Object.create(MetaGenerator);
                 const isSocial = !!overrides.isSocial;
+                if (!isSocial) {
+                    seoMetaGenerator = generator;
+                }
 
                 function buildOptions() {
                     return $.extend({
@@ -1008,6 +1033,7 @@
                     minKeywords: 1,
                     existingMeta: isSocial ? (config.existingSocialMeta || null) : (config.existingMeta || null),
                     onGenerate: function(keywords, callback) {
+                        const focusTopic = isSocial ? (keywords[0] || '') : '';
                         $.ajax({
                             url: apiBase + (isSocial ? '/generate-social' : '/generate'),
                             type: 'POST',
@@ -1017,9 +1043,16 @@
                             },
                             data: JSON.stringify({
                                 node_id: nodeId,
-                                keywords: keywords
+                                keywords: keywords,
+                                focus_topic: focusTopic
                             }),
-                            success: callback,
+                            success: function(response) {
+                                // Keep the topic selected after the topic list reloads.
+                                if (response.success && focusTopic) {
+                                    generator.options.selectedKeyword = focusTopic;
+                                }
+                                callback(response);
+                            },
                             error: function() {
                                 callback({ success: false, data: { message: Drupal.t('Network error') } });
                             }
@@ -1133,7 +1166,13 @@
                 initGenerator($(this), {
                     isSocial: true,
                     minKeywords: 0,
-                    hideKeywords: true,
+                    selectedKeyword: config.socialFocusTopic || '',
+                    // With no saved Social topic, start from the topic picked on the SEO tab.
+                    defaultKeyword: function() {
+                        const seoKeywords = (seoMetaGenerator && seoMetaGenerator.state.selectedKeywords) || [];
+                        return seoKeywords.length ? seoKeywords[0].name : '';
+                    },
+                    keywordsHint: Drupal.t('Topics in your About tier. Every generated og:title names the selected topic, because Google Discover uses og:title as its headline.'),
                     titleMaxLength: 90,
                     titleWarningLength: 80,
                     descriptionMaxLength: 200,

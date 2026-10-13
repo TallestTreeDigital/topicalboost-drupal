@@ -549,6 +549,9 @@ class MetaGeneratorController extends ControllerBase {
 
     $content = json_decode($request->getContent(), TRUE);
     $node_id = $content['node_id'] ?? NULL;
+    $focus_topic = is_string($content['focus_topic'] ?? NULL)
+      ? mb_substr(trim(strip_tags($content['focus_topic'])), 0, 256)
+      : '';
 
     if (!$node_id) {
       return new JsonResponse([
@@ -597,6 +600,10 @@ class MetaGeneratorController extends ControllerBase {
         'postTitle' => $node->getTitle(),
         'contentPreview' => $content_preview,
       ];
+      // Google Discover reads og:title, so the API puts this topic in every title.
+      if ($focus_topic !== '') {
+        $api_params['focusTopic'] = $focus_topic;
+      }
 
       $client = \Drupal::httpClient();
       $response = $client->post(TOPICALBOOST_API_ENDPOINT . '/meta/generate-social', [
@@ -611,6 +618,10 @@ class MetaGeneratorController extends ControllerBase {
       $result = json_decode($response->getBody()->getContents(), TRUE);
 
       if ($result && isset($result['variations'])) {
+        // Keep the editor's choice so the Social tab selects it next time.
+        if ($focus_topic !== '') {
+          \Drupal::keyValue('ttd_topics.social_focus_topic')->set((string) $node->id(), $focus_topic);
+        }
         return new JsonResponse([
           'success' => TRUE,
           'data' => ['variations' => $result['variations']],

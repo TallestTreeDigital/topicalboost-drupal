@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.40] - 2026-10-13
+
+### Added
+- Show About topics on the Social Meta tab. It starts with the SEO tab's topic. Generated og:title options name the selected topic, and the node keeps that choice for the next visit.
+
 ## [2.0.38] - 2026-10-10
 
 ### Fixed
