@@ -92,7 +92,7 @@ class TtdBulkBatchSend extends JobTypeBase {
 
     $this->applyCustomFieldFilter($query, $filters);
     if (function_exists('ttd_topics_apply_bulk_category_filter')) {
-      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories'] ?? []);
+      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories'] ?? [], 'n', $filters['category_filter_mode'] ?? 'include');
     }
 
     $query->range($offset, $batch_size);

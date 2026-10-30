@@ -405,23 +405,11 @@ class MetaGeneratorController extends ControllerBase {
    * Gets the Metatag field name for a node, regardless of local machine name.
    */
   private function getMetatagFieldName(NodeInterface $node): ?string {
-    foreach (['field_meta_tags', 'field_metatag'] as $field_name) {
-      if ($node->hasField($field_name)) {
-        return $field_name;
-      }
-    }
-
-    foreach ($node->getFieldDefinitions() as $field_name => $definition) {
-      if ($definition->getType() === 'metatag') {
-        return $field_name;
-      }
-    }
-
-    return NULL;
+    return \Drupal\ttd_topics\Service\SavedMetatag::fieldName($node);
   }
 
   /**
-   * Loads serialized Metatag field values from a node.
+   * Loads saved Metatag values without discarding JSON or unrelated tags.
    */
   private function getMetatagValues(NodeInterface $node): array {
     $field_name = $this->getMetatagFieldName($node);
@@ -429,27 +417,18 @@ class MetaGeneratorController extends ControllerBase {
       return [];
     }
 
-    $value = $node->get($field_name)->value ?? [];
-    if (is_array($value)) {
-      return $value;
+    $tags = \Drupal\ttd_topics\Service\SavedMetatag::tags($node);
+    if ($tags === NULL) {
+      throw new \RuntimeException('Saved Metatag values could not be read. No replacement was applied.');
     }
-
-    if (is_string($value) && $value !== '') {
-      $decoded = @unserialize($value, ['allowed_classes' => FALSE]);
-      return is_array($decoded) ? $decoded : [];
-    }
-
-    return [];
+    return $tags;
   }
 
   /**
    * Saves Metatag field values to a node when the field exists.
    */
   private function setMetatagValues(NodeInterface $node, array $meta_tags): void {
-    $field_name = $this->getMetatagFieldName($node);
-    if ($field_name !== NULL) {
-      $node->set($field_name, serialize($meta_tags));
-    }
+    \Drupal\ttd_topics\Service\SavedMetatag::write($node, $meta_tags);
   }
 
   /**

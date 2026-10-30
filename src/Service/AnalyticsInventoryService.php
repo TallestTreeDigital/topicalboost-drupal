@@ -30,6 +30,7 @@ class AnalyticsInventoryService {
   public const LAST_FULL_SYNC_STATE_KEY = 'topicalboost.analytics_inventory.last_full_sync';
   public const PROBE_INTERVAL = 604800;
   public const BATCH_SIZE = 50;
+  protected SavedDescriptionSync $savedDescriptions;
 
   public function __construct(
     protected ConfigFactoryInterface $configFactory,
@@ -39,12 +40,17 @@ class AnalyticsInventoryService {
     protected ClientInterface $httpClient,
     protected LockBackendInterface $lock,
     protected TimeInterface $time,
-  ) {}
+  ) {
+    $this->savedDescriptions = new SavedDescriptionSync($this, $state, $database, $entityTypeManager, $lock);
+  }
 
   /**
    * Queue the weekly entitlement probe when it is due.
    */
   public function queueProbeIfDue(): bool {
+    // This runs on ordinary Drupal cron, including between weekly probes.
+    $this->savedDescriptions->ensureQueued();
+    $this->reportSavedDescriptionStatus();
     if ($this->state->get(self::DISABLED_STATE_KEY, FALSE)) {
       return FALSE;
     }
@@ -121,7 +127,7 @@ class AnalyticsInventoryService {
    * Queue one incremental update or deletion for a node.
    */
   public function queueNode(EntityInterface $entity, bool $deleted = FALSE): bool {
-    if (!$entity instanceof NodeInterface || !$this->isEnabled()
+    if (!$entity instanceof NodeInterface || (!$this->isEnabled() && !$this->savedDescriptions->wasStarted())
       || !in_array($entity->bundle(), $this->contentTypes(), TRUE)) {
       return FALSE;
     }
@@ -135,13 +141,32 @@ class AnalyticsInventoryService {
       'node_id' => $node_id,
       'deleted' => $deleted,
     ];
-    // A deletion must follow an update that might already be processing. Only
-    // deduplicate it against another deletion for the same node.
-    $fragment = '"node_id":' . $node_id;
-    if ($deleted) {
-      $fragment .= ',"deleted":true';
+    // Hold the pending row until the surrounding entity-save transaction
+    // commits. Otherwise a worker could claim it and read the previous value
+    // while this save deduplicates against work that is already becoming stale.
+    $transaction = $this->database->startTransaction();
+    $this->savedDescriptions->markDirty($node_id);
+    $fragment = '"node_id":' . $node_id . ',"deleted":' . ($deleted ? 'true' : 'false');
+    $pending = $this->database->select('advancedqueue', 'aq')->fields('aq', ['job_id'])
+      ->condition('queue_id', self::QUEUE_ID)->condition('type', self::NODE_JOB_TYPE)
+      ->condition('state', 'queued')
+      ->condition('payload', '%' . $this->database->escapeLike($fragment) . '%', 'LIKE')
+      ->range(0, 1)->execute()->fetchField();
+    if ($pending) {
+      // Lock the identified job by primary key. Locking the payload scan can
+      // also block unrelated node jobs scanned before the match. Recheck its
+      // current state in case a worker claimed it after the lookup.
+      $pending = $this->database->select('advancedqueue', 'aq')->fields('aq', ['job_id'])
+        ->condition('job_id', $pending)->condition('state', 'queued')
+        ->forUpdate()->execute()->fetchField();
     }
-    return $this->enqueueUnique(self::NODE_JOB_TYPE, $payload, $fragment);
+    if ($pending) {
+      // A fresh edit should not wait behind an earlier six-hour retry delay.
+      $this->database->update('advancedqueue')->fields(['available' => $this->time->getCurrentTime()])
+        ->condition('job_id', $pending)->condition('available', $this->time->getCurrentTime(), '>')->execute();
+      return FALSE;
+    }
+    return $this->enqueue(self::NODE_JOB_TYPE, $payload);
   }
 
   /**
@@ -160,6 +185,8 @@ class AnalyticsInventoryService {
     }
 
     try {
+      $context = $this->savedDescriptionRequestContext();
+      $revision = $this->savedDescriptions->observationRevision();
       $node_ids = $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
         ->condition('status', 1)
@@ -168,17 +195,19 @@ class AnalyticsInventoryService {
         ->range(($page - 1) * $per_page, $per_page)
         ->execute();
 
+      $tokens = $this->savedDescriptions->dirtyTokens($node_ids);
+      $this->entityTypeManager->getStorage('node')->resetCache($node_ids);
       $nodes = $this->entityTypeManager->getStorage('node')->loadMultiple($node_ids);
       $posts = [];
       foreach ($node_ids as $node_id) {
         $node = $nodes[$node_id] ?? NULL;
         if ($node instanceof NodeInterface && $this->isNodeInScope($node)) {
-          $posts[] = $this->buildNodePayload($node);
+          $posts[] = $this->buildNodePayload($node, $revision);
         }
       }
 
       $complete = count($node_ids) < $per_page;
-      $this->request('POST', '/analytics/content-inventory', [
+      $response = $this->request('POST', '/analytics/content-inventory', [
         'sync_id' => $sync_id,
         'batch' => [
           'type' => 'full',
@@ -188,7 +217,9 @@ class AnalyticsInventoryService {
           'complete' => $complete,
         ],
         'posts' => $posts,
-      ], 120);
+      ], 120, $context);
+      $this->confirmedWrite($response, count($posts));
+      $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
 
       if (!$complete) {
         $this->enqueue(self::BATCH_JOB_TYPE, [
@@ -220,15 +251,20 @@ class AnalyticsInventoryService {
    */
   public function syncNode(int $node_id, bool $deleted = FALSE): array {
     if (!$this->isEnabled()) {
-      return ['disabled' => TRUE];
+      throw new \RuntimeException('The Analytics connection is unavailable.');
     }
 
-    $node = $deleted ? NULL : $this->entityTypeManager->getStorage('node')->load($node_id);
+    $context = $this->savedDescriptionRequestContext();
+    $tokens = $this->savedDescriptions->dirtyTokens([$node_id]);
+    $revision = $this->savedDescriptions->observationRevision();
+    $this->entityTypeManager->getStorage('node')->resetCache([$node_id]);
+    // Even a queued deletion is only a wakeup. A later CMS save is authoritative.
+    $node = $this->entityTypeManager->getStorage('node')->load($node_id);
     $payload = $node instanceof NodeInterface && $this->isNodeInScope($node)
-      ? $this->buildNodePayload($node)
+      ? $this->buildNodePayload($node, $revision)
       : NULL;
 
-    $this->request('POST', '/analytics/content-inventory', [
+    $response = $this->request('POST', '/analytics/content-inventory', [
       'sync_id' => 'topicalboost-drupal-node-' . $node_id . '-' . $this->time->getRequestTime(),
       'batch' => [
         'type' => 'incremental',
@@ -239,7 +275,11 @@ class AnalyticsInventoryService {
       ],
       'posts' => $payload ? [$payload] : [],
       'deleted_post_ids' => $payload ? [] : [(string) $node_id],
-    ], 120);
+    ], 120, $context);
+    $this->confirmedWrite($response, $payload ? 1 : 0);
+    if ($payload) $this->savedDescriptions->confirmPosts([$payload], $context['scope'], $tokens);
+    else $this->savedDescriptions->confirmDeletion($node_id, $revision, $context['scope'], $tokens[(string) $node_id]);
+    $this->reportSavedDescriptionStatus();
 
     return ['node_id' => $node_id, 'deleted' => !$payload];
   }
@@ -247,7 +287,7 @@ class AnalyticsInventoryService {
   /**
    * Build the connector-compatible payload for a Drupal node.
    */
-  public function buildNodePayload(NodeInterface $node): array {
+  public function buildNodePayload(NodeInterface $node, ?string $revision = NULL): array {
     $url = $node->toUrl('canonical', ['absolute' => TRUE])->toString();
     $path = rawurldecode((string) (parse_url($url, PHP_URL_PATH) ?: '/'));
     $path = '/' . ltrim($path, '/');
@@ -268,13 +308,115 @@ class AnalyticsInventoryService {
       'published_at' => gmdate('c', $node->getCreatedTime()),
       'modified_at' => gmdate('c', $node->getChangedTime()),
       'taxonomies' => $this->taxonomies($node),
-      'meta' => $this->metadata($node, $authors),
+      'meta' => $this->metadata($node, $authors, $revision),
     ];
   }
 
   public function isEnabled(): bool {
     return !$this->state->get(self::DISABLED_STATE_KEY, FALSE)
       && (bool) $this->state->get(self::ENABLED_STATE_KEY, FALSE);
+  }
+
+  public function inventoryContentTypes(): array {
+    return $this->contentTypes();
+  }
+
+  public function queueDescriptionBatch(int $delay): void {
+    if (!$this->hasActiveJob(SavedDescriptionSync::JOB_TYPE, NULL, TRUE)) {
+      $this->enqueue(SavedDescriptionSync::JOB_TYPE, ['trigger' => 'saved-description-catchup'], $delay);
+    }
+  }
+
+  public function syncDescriptionCatchup(): array {
+    return $this->savedDescriptions->run();
+  }
+
+  public function syncSavedDescriptionNodes(array $ids, string $sync_id, ?array &$stats = NULL): int {
+    $context = $this->savedDescriptionRequestContext();
+    $tokens = $this->savedDescriptions->dirtyTokens($ids);
+    $revision = $this->savedDescriptions->observationRevision();
+    $storage = $this->entityTypeManager->getStorage('node');
+    $storage->resetCache($ids);
+    $nodes = $storage->loadMultiple($ids);
+    $posts = [];
+    foreach ($ids as $id) {
+      $node = $nodes[$id] ?? NULL;
+      if ($node instanceof NodeInterface && $this->isNodeInScope($node)) {
+        $posts[] = $this->buildNodePayload($node, $revision);
+      }
+    }
+    $all_count = count($posts);
+    $posts = $this->savedDescriptions->unconfirmedPosts($posts, $context['scope'], $tokens);
+    $stats = ['sent' => count($posts), 'skipped' => $all_count - count($posts)];
+    if (!$posts) {
+      return 0;
+    }
+    $response = $this->request('POST', '/analytics/content-inventory', [
+      'sync_id' => $sync_id,
+      'batch' => ['type' => 'incremental', 'page' => 1, 'per_page' => count($posts), 'post_count' => count($posts), 'complete' => TRUE],
+      'posts' => $posts,
+    ], 120, $context);
+    $written = $this->confirmedWrite($response, count($posts));
+    $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
+    return $written;
+  }
+
+  /** One-way destination binding; no credential value leaves CMS storage. */
+  public function savedDescriptionScope(): string {
+    return $this->savedDescriptionRequestContext()['scope'];
+  }
+
+  private function savedDescriptionRequestContext(): array {
+    $endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
+    $key = (string) $this->configFactory->get('ttd_topics.settings')->get('topicalboost_api_key');
+    $headers = \ttd_topics_api_headers($key);
+    return ['endpoint' => $endpoint, 'headers' => $headers, 'scope' => hash('sha256', json_encode([
+      rtrim($endpoint, '/'), hash('sha256', $key), (string) ($headers['x-tb-site-url'] ?? ''),
+      (string) $this->configFactory->get('system.site')->get('uuid'),
+    ], JSON_THROW_ON_ERROR))];
+  }
+
+  public function getSavedDescriptionStatus(): array {
+    return $this->savedDescriptions->getStatus();
+  }
+
+  /** Background-only, optional telemetry; never a delivery acknowledgement. */
+  public function reportSavedDescriptionStatus(): bool {
+    $name = 'ttd_topics.description.telemetry';
+    if (!$this->lock->acquire($name, 15.0)) return FALSE;
+    try {
+      $key = 'topicalboost.saved_description_status_attempt';
+      $last = $this->database->select('key_value', 'kv')->fields('kv', ['value'])
+        ->condition('collection', 'state')->condition('name', $key)->execute()->fetchField();
+      if (is_resource($last)) $last = stream_get_contents($last);
+      $last = is_string($last) ? @unserialize($last, ['allowed_classes' => FALSE]) : 0;
+      if ((int) $last > time() - 60) return FALSE;
+      $this->state->set($key, time());
+      $context = $this->savedDescriptionRequestContext();
+      $revision = $this->savedDescriptions->observationRevision();
+      $snapshot = $this->savedDescriptions->getStatus($context['scope']);
+      $snapshot['revision'] = $revision;
+      $this->request('POST', '/telemetry/description-sync', $snapshot, 10, $context);
+      return TRUE;
+    }
+    catch (\Throwable $error) {
+      // Status transport must not fail a save, replay a batch or reset progress.
+      return FALSE;
+    }
+    finally { $this->lock->release($name); }
+  }
+
+  protected function confirmedWrite(array $response, int $sent): int {
+    $summary = $response['summary'] ?? [];
+    $accepted = $summary['rowsAccepted'] ?? NULL;
+    $written = $summary['rowsWritten'] ?? NULL;
+    if (($response['ok'] ?? FALSE) !== TRUE || !empty($response['dryRun'])
+      || ($response['siteMatches'] ?? FALSE) !== TRUE
+      || !is_int($accepted) || $accepted !== $sent
+      || !is_int($written) || $written !== $accepted) {
+      throw new \RuntimeException('The Analytics inventory write was not confirmed.');
+    }
+    return $written;
   }
 
   protected function isNodeInScope(NodeInterface $node): bool {
@@ -422,11 +564,22 @@ class AnalyticsInventoryService {
     return $vocabulary;
   }
 
-  protected function metadata(NodeInterface $node, array $authors): array {
+  protected function metadata(NodeInterface $node, array $authors, ?string $revision = NULL): array {
     $meta = ['_ttd_resolved_authors' => $authors];
     foreach (['field_meta_tags', 'field_metatag', 'field_yoast_seo', 'field_seo'] as $field_name) {
       if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
         $meta[$field_name] = $node->get($field_name)->getValue();
+      }
+    }
+    $field = SavedMetatag::fieldName($node);
+    if ($field !== NULL) {
+      $meta[$field] = $node->get($field)->getValue();
+    }
+    $description = SavedMetatag::description($node);
+    if ($description['available']) {
+      $meta['_ttd_saved_description'] = $description['value'];
+      if ($revision !== NULL) {
+        $meta['_ttd_saved_description_revision'] = $revision;
       }
     }
     return $meta;
@@ -438,18 +591,13 @@ class AnalyticsInventoryService {
     return trim($value, '-') ?: 'unknown';
   }
 
-  protected function request(string $method, string $path, ?array $body = NULL, int $timeout = 30): array {
-    $config = $this->configFactory->get('ttd_topics.settings');
-    $api_key = (string) $config->get('topicalboost_api_key');
-    if ($api_key === '') {
+  protected function request(string $method, string $path, ?array $body = NULL, int $timeout = 30, ?array $context = NULL): array {
+    $context = $context ?? $this->savedDescriptionRequestContext();
+    if (empty($context['headers']['x-api-key'])) {
       throw new \RuntimeException('TopicalBoost API key is not configured.');
     }
-
-    $endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
-    $options = [
-      'headers' => \ttd_topics_api_headers($api_key),
-      'timeout' => $timeout,
-    ];
+    $endpoint = $context['endpoint'];
+    $options = ['headers' => $context['headers'], 'timeout' => $timeout];
     if ($body !== NULL) {
       $options['json'] = $body;
     }
@@ -474,7 +622,7 @@ class AnalyticsInventoryService {
     return TRUE;
   }
 
-  protected function hasActiveJob(string $type, ?string $payload_fragment = NULL): bool {
+  protected function hasActiveJob(string $type, ?string $payload_fragment = NULL, bool $queued_only = FALSE): bool {
     if (!$this->database->schema()->tableExists('advancedqueue')) {
       return FALSE;
     }
@@ -482,7 +630,7 @@ class AnalyticsInventoryService {
     $query = $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', self::QUEUE_ID)
       ->condition('type', $type)
-      ->condition('state', ['queued', 'processing'], 'IN');
+      ->condition('state', $queued_only ? ['queued'] : ['queued', 'processing'], 'IN');
     if ($payload_fragment !== NULL) {
       $query->condition('payload', '%' . $this->database->escapeLike($payload_fragment) . '%', 'LIKE');
     }

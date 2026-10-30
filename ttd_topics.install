@@ -18,6 +18,7 @@ use Drupal\taxonomy\Entity\Vocabulary;
  */
 function ttd_topics_schema() {
   $schema = [];
+  $schema['ttd_topic_list_index'] = \Drupal\ttd_topics\Service\TopicListIndex::schema();
 
   // Main entities table.
   $schema['ttd_entities'] = [
@@ -828,6 +829,7 @@ function ttd_topics_ensure_enabled_content_type_fields($content_types = NULL) {
  * Implements hook_install().
  */
 function ttd_topics_install() {
+  ttd_topics_ensure_description_recent_index();
   // Create the ttd_topics vocabulary.
   if (!Vocabulary::load('ttd_topics')) {
     $vocabulary = Vocabulary::create([
@@ -1085,6 +1087,13 @@ function ttd_topics_install() {
  */
 function ttd_topics_uninstall() {
   $database = \Drupal::database();
+  if ($database->schema()->indexExists('node_field_data', 'ttd_description_recent')) {
+    $database->schema()->dropIndex('node_field_data', 'ttd_description_recent');
+  }
+  if ($database->schema()->indexExists('advancedqueue', 'ttd_description_live')) {
+    $database->schema()->dropIndex('advancedqueue', 'ttd_description_live');
+  }
+  $database->delete('key_value')->condition('collection', ['ttd_saved_description_confirmed', 'ttd_saved_description_dirty', 'ttd_description_queue'], 'IN')->execute();
 
   // Remove all ttd_topics terms using proper entity deletion.
   $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
@@ -1154,6 +1163,8 @@ function ttd_topics_uninstall() {
   }
 
   // Clear entity caches.
+  \Drupal::state()->delete(\Drupal\ttd_topics\Service\TopicListIndex::STATE);
+  \Drupal\Core\Cache\Cache::invalidateTags([\Drupal\ttd_topics\Service\TopicListIndex::TAG]);
   \Drupal::entityTypeManager()->getStorage('taxonomy_term')->resetCache();
   \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->resetCache();
 }
@@ -1889,4 +1900,57 @@ function ttd_topics_update_9110() {
 
   $config->set('enabled_categories', [])->save();
   return t('Added TopicalBoost category filtering configuration.');
+}
+
+/** Add the rebuildable index used by paginated topic lists. */
+function ttd_topics_update_9111() {
+  \Drupal::service('ttd_topics.topic_list_index')->ensure();
+  return t('Created the topic list index. Existing terms will be indexed in background batches.');
+}
+
+/**
+ * Discover the saved-description catch-up job during a normal module update.
+ */
+function ttd_topics_update_9112() {
+  \Drupal::service('plugin.manager.advancedqueue_job_type')->clearCachedDefinitions();
+  return t('Saved-description catch-up is ready for ordinary Drupal cron.');
+}
+
+/** Install-time index for bounded newest-first pages, never on visitor requests. */
+function ttd_topics_ensure_description_recent_index() {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('advancedqueue') && !$schema->indexExists('advancedqueue', 'ttd_description_live')) {
+    $schema->addIndex('advancedqueue', 'ttd_description_live', ['queue_id', 'state', 'type', 'available', 'job_id'], [
+      'fields' => [
+        'queue_id' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'state' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+        'type' => ['type' => 'varchar', 'length' => 191, 'not null' => TRUE],
+        'available' => ['type' => 'int', 'not null' => TRUE],
+        'job_id' => ['type' => 'serial', 'not null' => TRUE],
+      ],
+    ]);
+  }
+  if ($schema->tableExists('node_field_data') && !$schema->indexExists('node_field_data', 'ttd_description_recent')) {
+    $schema->addIndex('node_field_data', 'ttd_description_recent', ['type', 'status', 'default_langcode', 'created', 'nid'], [
+      'fields' => [
+        'type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'status' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE],
+        'default_langcode' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE],
+        'created' => ['type' => 'int', 'not null' => TRUE],
+        'nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+    ]);
+  }
+}
+
+/** Prefer live inventory changes and enable indexed recent-first catch-up. */
+function ttd_topics_update_9113() {
+  ttd_topics_ensure_description_recent_index();
+  \Drupal::service('plugin.manager.advancedqueue_backend')->clearCachedDefinitions();
+  $queue = Queue::load('ttd_topics_analysis');
+  if ($queue && in_array($queue->getBackendId(), ['database', 'ttd_description_priority'], TRUE)) {
+    $configuration = $queue->getBackendConfiguration();
+    $queue->setBackendId('ttd_description_priority')->setBackendConfiguration($configuration)->save();
+  }
+  return t('Enabled fair live-description queue priority and indexed recent-first catch-up. Custom queue backends were preserved.');
 }

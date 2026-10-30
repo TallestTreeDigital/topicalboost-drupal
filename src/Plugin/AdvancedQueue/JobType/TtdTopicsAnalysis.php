@@ -40,6 +40,13 @@ class TtdTopicsAnalysis extends JobTypeBase {
       return JobResult::failure('Node not found');
     }
 
+    if (!ttd_topics_node_matches_category_filter($node)) {
+      if ($node->hasField('field_ttd_analysis_in_progress') && $node->get('field_ttd_analysis_in_progress')->value) {
+        $node->set('field_ttd_analysis_in_progress', FALSE)->save();
+      }
+      return JobResult::success('Node excluded by the category rule');
+    }
+
     // Check if the node is eligible for analysis.
     $config = \Drupal::config('ttd_topics.settings');
     $analysis_in_progress = $node->hasField('field_ttd_analysis_in_progress') && (bool) $node->get('field_ttd_analysis_in_progress')->value;

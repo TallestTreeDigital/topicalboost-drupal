@@ -26,6 +26,9 @@ class TtdTopicsAnalysisService {
    *   Result array with success/failure status and message.
    */
   public function performSingleAnalysis(NodeInterface $node, $force_analysis = FALSE, $save_entity = TRUE) {
+    if (!ttd_topics_node_matches_category_filter($node)) {
+      return ['success' => FALSE, 'message' => 'Content is excluded by the category rule.'];
+    }
     $identifier = $node->id() ? $node->id() : $node->uuid();
 
     // Check if the node is eligible for analysis.
@@ -82,6 +85,9 @@ class TtdTopicsAnalysisService {
    * Start a single-node analysis request with the TopicalBoost API.
    */
   public function startSingleAnalysis(NodeInterface $node) {
+    if (!ttd_topics_node_matches_category_filter($node)) {
+      throw new \RuntimeException('Content is excluded by the category rule.');
+    }
     $config = \Drupal::config('ttd_topics.settings');
     $api_key = $config->get('topicalboost_api_key');
     $api_base_url = TOPICALBOOST_API_ENDPOINT;

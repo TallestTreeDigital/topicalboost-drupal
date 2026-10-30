@@ -1,4 +1,19 @@
 /* Sync Status */
+.ttd-cleanup-section {
+  border-top: 1px solid #dcdcde;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+
+.ttd-cleanup-section .messages {
+  margin: 16px 0;
+}
+
+.ttd-cleanup-delete {
+  color: #b32d2e;
+  border-color: #b32d2e;
+}
+
 #ttd-sync-status-label {
   display: flex;
   align-items: center;

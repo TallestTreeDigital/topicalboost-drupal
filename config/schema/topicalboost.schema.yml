@@ -8,6 +8,9 @@ ttd_topics.settings:
       sequence:
         type: string
         label: 'Content type machine name'
+    category_filter_mode:
+      type: string
+      label: 'Category inclusion or exclusion rule'
     enabled_categories:
       type: sequence
       label: 'Enabled category term IDs'

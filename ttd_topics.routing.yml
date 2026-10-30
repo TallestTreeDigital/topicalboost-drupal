@@ -458,6 +458,24 @@ topicalboost.api.sync.check:
   requirements:
     _permission: 'administer topicalboost configuration'
 
+topicalboost.api.sync.cleanup_preview:
+  path: '/api/topicalboost/sync/cleanup/preview'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::previewCleanup'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
+  methods: [POST]
+
+topicalboost.api.sync.cleanup_confirm:
+  path: '/api/topicalboost/sync/cleanup/confirm'
+  defaults:
+    _controller: '\Drupal\ttd_topics\Controller\SyncController::confirmCleanup'
+  requirements:
+    _permission: 'administer topicalboost configuration'
+    _csrf_request_header_token: 'TRUE'
+  methods: [POST]
+
 topicalboost.api.sync.start:
   path: '/api/topicalboost/sync/start'
   defaults:

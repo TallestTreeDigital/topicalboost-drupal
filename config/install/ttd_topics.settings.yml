@@ -1,5 +1,6 @@
 enabled_content_types: []
 enabled_categories: []
+category_filter_mode: include
 enable_frontend: false
 enable_automatic_mentions: true
 enable_meta_generator: false

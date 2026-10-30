@@ -50,7 +50,7 @@ class TtdSyncService {
         'x-tb-plugin-version' => $this->getModuleVersion(),
         'x-tb-platform' => 'drupal',
       ]),
-      'timeout' => 30,
+      'timeout' => $path === '/sync/reconcile' ? 90 : 30,
     ];
 
     if ($json !== NULL) {
@@ -91,12 +91,14 @@ class TtdSyncService {
         ], $curation_metrics);
       }
 
-      $post_count = (int) $database->select('node_field_data', 'n')
+      $enabled_categories = $config->get('enabled_categories') ?: [];
+      $category_mode = \ttd_topics_category_filter_mode($config);
+      $post_query = $database->select('node_field_data', 'n')
+        ->fields('n', ['nid'])->distinct()
         ->condition('n.type', $enabled_types, 'IN')
-        ->condition('n.status', 1)
-        ->countQuery()
-        ->execute()
-        ->fetchField();
+        ->condition('n.status', 1);
+      \ttd_topics_apply_bulk_category_filter($post_query, $enabled_types, $enabled_categories, 'n', $category_mode);
+      $post_count = (int) $post_query->countQuery()->execute()->fetchField();
 
       $topic_count = (int) $database->select('taxonomy_term_field_data', 'td')
         ->condition('td.vid', 'ttd_topics')
@@ -112,14 +114,19 @@ class TtdSyncService {
         $query->join('node_field_data', 'n', 'ft.entity_id = n.nid');
         $query->condition('n.type', $enabled_types, 'IN');
         $query->condition('n.status', 1);
+        $query->condition('ft.deleted', 0);
+        $query->fields('ft', ['entity_id', 'field_ttd_topics_target_id'])->distinct();
+        \ttd_topics_apply_bulk_category_filter($query, $enabled_types, $enabled_categories, 'n', $category_mode);
         $relationship_count = (int) $query->countQuery()->execute()->fetchField();
 
         $posts_query = $database->select('node__field_ttd_topics', 'ft');
         $posts_query->join('node_field_data', 'n', 'ft.entity_id = n.nid');
         $posts_query->condition('n.type', $enabled_types, 'IN');
         $posts_query->condition('n.status', 1);
-        $posts_query->addExpression('COUNT(DISTINCT ft.entity_id)', 'posts_with_topics');
-        $posts_with_topics = (int) $posts_query->execute()->fetchField();
+        $posts_query->condition('ft.deleted', 0);
+        $posts_query->fields('ft', ['entity_id'])->distinct();
+        \ttd_topics_apply_bulk_category_filter($posts_query, $enabled_types, $enabled_categories, 'n', $category_mode);
+        $posts_with_topics = (int) $posts_query->countQuery()->execute()->fetchField();
       }
 
       return array_merge([

@@ -3,7 +3,7 @@ status: true
 dependencies: {  }
 id: ttd_topics_analysis
 label: 'TopicalBoost Analysis'
-backend: database
+backend: ttd_description_priority
 backend_configuration: {  }
 processor: cron
 processing_time: 60

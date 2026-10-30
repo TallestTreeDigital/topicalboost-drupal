@@ -13,6 +13,33 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class SyncController extends ControllerBase {
 
+  public function previewCleanup(Request $request) {
+    return $this->cleanupResponse(NULL);
+  }
+
+  public function confirmCleanup(Request $request) {
+    $body = json_decode($request->getContent(), TRUE);
+    if (!is_array($body) || !isset($body['previewToken']) || !is_string($body['previewToken'])) {
+      return new JsonResponse(['success' => FALSE, 'data' => ['message' => 'Preview cleanup before confirming removal.']], 400);
+    }
+    return $this->cleanupResponse($body['previewToken']);
+  }
+
+  private function cleanupResponse(?string $token): JsonResponse {
+    try {
+      $service = \Drupal::service('ttd_topics.post_reconciliation');
+      $result = $token === NULL ? $service->preview() : $service->confirm($token);
+      return new JsonResponse(['success' => TRUE, 'data' => $result]);
+    }
+    catch (\RuntimeException $e) {
+      return new JsonResponse(['success' => FALSE, 'data' => ['message' => $e->getMessage()]], 409);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->error('API post cleanup failed: @message', ['@message' => $e->getMessage()]);
+      return new JsonResponse(['success' => FALSE, 'data' => ['message' => 'Could not verify cleanup. Preview again to check its current state.']], 500);
+    }
+  }
+
   /**
    * Check sync status - compare local vs API counts.
    */

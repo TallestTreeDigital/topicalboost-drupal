@@ -28,7 +28,9 @@ class TtdAnalyticsInventoryNode extends JobTypeBase {
       return JobResult::success('Analytics inventory node sync complete: ' . json_encode($result));
     }
     catch (\Throwable $e) {
-      return JobResult::failure('Analytics inventory node sync failed: ' . $e->getMessage());
+      $delays = [60, 300, 900, 3600, 21600];
+      return JobResult::failure('Analytics inventory node sync will retry.', PHP_INT_MAX,
+        $delays[min($job->getNumRetries(), count($delays) - 1)]);
     }
   }
 

@@ -418,6 +418,7 @@ class BulkAnalysisForm extends FormBase {
       'enabled_content_types' => $enabled_content_types,
       'debug_mode' => \Drupal::config('ttd_topics.settings')->get('debug_mode') ?: FALSE,
     ];
+    $form['#attached']['drupalSettings']['topicalboostCsrfToken'] = $form['#attached']['drupalSettings']['ttd_topics']['nonce'];
 
     return $form;
   }
@@ -487,6 +488,17 @@ class BulkAnalysisForm extends FormBase {
         <div class="ttd-sync-actions">
           <button type="button" class="button button--primary" id="ttd-sync-btn" style="display:none;">' . $this->t('Sync Now') . '</button>
           <button type="button" class="button" id="ttd-sync-cancel" style="display:none;">' . $this->t('Cancel') . '</button>
+        </div>
+        <div class="ttd-cleanup-section">
+          <h3>' . $this->t('Clean up extra API posts') . '</h3>
+          <p>' . $this->t('Preview API posts that were deleted, unpublished or no longer match the enabled content types and categories. Cleanup removes their API records and unused topics. Drupal content stays unchanged.') . '</p>
+          <button type="button" class="button" id="ttd-cleanup-preview" disabled>' . $this->t('Preview cleanup') . '</button>
+          <div id="ttd-cleanup-result" role="status" aria-live="polite"></div>
+          <div id="ttd-cleanup-confirmation" style="display:none;">
+            <p>' . $this->t('Review the counts above. This permanently removes those records from the API.') . '</p>
+            <button type="button" class="button button--danger ttd-cleanup-delete" id="ttd-cleanup-confirm">' . $this->t('Remove extra API posts') . '</button>
+            <button type="button" class="button" id="ttd-cleanup-cancel">' . $this->t('Cancel') . '</button>
+          </div>
         </div>
       </div>
     </div>';
@@ -631,9 +643,11 @@ class BulkAnalysisForm extends FormBase {
    * Builds the categories row markup.
    */
   private function buildCategoriesMarkup(array $enabled_categories, array $category_options): string {
+    $excluded = ttd_topics_category_filter_mode() === 'exclude';
+    $heading = $excluded ? $this->t('Excluded by Content settings') : $this->t('Default from Settings • Click × to Remove for This Analysis');
     $markup = '<div class="ttd-filter-group">
       <div class="ttd-filter-header">
-        <span class="ttd-section-label">' . $this->t('Default from Settings • Click × to Remove for This Analysis') . '</span>
+        <span class="ttd-section-label">' . $heading . '</span>
         <a href="' . Url::fromRoute('topicalboost.settings_form')->toString() . '#tab-content" class="ttd-edit-link ttd-edit-link--pencil" title="' . $this->t('Edit Default in Settings') . '"></a>
       </div>
       <div class="ttd-categories-selection">';
@@ -654,10 +668,10 @@ class BulkAnalysisForm extends FormBase {
         $category_id = (int) $category_id;
         $markup .= '<li class="ttd-category-parent ttd-category-item" data-category-id="' . $category_id . '">
           <span class="ttd-category-name">' . $label . '</span>
-          <div class="ttd-category-actions">
+          ' . ($excluded ? '' : '<div class="ttd-category-actions">
             <button type="button" class="ttd-only-button" title="' . $this->t('Only analyze this category') . '">' . $this->t('Only') . '</button>
             <button type="button" class="ttd-category-remove" title="' . $this->t('Remove category') . '" aria-label="' . $this->t('Remove @category', ['@category' => $category_options[$category_id]]) . '">&times;</button>
-          </div>
+          </div>') . '
           <input type="hidden" name="ttd_bulk_analysis_categories[]" value="' . $category_id . '" class="ttd-category-input">
         </li>';
       }

@@ -146,7 +146,7 @@ class BulkAnalysisController extends ControllerBase {
 
     $this->applyCustomFieldFilter($query, $filters);
     if (function_exists('ttd_topics_apply_bulk_category_filter')) {
-      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories']);
+      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories'], 'n', $filters['category_filter_mode'] ?? 'include');
     }
 
     $count = $query->countQuery()->execute()->fetchField();
@@ -593,7 +593,7 @@ class BulkAnalysisController extends ControllerBase {
 
     $this->applyCustomFieldFilter($query, $filters);
     if (function_exists('ttd_topics_apply_bulk_category_filter')) {
-      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories']);
+      ttd_topics_apply_bulk_category_filter($query, $filters['content_types'], $filters['categories'], 'n', $filters['category_filter_mode'] ?? 'include');
     }
 
     return $query->countQuery()->execute()->fetchField();
@@ -985,7 +985,10 @@ class BulkAnalysisController extends ControllerBase {
     $requested_categories = array_key_exists('categories', $content)
       ? array_values(array_unique(array_filter(array_map('intval', (array) $content['categories']))))
       : $configured_categories;
-    $categories = array_values(array_intersect($requested_categories, $configured_categories));
+    $category_filter_mode = ttd_topics_category_filter_mode($this->configFactory->get('ttd_topics.settings'));
+    $categories = $category_filter_mode === 'exclude'
+      ? $configured_categories
+      : array_values(array_intersect($requested_categories, $configured_categories));
 
     return [
       'content_types' => $content['content_types'] ?? [],
@@ -997,6 +1000,7 @@ class BulkAnalysisController extends ControllerBase {
       'custom_field_filter' => $content['custom_field_filter'] ?? FALSE,
       'custom_field' => $content['custom_field'] ?? '',
       'categories' => $categories,
+      'category_filter_mode' => $category_filter_mode,
     ];
   }
 

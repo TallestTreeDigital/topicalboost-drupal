@@ -293,13 +293,48 @@ function ttd_topics_get_category_filter_options(array $content_types): array {
 }
 
 /**
- * Applies the WordPress-equivalent category filter to a node query.
+ * Gets the category rule, preserving inclusion for existing configuration.
  */
-function ttd_topics_apply_bulk_category_filter($query, array $content_types, array $category_ids, string $node_alias = 'n'): void {
+function ttd_topics_category_filter_mode($config = NULL): string {
+  $config = $config ?: \Drupal::config('ttd_topics.settings');
+  return $config->get('category_filter_mode') === 'exclude' ? 'exclude' : 'include';
+}
+
+/**
+ * Matches all category fields, including multi-value and mixed-category nodes.
+ */
+function ttd_topics_node_matches_category_filter(NodeInterface $node, $config = NULL): bool {
+  $config = $config ?: \Drupal::config('ttd_topics.settings');
+  $ids = array_values(array_unique(array_filter(array_map('intval', $config->get('enabled_categories') ?: []))));
+  if (!$ids) {
+    return TRUE;
+  }
+  $matches = FALSE;
+  foreach (array_keys(ttd_topics_get_category_reference_fields([$node->bundle()])) as $field_name) {
+    if ($node->hasField($field_name)) {
+      $terms = array_map('intval', array_column($node->get($field_name)->getValue(), 'target_id'));
+      if (array_intersect($ids, $terms)) {
+        $matches = TRUE;
+        break;
+      }
+    }
+  }
+  return ttd_topics_category_filter_mode($config) === 'exclude' ? !$matches : $matches;
+}
+
+/**
+ * Applies the category rule to a node query without duplicating mixed-category nodes.
+ */
+function ttd_topics_apply_bulk_category_filter($query, array $content_types, array $category_ids, string $node_alias = 'n', string $mode = 'include'): void {
   $category_ids = array_values(array_unique(array_filter(array_map('intval', $category_ids))));
   if (empty($category_ids)) {
     return;
   }
+
+  if (!$query->getFields()) {
+    $query->addField($node_alias, 'nid');
+  }
+  $query->distinct();
 
   $database = \Drupal::database();
   $field_names = array_keys(ttd_topics_get_category_reference_fields($content_types));
@@ -313,10 +348,22 @@ function ttd_topics_apply_bulk_category_filter($query, array $content_types, arr
       continue;
     }
 
-    $alias = 'tbcat_' . substr(hash('sha1', $field_name), 0, 8);
-    $query->leftJoin($table, $alias, "{$node_alias}.nid = {$alias}.entity_id AND {$alias}.deleted = 0");
-    $or->condition("{$alias}.{$target_column}", $category_ids, 'IN');
+    $matching = $database->select($table, 'tb_category');
+    $matching->addExpression('1');
+    $matching->where("tb_category.entity_id = {$node_alias}.nid");
+    $matching->condition('tb_category.deleted', 0);
+    $matching->condition('tb_category.' . $target_column, $category_ids, 'IN');
+    if ($mode === 'exclude') {
+      $query->notExists($matching);
+    }
+    else {
+      $or->exists($matching);
+    }
     $joined++;
+  }
+
+  if ($mode === 'exclude') {
+    return;
   }
 
   if ($joined === 0) {
@@ -1827,6 +1874,9 @@ function ttd_topics_merge_analysis_topic_ids_with_manual(NodeInterface $node, ar
  * Runs the analysis on the node.
  */
 function ttd_topics_run_analysis(NodeInterface $node) {
+  if (!ttd_topics_node_matches_category_filter($node)) {
+    return;
+  }
   // Get the queue service.
   $queue = \Drupal::queue('ttd_topics_analysis');
 
@@ -1996,7 +2046,7 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
     $config = \Drupal::config('ttd_topics.settings');
     $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
     
-    if (in_array($entity->bundle(), $enabled_content_types)) {
+    if (in_array($entity->bundle(), $enabled_content_types) && ttd_topics_node_matches_category_filter($entity, $config)) {
       $is_newly_published = $entity->isPublished() && (!$entity->original || !$entity->original->isPublished());
       $has_been_analyzed = $entity->hasField('field_ttd_last_analyzed') && !$entity->get('field_ttd_last_analyzed')->isEmpty();
 
@@ -2044,6 +2094,7 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
  * so draft URLs (e.g. /node/123) are replaced with the published path alias.
  */
 function ttd_topics_entity_update(EntityInterface $entity) {
+  \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
   }
@@ -2093,6 +2144,7 @@ function ttd_topics_entity_update(EntityInterface $entity) {
  * Implements hook_entity_insert().
  */
 function ttd_topics_entity_insert(EntityInterface $entity) {
+  \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
   }
@@ -2119,6 +2171,7 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
  * Implements hook_entity_delete().
  */
 function ttd_topics_entity_delete(EntityInterface $entity) {
+  \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
   }
@@ -2187,6 +2240,10 @@ function ttd_topics_taxonomy_term_insert(\Drupal\taxonomy\TermInterface $term) {
     if ($queue) {
       $count = 0;
       foreach ($nids as $nid) {
+        $node = \Drupal\node\Entity\Node::load($nid);
+        if (!$node || !ttd_topics_node_matches_category_filter($node, $config)) {
+          continue;
+        }
         $job = Job::create('ttd_topics_analysis', [
           'node_id' => $nid,
           'force_analysis' => TRUE,
@@ -2209,6 +2266,10 @@ function ttd_topics_taxonomy_term_insert(\Drupal\taxonomy\TermInterface $term) {
  * Implements hook_cron().
  */
 function ttd_topics_cron() {
+  $topic_list_index = \Drupal::service('ttd_topics.topic_list_index');
+  if (!$topic_list_index->ready()) {
+    $topic_list_index->schedule();
+  }
   // AdvancedQueue handles its own processing via JobType plugins with cron annotations.
   // The ttd_topics_analysis JobType should have cron settings to be processed automatically.
   // Bulk analysis is now handled by the TtdBulkAnalysisPoller job type
@@ -2773,6 +2834,12 @@ function ttd_topics_entity_access(EntityInterface $entity, $operation, AccountIn
 function ttd_topics_run_analysis_ajax_callback(array &$form, FormStateInterface $form_state) {
   $node = $form_state->getFormObject()->getEntity();
   $identifier = $node->id() ? $node->id() : $node->uuid();
+
+  if (!ttd_topics_node_matches_category_filter($node)) {
+    $response = new AjaxResponse();
+    $response->addCommand(new ReplaceCommand('#ttd-topics-run-analysis-wrapper', '<div id="ttd-topics-run-analysis-wrapper"><p>' . t('Content is excluded by the category rule.') . '</p></div>'));
+    return $response;
+  }
 
   try {
     $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
