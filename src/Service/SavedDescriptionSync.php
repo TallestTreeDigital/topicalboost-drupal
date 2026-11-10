@@ -18,7 +18,13 @@ final class SavedDescriptionSync {
   private const ACK_COLLECTION = 'ttd_saved_description_confirmed';
   private const DIRTY_COLLECTION = 'ttd_saved_description_dirty';
   private const SUCCESS_KEY = 'topicalboost.saved_description_last_success';
-  private const MAX_SKIP_PAGES = 10;
+  private const MAX_SKIP_PAGES = 20;
+  public const CANDIDATE_TABLE = 'ttd_description_candidates';
+  private const RUN_SECONDS = 20;
+  private const DISCOVERY_PAGE = 500;
+  // 2.0.41 confirmed Drupal values before Analytics stored them under the
+  // TAL-207 Yoast path. Versioned hashes resend each saved override once.
+  private const ACK_VERSION = 'alias-v1';
 
   public function __construct(
     private AnalyticsInventoryService $gateway,
@@ -55,6 +61,13 @@ final class SavedDescriptionSync {
         $checkpoint = $this->newCheckpoint($scope);
         $this->state->set(self::STATE_KEY, $checkpoint);
       }
+      if (is_array($checkpoint) && (($checkpoint['format'] ?? 1) !== 3 || ($checkpoint['cursor_created'] ?? NULL) !== NULL
+        || (isset($checkpoint['selected_types']) && $checkpoint['selected_types'] !== $this->gateway->inventoryContentTypes()))) {
+        $replacement = $this->newCheckpoint($scope);
+        if (!$this->replaceState($checkpoint, $replacement)) return;
+        $checkpoint = $replacement;
+      }
+      if (is_array($checkpoint) && $checkpoint['status'] === 'complete') $this->gateway->discardDescriptionBatches();
       if (!is_array($checkpoint) || $checkpoint['status'] === 'complete'
         || ($checkpoint['lease_expires'] ?? 0) > time()) {
         return;
@@ -68,7 +81,7 @@ final class SavedDescriptionSync {
 
   private function newCheckpoint(string $scope): array {
     return [
-      'format' => 2, 'destination' => $scope, 'status' => 'pending', 'cursor' => 0, 'upper_id' => NULL,
+      'format' => 3, 'destination' => $scope, 'status' => 'pending', 'cursor' => 0, 'upper_id' => NULL,
       'cursor_created' => NULL, 'legacy_floor_id' => 0,
       'processed' => 0, 'written' => 0, 'skipped' => 0, 'attempts' => 0,
       'started_at' => time(), 'updated_at' => time(), 'next_at' => time() + random_int(300, 600),
@@ -106,14 +119,10 @@ final class SavedDescriptionSync {
       if (!is_array($checkpoint) || $checkpoint['status'] === 'complete') {
         return ['status' => 'complete'];
       }
-      if (($checkpoint['format'] ?? 1) < 2) {
-        $upgraded = $checkpoint + ['started_at' => time(), 'skipped' => 0];
-        $upgraded['format'] = 2;
-        $upgraded['legacy_floor_id'] = (int) ($checkpoint['cursor'] ?? 0);
-        $upgraded['cursor_created'] = NULL;
-        $upgraded['cursor'] = 0;
-        if (!$this->replaceState($checkpoint, $upgraded)) return ['status' => 'replaced'];
-        $checkpoint = $upgraded;
+      if (($checkpoint['format'] ?? 1) !== 3 || ($checkpoint['cursor_created'] ?? NULL) !== NULL || ($checkpoint['destination'] ?? '') !== $this->gateway->savedDescriptionScope()) {
+        $replacement = $this->newCheckpoint($this->gateway->savedDescriptionScope());
+        if (!$this->replaceState($checkpoint, $replacement)) return ['status' => 'replaced'];
+        $checkpoint = $replacement;
       }
       if ($checkpoint['next_at'] > time()) {
         return ['status' => 'pending'];
@@ -128,34 +137,66 @@ final class SavedDescriptionSync {
       if (!$this->gateway->isEnabled()) {
         throw new \RuntimeException('The Analytics connection is unavailable.');
       }
+      $deadline = microtime(TRUE) + self::RUN_SECONDS;
       if ($owned['upper_id'] === NULL) {
+        if (!$this->database->schema()->tableExists(self::CANDIDATE_TABLE)) {
+          throw new \RuntimeException('Run the normal Drupal database updates first.');
+        }
         $next = $owned;
         $next['upper_id'] = (int) $this->database->query('SELECT MAX(nid) FROM {node}')->fetchField();
+        $next['coverage_revision'] = $this->observationRevision();
+        $next['selected_types'] = $this->gateway->inventoryContentTypes();
+        $next['discovery'] = ['type' => 0, 'after' => 0, 'supported' => []];
+        $this->database->delete(self::CANDIDATE_TABLE)->execute();
         if (!$this->replaceState($owned, $next)) {
           return ['status' => 'replaced'];
         }
         $owned = $next;
       }
-      // Skip at most 100 already-confirmed candidates per turn. Both candidate
-      // reads and acknowledgement reads are bounded; no warehouse lookups.
+      if (isset($owned['discovery'])) {
+        // Discovery reads stored field maps in bounded pages and saves its
+        // position, so a large archive spans cron runs instead of one query.
+        $next = $owned;
+        $discovered = $this->discoverCandidates($next, $deadline);
+        if ($discovered) {
+          $next['post_types'] = $next['discovery']['supported'];
+          unset($next['discovery']);
+        }
+        if (!$this->replaceState($owned, $next)) {
+          return ['status' => 'replaced'];
+        }
+        $owned = $next;
+        if (!$discovered) {
+          $next['updated_at'] = time();
+          $next['attempts'] = 0;
+          $next['status'] = 'pending';
+          $next['next_at'] = time() + 60;
+          unset($next['lease_token'], $next['lease_expires']);
+          return $this->replaceState($owned, $next) ? $next : ['status' => 'replaced'];
+        }
+      }
+      // Bound both elapsed time and candidate count. Confirmation reads stay
+      // local and bounded; no extra warehouse lookups.
       $next = $owned;
       $finished = FALSE;
-      for ($page = 0; $page < self::MAX_SKIP_PAGES; $page++) {
+      for ($page = 0; $page < self::MAX_SKIP_PAGES && microtime(TRUE) < $deadline; $page++) {
         $candidates = $this->recentPage($next);
         $ids = array_map('intval', array_column($candidates, 'nid'));
         if (!$ids) { $finished = TRUE; break; }
         $stats = [];
         $written = $this->gateway->syncSavedDescriptionNodes($ids,
-          'topicalboost-drupal-descriptions-' . $owned['upper_id'] . '-' . ($next['cursor_created'] ?? 'start') . '-' . $next['cursor'], $stats);
+          'topicalboost-drupal-descriptions-' . $owned['upper_id'] . '-' . ($next['cursor_created'] ?? 'start') . '-' . $next['cursor'], $stats, max(1, (int) ceil($deadline - microtime(TRUE))));
         $last = end($candidates);
         $next['cursor'] = (int) $last['nid'];
-        $next['cursor_created'] = (int) $last['created'];
+        $next['cursor_created'] = NULL;
         $next['processed'] += count($ids);
         $next['written'] += $written;
         $next['skipped'] = ($next['skipped'] ?? 0) + ($stats['skipped'] ?? 0);
         if (count($ids) < self::BATCH_SIZE) { $finished = TRUE; break; }
-        // A turn delivers at most ten items, with at least a minute afterward.
-        if (($stats['sent'] ?? 0) > 0) break;
+        // Commit every acknowledged page before the next HTTP request. A later
+        // failure retries only the unfinished page, even in the same cron run.
+        if (!$this->replaceState($owned, $next)) return ['status' => 'replaced'];
+        $owned = $next;
       }
       $next['updated_at'] = time();
       $next['attempts'] = 0;
@@ -189,29 +230,101 @@ final class SavedDescriptionSync {
     }
   }
 
-  /** Indexed date/nid keysets per content type avoid a multi-type archive sort. */
+  /**
+   * Reads stored field maps, never node bodies, in pages of node IDs. Returns
+   * TRUE once every selected bundle is done. Progress lives in the checkpoint.
+   */
+  private function discoverCandidates(array &$checkpoint, float $deadline): bool {
+    $storage = $this->entities->getStorage('node');
+    $mapping = $storage->getTableMapping();
+    $manager = \Drupal::service('entity_field.manager');
+    $types = array_values($checkpoint['selected_types']);
+    $progress = $checkpoint['discovery'];
+    while ($progress['type'] < count($types)) {
+      if (microtime(TRUE) >= $deadline) {
+        $checkpoint['discovery'] = $progress;
+        return FALSE;
+      }
+      $type = $types[$progress['type']];
+      $definitions = $manager->getFieldDefinitions('node', $type);
+      $name = SavedMetatag::fieldFromDefinitions($definitions);
+      // A bundle without a readable Metatag field stays unavailable.
+      if ($name === NULL) {
+        $progress['type']++; $progress['after'] = 0;
+        continue;
+      }
+      $definition = $definitions[$name]->getFieldStorageDefinition();
+      if (!$mapping->requiresDedicatedTableStorage($definition)) {
+        throw new \RuntimeException('Saved Metatag storage is unsupported.');
+      }
+      $table = $mapping->getDedicatedDataTableName($definition);
+      $column = $mapping->getFieldColumnName($definition, 'value');
+      $native = $definitions[$name]->getType() === 'metatag';
+      $base = function () use ($table, $column, $type, $native, $checkpoint, $progress) {
+        $query = $this->database->select($table, 'm');
+        $query->innerJoin('node_field_data', 'n', 'n.nid = m.entity_id AND n.langcode = m.langcode');
+        $query->condition('m.deleted', 0)->condition('m.bundle', $type)
+          ->condition('n.status', 1)->condition('n.default_langcode', 1)
+          ->condition('n.nid', (int) $checkpoint['upper_id'], '<=')->condition('m.entity_id', (int) $progress['after'], '>')
+          ->isNotNull('m.' . $column)->condition('m.' . $column, '', '<>');
+        if (!$native) $query->condition('m.delta', 0);
+        return $query;
+      };
+      // Select a page of node IDs first so one node's deltas are never split.
+      $page = $base();
+      $page->addField('m', 'entity_id');
+      $ids = $page->distinct()->orderBy('m.entity_id')->range(0, self::DISCOVERY_PAGE)->execute()->fetchCol();
+      if (!$ids) {
+        $progress['supported'][] = $type;
+        $progress['type']++; $progress['after'] = 0;
+        continue;
+      }
+      $last = (int) end($ids);
+      $rows = $base()->fields('m', ['entity_id', 'delta', $column])->condition('m.entity_id', $last, '<=')
+        ->orderBy('m.entity_id')->orderBy('m.delta')->execute();
+      // There is no index inside a JSON/PHP-serialized field map. Decode the
+      // stored overrides, including escaped JSON keys and malformed maps.
+      $current = NULL; $tags = []; $invalid = FALSE; $pending = [];
+      $flush = function () use (&$current, &$tags, &$invalid, &$pending) {
+        if ($current === NULL) return;
+        $value = $tags['description'] ?? NULL;
+        if ($invalid || ($value !== NULL && !is_string($value)) || (is_string($value) && trim($value) !== '')) $pending[] = $current;
+      };
+      foreach ($rows as $row) {
+        if ($current !== (int) $row->entity_id) {
+          $flush(); $current = (int) $row->entity_id; $tags = []; $invalid = FALSE;
+        }
+        $values = SavedMetatag::decode($row->{$column});
+        if ($values === NULL) $invalid = TRUE;
+        else $tags += $values;
+      }
+      $flush();
+      $this->insertCandidates($pending);
+      $progress['after'] = $last;
+    }
+    $checkpoint['discovery'] = $progress;
+    return TRUE;
+  }
+
+  /** Idempotent, so a retried page can write the same IDs again. */
+  private function insertCandidates(array $ids): void {
+    if (!$ids) return;
+    $upsert = $this->database->upsert(self::CANDIDATE_TABLE)->key('nid')->fields(['nid']);
+    foreach ($ids as $id) $upsert->values(['nid' => (int) $id]);
+    $upsert->execute();
+  }
+
+  /** All later work reads only the small primary-key candidate set. */
   private function recentPage(array $checkpoint): array {
-    if (!$this->database->schema()->indexExists('node_field_data', 'ttd_description_recent')) {
-      throw new \RuntimeException('The description index requires the normal Drupal module update.');
-    }
-    $candidates = [];
-    foreach ($this->gateway->inventoryContentTypes() as $type) {
-      $query = $this->database->select('node_field_data', 'n')->fields('n', ['nid', 'created'])
-        ->condition('type', $type)->condition('status', 1)->condition('default_langcode', 1)
-        ->condition('nid', (int) ($checkpoint['legacy_floor_id'] ?? 0), '>')
-        ->condition('nid', (int) $checkpoint['upper_id'], '<=');
-      if ($checkpoint['cursor_created'] !== NULL) {
-        $earlier = $query->orConditionGroup()->condition('created', (int) $checkpoint['cursor_created'], '<')
-          ->condition($query->andConditionGroup()->condition('created', (int) $checkpoint['cursor_created'])
-            ->condition('nid', (int) $checkpoint['cursor'], '<'));
-        $query->condition($earlier);
-      }
-      foreach ($query->orderBy('created', 'DESC')->orderBy('nid', 'DESC')->range(0, self::BATCH_SIZE)->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-        $candidates[] = $row;
-      }
-    }
-    usort($candidates, static fn($a, $b) => ((int) $b['created'] <=> (int) $a['created']) ?: ((int) $b['nid'] <=> (int) $a['nid']));
-    return array_slice($candidates, 0, self::BATCH_SIZE);
+    return $this->database->select(self::CANDIDATE_TABLE, 'c')->fields('c', ['nid'])
+      ->condition('nid', (int) $checkpoint['cursor'], '>')->orderBy('nid')
+      ->range(0, self::BATCH_SIZE)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public static function candidateSchema(): array {
+    return ['description' => 'Saved-description backfill candidate IDs.',
+      'fields' => ['nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]],
+      'primary key' => ['nid']];
   }
 
   /** Called inside the node-save transaction, including same-value saves. */
@@ -245,7 +358,7 @@ final class SavedDescriptionSync {
     if (!array_key_exists('_ttd_saved_description', $meta)) return NULL;
     $value = $meta['_ttd_saved_description'];
     if ($value !== NULL && !is_string($value)) return NULL;
-    return hash('sha256', $scope . ':' . json_encode($value, JSON_THROW_ON_ERROR));
+    return hash('sha256', self::ACK_VERSION . ':' . $scope . ':' . json_encode($value, JSON_THROW_ON_ERROR));
   }
 
   /** One indexed local read for an entire bounded candidate page. */
@@ -323,7 +436,11 @@ final class SavedDescriptionSync {
     if (($checkpoint['lease_expires'] ?? 0) > time()) $status = 'running';
     $iso = static fn($time) => $time ? gmdate('c', (int) $time) : NULL;
     return [
-      'version' => 1, 'revision' => (string) ($this->readState(self::REVISION_KEY) ?: '0'),
+      'version' => 1,
+      'coverage' => ($checkpoint['format'] ?? 0) === 3 && $status === 'complete' && $this->gateway->isEnabled() && !$this->gateway->descriptionUpdatesPending()
+        ? ['protocol' => 1, 'revision' => (string) $checkpoint['coverage_revision'],
+          'upperId' => (int) $checkpoint['upper_id'], 'postTypes' => $checkpoint['post_types']] : NULL,
+      'revision' => (string) ($this->readState(self::REVISION_KEY) ?: '0'),
       'status' => $status, 'processed' => (int) ($checkpoint['processed'] ?? 0),
       'written' => (int) ($checkpoint['written'] ?? 0), 'skipped' => (int) ($checkpoint['skipped'] ?? 0),
       'startedAt' => $iso($checkpoint['started_at'] ?? NULL),

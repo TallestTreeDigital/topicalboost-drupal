@@ -18,6 +18,7 @@ use Drupal\taxonomy\Entity\Vocabulary;
  */
 function ttd_topics_schema() {
   $schema = [];
+  $schema['ttd_description_candidates'] = \Drupal\ttd_topics\Service\SavedDescriptionSync::candidateSchema();
   $schema['ttd_topic_list_index'] = \Drupal\ttd_topics\Service\TopicListIndex::schema();
 
   // Main entities table.
@@ -1953,4 +1954,13 @@ function ttd_topics_update_9113() {
     $queue->setBackendId('ttd_description_priority')->setBackendConfiguration($configuration)->save();
   }
   return t('Enabled fair live-description queue priority and indexed recent-first catch-up. Custom queue backends were preserved.');
+}
+
+/** Install the sparse saved-description work list. */
+function ttd_topics_update_9114() {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('ttd_description_candidates')) {
+    $schema->createTable('ttd_description_candidates', \Drupal\ttd_topics\Service\SavedDescriptionSync::candidateSchema());
+  }
+  return t('Saved-description backfill now discovers overrides before processing nodes.');
 }

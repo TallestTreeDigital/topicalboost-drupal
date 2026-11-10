@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.43] - 2026-11-06
+
+### Fixed
+- Send the date shown on the article beside the UTC publish time, so Analytics files an evening post under its own day.
+- Send no publish date for a node with an empty created date, instead of 1969-12-31.
+
+## [2.0.42] - 2026-10-30
+
+### Fixed
+- Backfill saved Metatag description overrides before processing other inventory work. Empty nodes no longer require individual network requests.
+- Give description catch-up its own bounded cron run and preserve confirmed progress during upgrades. Normal saves still deliver edits and clears.
+- Report scoped completion while connected and caught up, so Analytics can distinguish an empty saved description from unavailable metadata.
+
 ## [2.0.40] - 2026-10-13
 
 ### Added

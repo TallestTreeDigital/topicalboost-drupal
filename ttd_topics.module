@@ -2266,6 +2266,14 @@ function ttd_topics_taxonomy_term_insert(\Drupal\taxonomy\TermInterface $term) {
  * Implements hook_cron().
  */
 function ttd_topics_cron() {
+  // This bounded worker cannot be crowded out by analysis or sync queue jobs.
+  try {
+    \Drupal::service('ttd_topics.analytics_inventory')->runDescriptionCron();
+  }
+  catch (\Throwable $error) {
+    \Drupal::logger('ttd_topics')->warning('Saved-description catch-up will retry on cron.');
+  }
+
   $topic_list_index = \Drupal::service('ttd_topics.topic_list_index');
   if (!$topic_list_index->ready()) {
     $topic_list_index->schedule();
@@ -3247,6 +3255,24 @@ function ttd_topics_simple_sitemap_links_alter(array &$links, $sitemap_variant =
       unset($links[$key]);
     }
   }
+}
+
+/**
+ * The date shown on an article, in the site's default time zone.
+ *
+ * Analytics groups articles by this date. The UTC date of an evening post in the
+ * US is the next day. The acting user's time zone must not change the result.
+ */
+function ttd_topics_site_date(int $timestamp): ?string {
+  // Drupal stores a missing date as 0. Sending its local date would turn the
+  // empty date into 1969-12-31.
+  if ($timestamp <= 0) {
+    return NULL;
+  }
+  $timezone = \Drupal::config('system.date')->get('timezone.default') ?: 'UTC';
+  return (new \DateTimeImmutable('@' . $timestamp))
+    ->setTimezone(new \DateTimeZone($timezone))
+    ->format('Y-m-d');
 }
 
 /**

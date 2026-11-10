@@ -112,6 +112,7 @@ class TtdTopicsAnalysisService {
           'text' => $analysis_text,
           'status' => $node->isPublished() ? 'publish' : 'draft',
           'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+          'publishedDate' => $node->isPublished() ? \ttd_topics_site_date($node->getCreatedTime()) : NULL,
         ], function ($v) { return $v !== NULL; }),
         'timeout' => 60,
       ]);
@@ -593,6 +594,7 @@ class TtdTopicsAnalysisService {
           'url' => $url,
           'status' => $node->isPublished() ? 'publish' : 'draft',
           'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+          'publishedDate' => $node->isPublished() ? \ttd_topics_site_date($node->getCreatedTime()) : NULL,
         ], function ($v) { return $v !== NULL; }),
         'timeout' => 10,
       ]);

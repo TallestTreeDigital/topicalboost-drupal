@@ -306,7 +306,9 @@ class AnalyticsInventoryService {
       'author' => $primary_author,
       'authors' => $authors,
       'published_at' => gmdate('c', $node->getCreatedTime()),
+      'published_date' => \ttd_topics_site_date($node->getCreatedTime()),
       'modified_at' => gmdate('c', $node->getChangedTime()),
+      'modified_date' => \ttd_topics_site_date($node->getChangedTime()),
       'taxonomies' => $this->taxonomies($node),
       'meta' => $this->metadata($node, $authors, $revision),
     ];
@@ -327,11 +329,30 @@ class AnalyticsInventoryService {
     }
   }
 
+  /** Cron owns a separate budget, independent of the shared AdvancedQueue. */
+  public function runDescriptionCron(): array {
+    $this->savedDescriptions->ensureQueued();
+    $result = $this->savedDescriptions->run();
+    $this->reportSavedDescriptionStatus();
+    return $result;
+  }
+
+  public function descriptionUpdatesPending(): bool {
+    return (bool) $this->database->select('advancedqueue', 'q')->fields('q', ['job_id'])
+      ->condition('queue_id', self::QUEUE_ID)->condition('type', self::NODE_JOB_TYPE)
+      ->condition('state', ['queued', 'processing'], 'IN')->range(0, 1)->execute()->fetchField();
+  }
+
+  public function discardDescriptionBatches(): void {
+    $this->database->delete('advancedqueue')->condition('queue_id', self::QUEUE_ID)
+      ->condition('type', SavedDescriptionSync::JOB_TYPE)->condition('state', 'queued')->execute();
+  }
+
   public function syncDescriptionCatchup(): array {
     return $this->savedDescriptions->run();
   }
 
-  public function syncSavedDescriptionNodes(array $ids, string $sync_id, ?array &$stats = NULL): int {
+  public function syncSavedDescriptionNodes(array $ids, string $sync_id, ?array &$stats = NULL, int $timeout = 120): int {
     $context = $this->savedDescriptionRequestContext();
     $tokens = $this->savedDescriptions->dirtyTokens($ids);
     $revision = $this->savedDescriptions->observationRevision();
@@ -342,7 +363,11 @@ class AnalyticsInventoryService {
     foreach ($ids as $id) {
       $node = $nodes[$id] ?? NULL;
       if ($node instanceof NodeInterface && $this->isNodeInScope($node)) {
-        $posts[] = $this->buildNodePayload($node, $revision);
+        $description = SavedMetatag::description($node);
+        if (!$description['available']) {
+          throw new \RuntimeException('A saved Metatag override could not be read.');
+        }
+        if ($description['value'] !== NULL) $posts[] = $this->buildNodePayload($node, $revision);
       }
     }
     $all_count = count($posts);
@@ -355,7 +380,7 @@ class AnalyticsInventoryService {
       'sync_id' => $sync_id,
       'batch' => ['type' => 'incremental', 'page' => 1, 'per_page' => count($posts), 'post_count' => count($posts), 'complete' => TRUE],
       'posts' => $posts,
-    ], 120, $context);
+    ], $timeout, $context);
     $written = $this->confirmedWrite($response, count($posts));
     $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
     return $written;

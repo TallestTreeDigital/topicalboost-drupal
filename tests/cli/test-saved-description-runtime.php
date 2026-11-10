@@ -78,7 +78,7 @@ Drupal::state()->set(Inventory::ENABLED_STATE_KEY, TRUE);
 Drupal::state()->set(Inventory::LAST_PROBE_STATE_KEY, time());
 Drupal::state()->set(Inventory::CONTENT_TYPES_STATE_KEY, ['article', 'legacy_story', 'unsupported_story']);
 Drupal::moduleHandler()->loadInclude('ttd_topics', 'install');
-ttd_topics_update_9112(); ttd_topics_update_9113();
+ttd_topics_update_9112(); ttd_topics_update_9113(); ttd_topics_update_9114();
 verify_drupal_description(Drupal::service('plugin.manager.advancedqueue_job_type')->hasDefinition(Catchup::JOB_TYPE), 'The ordinary update hook discovers the new queue job');
 ttd_topics_cron();
 $state = checkpoint();
@@ -90,22 +90,21 @@ advance_description_fixture();
 verify_drupal_description(checkpoint()['cursor'] === 0 && checkpoint()['status'] === 'retrying', 'A real HTTP 503 leaves the cursor unchanged and schedules recovery');
 verify_drupal_description((int) Drupal::database()->select('key_value', 'kv')->condition('collection', 'ttd_saved_description_confirmed')->countQuery()->execute()->fetchField() === 0, 'A failed warehouse acknowledgement creates no local confirmed-coverage marks');
 advance_description_fixture();
-verify_drupal_description(checkpoint()['processed'] === 10, 'Retry resumes the same ten-node page');
-advance_description_fixture(); advance_description_fixture();
+verify_drupal_description(checkpoint()['processed'] === 12, 'One retry run delivers all twelve overrides in bounded pages');
 $complete = checkpoint();
-verify_drupal_description($complete['status'] === 'complete' && $complete['processed'] === 23 && $complete['written'] === 23, 'All 23 published in-scope nodes complete in bounded pages');
+verify_drupal_description($complete['status'] === 'complete' && $complete['processed'] === 12 && $complete['written'] === 12, 'Only twelve saved overrides complete in bounded pages');
 $calls = receipts();
-verify_drupal_description(array_map(fn($r) => count($r['body']['posts']), $calls) === [10, 10, 10, 3], 'The relay sent a retried page, then ten and three nodes');
+verify_drupal_description(array_map(fn($r) => count($r['body']['posts']), $calls) === [10, 10, 2], 'The relay sent a retried page, then the ten and two described nodes');
 verify_drupal_description(array_column($calls[0]['body']['posts'], 'post_id') === array_column($calls[1]['body']['posts'], 'post_id'), 'The failed page retained exactly the same node identities');
 $posts = array_merge(...array_map(fn($r) => $r['body']['posts'], array_slice($calls, 1)));
-$expected_ids = $ids;
-usort($expected_ids, static fn($a, $b) => (Node::load($b)->getCreatedTime() <=> Node::load($a)->getCreatedTime()) ?: ($b <=> $a));
-verify_drupal_description(array_column($posts, 'post_id') === $expected_ids, 'Recent created dates win over ID order, with drafts and other types excluded');
+$expected_ids = array_values(array_filter($ids, static fn($id) => SavedMetatag::description(Node::load($id))['value'] ?? NULL));
+sort($expected_ids);
+verify_drupal_description(array_column($posts, 'post_id') === $expected_ids, 'Only nodes with a readable saved override are discovered, excluding empty fields, drafts and other types');
 $by_id = array_column($posts, NULL, 'post_id');
 verify_drupal_description($by_id[$ids[0]]['meta']['_ttd_saved_description'] === $original['description'], 'JSON Metatag text retains exact tokens, Unicode and whitespace');
-verify_drupal_description($by_id[$ids[1]]['meta']['_ttd_saved_description'] === NULL, 'A read empty Metatag field is explicit null');
+verify_drupal_description(!isset($by_id[$ids[1]]), 'Nodes with empty Metatag fields are not sent during backfill');
 verify_drupal_description($by_id[$ids[21]]['meta']['_ttd_saved_description'] === $original['description'], 'Legacy serialized Metatag content reaches the same description contract');
-verify_drupal_description(!array_key_exists('_ttd_saved_description', $by_id[$ids[22]]['meta']), 'A node without Metatag remains unavailable rather than falsely empty');
+verify_drupal_description(!isset($by_id[$ids[22]]), 'A node without Metatag remains unavailable rather than falsely empty');
 verify_drupal_description(!isset($by_id[$ids[0]]['meta']['_yoast_wpseo_metadesc']), 'Drupal does not invent a Yoast field');
 verify_drupal_description($calls[0]['platform'] === 'drupal' && $calls[0]['authenticated'], 'Real Guzzle transport retains the Drupal platform and authentication headers');
 verify_drupal_description($calls[0]['body']['batch']['type'] === 'incremental' && !isset($calls[0]['body']['deleted_post_ids']), 'Catch-up cannot run full reconciliation or deletions');
@@ -145,6 +144,18 @@ $node_a = SavedMetatag::decode($fresh->get('field_custom_description')->value);
 $node_a['description'] = 'Epoch A'; $fresh->set('field_custom_description', json_encode($node_a)); $fresh->save();
 $token_a = $helper->dirtyTokens([$ids[0]]);
 $payload_a = $gateway->buildNodePayload($fresh, $helper->observationRevision());
+// A 9:30 pm New York article has a next-day UTC time and keeps its own date.
+$site_timezone = \Drupal::config('system.date')->get('timezone.default');
+\Drupal::configFactory()->getEditable('system.date')->set('timezone.default', 'America/New_York')->save();
+$evening = clone $fresh;
+$evening->setCreatedTime(1773192600);
+$evening_payload = $gateway->buildNodePayload($evening, $helper->observationRevision());
+$undated = clone $fresh;
+$undated->setCreatedTime(0);
+$undated_payload = $gateway->buildNodePayload($undated, $helper->observationRevision());
+\Drupal::configFactory()->getEditable('system.date')->set('timezone.default', $site_timezone)->save();
+verify_drupal_description($undated_payload['published_date'] === NULL, 'A node with no created date sends no publish date');
+verify_drupal_description($evening_payload['published_at'] === '2026-03-11T01:30:00+00:00' && $evening_payload['published_date'] === '2026-03-10', 'Inventory sends the real UTC time and the date shown on the article');
 $node_a['description'] = 'Epoch B'; $fresh->set('field_custom_description', json_encode($node_a)); $fresh->save();
 $node_a['description'] = 'Epoch A'; $fresh->set('field_custom_description', json_encode($node_a)); $fresh->save();
 verify_drupal_description($token_a !== $helper->dirtyTokens([$ids[0]]), 'Real node saves change the dirty epoch even when the text returns to its old value');
@@ -214,7 +225,7 @@ Drupal::database()->insert('semaphore')->fields(['name' => 'ttd_topics.descripti
 $gateway->queueProbeIfDue(); advance_description_fixture();
 verify_drupal_description(checkpoint()['processed'] > 0, 'Cron recovers an expired worker lease and a lost continuation without a command');
 $before = count(receipts()); Drupal::state()->set(Catchup::STATE_KEY, $complete);
-advance_description_fixture();
+$gateway->syncDescriptionCatchup();
 verify_drupal_description(count(receipts()) === $before && checkpoint()['status'] === 'complete', 'A duplicate late delivery cannot restart a completed catch-up');
 // Already confirmed live values and clears are skipped, not sent again.
 $pending_posts = $helper->unconfirmedPosts([$gateway->buildNodePayload($fresh, $helper->observationRevision())]);
@@ -228,22 +239,50 @@ Drupal::state()->set(Catchup::STATE_KEY, $recheck);
 for ($turn = 0; $turn < 5 && checkpoint()['status'] !== 'complete'; $turn++) {
   $gateway->queueProbeIfDue(); advance_description_fixture();
 }
-verify_drupal_description(checkpoint()['status'] === 'complete' && checkpoint()['processed'] === 23
-  && checkpoint()['skipped'] === 22 && checkpoint()['written'] === 1, 'Covered nodes are skipped locally; unsupported metadata stays distinct from a confirmed clear');
-$new_calls = array_slice(receipts(), $before);
-verify_drupal_description(count($new_calls) === 1 && array_column($new_calls[0]['body']['posts'], 'post_id') === [$ids[22]], 'Catch-up does not replay twenty-two already confirmed description values');
+verify_drupal_description(checkpoint()['status'] === 'complete' && checkpoint()['processed'] === 12
+  && checkpoint()['written'] === 0, 'Rechecking the candidate set skips confirmed values and sends no empty nodes');
+verify_drupal_description(count(receipts()) === $before, 'A current clear stays covered without replaying null during backfill');
 
-// A legacy ascending checkpoint keeps its already-confirmed low-ID prefix.
-$legacy = ['status' => 'pending', 'cursor' => $ids[9], 'upper_id' => $complete['upper_id'],
+// 2.0.41 confirmations predate the Analytics Yoast alias. A described node
+// confirmed under the old hash is sent once more; current ones are skipped.
+$acks = Drupal::keyValue('ttd_saved_description_confirmed');
+$old_mark = $acks->get((string) $ids[2]);
+$old_mark['hash'] = hash('sha256', $gateway->savedDescriptionScope() . ':' . json_encode(SavedMetatag::description(Node::load($ids[2]))['value'], JSON_THROW_ON_ERROR));
+$acks->set((string) $ids[2], $old_mark);
+$before = count(receipts());
+Drupal::state()->set(Catchup::STATE_KEY, $recheck);
+for ($turn = 0; $turn < 5 && checkpoint()['status'] !== 'complete'; $turn++) {
+  $gateway->queueProbeIfDue(); advance_description_fixture();
+}
+$resent = array_slice(receipts(), $before);
+verify_drupal_description(checkpoint()['status'] === 'complete' && count($resent) === 1
+  && array_column($resent[0]['body']['posts'], 'post_id') === [$ids[2]], 'A description confirmed by 2.0.41 is resent once so Analytics stores its Yoast alias');
+verify_drupal_description($acks->get((string) $ids[2])['hash'] !== $old_mark['hash'], 'The resent description is confirmed under the current hash');
+
+// Discovery resumes from its saved position. Candidate IDs written before an
+// interruption can be written again without a duplicate-key failure.
+$before = count(receipts());
+$resume = $recheck; unset($resume['post_types']);
+$resume['discovery'] = ['type' => 0, 'after' => $ids[10], 'supported' => []];
+Drupal::state()->set(Catchup::STATE_KEY, $resume);
+for ($turn = 0; $turn < 5 && checkpoint()['status'] !== 'complete'; $turn++) {
+  $gateway->queueProbeIfDue(); advance_description_fixture();
+}
+$candidates = array_map('intval', Drupal::database()->select(Catchup::CANDIDATE_TABLE, 'c')->fields('c', ['nid'])->orderBy('nid')->execute()->fetchCol());
+verify_drupal_description(checkpoint()['status'] === 'complete' && !isset(checkpoint()['discovery'])
+  && checkpoint()['post_types'] === $complete['post_types'] && $candidates === $expected_ids && count(receipts()) === $before,
+  'Interrupted discovery resumes from its saved page and finishes with the same candidates');
+
+// Old archive cursors reset once, retaining every per-node acknowledgement.
+$legacy = ['format' => 2, 'cursor_created' => 1700000000, 'status' => 'pending', 'cursor' => $ids[9], 'upper_id' => $complete['upper_id'],
   'processed' => 10, 'written' => 10, 'attempts' => 0, 'next_at' => time() - 1];
 Drupal::state()->set(Catchup::STATE_KEY, $legacy); $gateway->queueProbeIfDue(); advance_description_fixture();
-for ($turn = 0; $turn < 5 && checkpoint()['status'] !== 'complete'; $turn++) advance_description_fixture();
-verify_drupal_description(checkpoint()['format'] === 2 && checkpoint()['legacy_floor_id'] === $ids[9]
-  && checkpoint()['processed'] === 23 && checkpoint()['status'] === 'complete', 'An old partial cursor upgrades once without replaying its confirmed low-ID prefix');
+verify_drupal_description(checkpoint()['format'] === 3 && checkpoint()['status'] === 'complete' && count(receipts()) === $before,
+  'An old partial checkpoint switches to sparse discovery without duplicate writes');
 $legacy_complete = $legacy; $legacy_complete['status'] = 'complete';
-Drupal::state()->set(Catchup::STATE_KEY, $legacy_complete); $gateway->queueProbeIfDue();
-verify_drupal_description(checkpoint()['status'] === 'complete' && checkpoint()['processed'] === $legacy_complete['processed']
-  && checkpoint()['destination'] === $gateway->savedDescriptionScope(), 'A completed legacy catch-up adopts its current destination without replay');
+Drupal::state()->set(Catchup::STATE_KEY, $legacy_complete); $gateway->queueProbeIfDue(); advance_description_fixture();
+verify_drupal_description(checkpoint()['status'] === 'complete' && count(receipts()) === $before,
+  'A completed old generation gains a completion marker without replaying acknowledged overrides');
 Drupal::state()->set(Catchup::STATE_KEY, $complete);
 
 // A connection change cannot inherit a completed run or old acknowledgements.
@@ -256,6 +295,16 @@ $gateway->queueProbeIfDue();
 verify_drupal_description(checkpoint() === $changed && $gateway->getSavedDescriptionStatus()['lastSuccessAt'] === NULL,
   'Repeated bootstrap preserves the new checkpoint and does not claim an old destination success');
 $settings->set('topicalboost_api_key', 'fixture-only')->save(); Drupal::state()->set(Catchup::STATE_KEY, $complete);
+
+// Catch-up has its own cron budget even when the shared queue has old jobs.
+$again = $complete; $again['status'] = 'pending'; $again['cursor'] = 0; $again['processed'] = $again['written'] = $again['skipped'] = 0;
+$again['next_at'] = time() - 1;
+Drupal::state()->set(Catchup::STATE_KEY, $again);
+$queue->enqueueJob(Job::create('ttd_bulk_analysis_poller', ['fixture' => TRUE]));
+$start = microtime(TRUE); $gateway->runDescriptionCron();
+verify_drupal_description(checkpoint()['status'] === 'complete' && microtime(TRUE) - $start < 25,
+  'The separate bounded cron worker finishes remaining description work despite shared queue jobs');
+Drupal::state()->set(Catchup::STATE_KEY, $complete);
 
 // Native queue processing prefers incoming updates and retains a durable FIFO slot.
 Drupal::database()->delete('advancedqueue')->execute();

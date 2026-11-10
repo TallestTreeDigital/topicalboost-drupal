@@ -8,9 +8,13 @@ use Drupal\node\NodeInterface;
 final class SavedMetatag {
 
   public static function fieldName(NodeInterface $node): ?string {
+    return self::fieldFromDefinitions($node->getFieldDefinitions());
+  }
+
+  public static function fieldFromDefinitions(array $definitions): ?string {
     $native = NULL;
     // Metatag replaces the saved map for each native field in definition order.
-    foreach ($node->getFieldDefinitions() as $name => $definition) {
+    foreach ($definitions as $name => $definition) {
       if ($definition->getType() === 'metatag') {
         $native = $name;
       }
@@ -19,7 +23,7 @@ final class SavedMetatag {
       return $native;
     }
     foreach (['field_meta_tags', 'field_metatag'] as $name) {
-      if ($node->hasField($name)) {
+      if (isset($definitions[$name])) {
         return $name;
       }
     }
