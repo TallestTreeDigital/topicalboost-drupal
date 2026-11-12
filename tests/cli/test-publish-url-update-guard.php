@@ -17,11 +17,12 @@ $settings = \Drupal::config('ttd_topics.settings');
 $original_config = $settings->getRawData();
 $container = \Drupal::getContainer();
 $original_analysis_service = $container->get('ttd_topics.analysis_service');
-$recording_analysis_service = new class {
+$recording_analysis_service = new class extends \Drupal\ttd_topics\Service\TtdTopicsAnalysisService {
   public array $updatedNodeIds = [];
 
-  public function updateContentUrl(NodeInterface $node): void {
-    $this->updatedNodeIds[] = (int) $node->id();
+  protected function enqueueContentUrlUpdate(int $node_id): bool {
+    $this->updatedNodeIds[] = $node_id;
+    return TRUE;
   }
 };
 
@@ -59,7 +60,7 @@ try {
   $unanalyzed->setPublished()->save();
   $assert(
     !in_array((int) $unanalyzed->id(), $recording_analysis_service->updatedNodeIds, TRUE),
-    'Unanalyzed publish does not call PATCH /content/url'
+    'Unanalyzed publish does not queue a content URL update'
   );
 
   $analyzed = Node::create([
@@ -74,7 +75,14 @@ try {
   $analyzed->setPublished()->save();
   $assert(
     in_array((int) $analyzed->id(), $recording_analysis_service->updatedNodeIds, TRUE),
-    'Analyzed publish still calls PATCH /content/url'
+    'Analyzed publish queues a content URL update'
+  );
+
+  $recording_analysis_service->updatedNodeIds = [];
+  $analyzed->setTitle('TopicalBoost URL guard edited')->save();
+  $assert(
+    in_array((int) $analyzed->id(), $recording_analysis_service->updatedNodeIds, TRUE),
+    'Later published-node edits also queue a content URL update'
   );
 }
 finally {

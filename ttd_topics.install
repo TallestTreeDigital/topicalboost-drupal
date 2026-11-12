@@ -1087,6 +1087,10 @@ function ttd_topics_install() {
  * Implements hook_uninstall().
  */
 function ttd_topics_uninstall() {
+  \Drupal::state()->delete('ttd_topics.content_url_repair.v1');
+  \Drupal::state()->delete('ttd_topics.content_url_repair.enabled');
+  \Drupal::state()->delete('ttd_topics.content_url_repair.disabled');
+  \Drupal::keyValue('ttd_topics.content_url_sync')->deleteAll();
   $database = \Drupal::database();
   if ($database->schema()->indexExists('node_field_data', 'ttd_description_recent')) {
     $database->schema()->dropIndex('node_field_data', 'ttd_description_recent');
@@ -1132,6 +1136,7 @@ function ttd_topics_uninstall() {
     'taxonomy.vocabulary.ttd_topics',
     'pathauto.pattern.ttd_topics',
     'advancedqueue.advancedqueue_queue.ttd_topics_analysis',
+    'advancedqueue.advancedqueue_queue.ttd_topics_url_repair',
     'core.entity_form_display.taxonomy_term.ttd_topics.default',
     'core.entity_view_display.taxonomy_term.ttd_topics.default',
     'field.storage.node.field_ttd_last_analyzed',

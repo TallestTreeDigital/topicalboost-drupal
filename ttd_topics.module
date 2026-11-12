@@ -2090,10 +2090,12 @@ function ttd_topics_entity_presave(EntityInterface $entity) {
 /**
  * Implements hook_entity_update().
  *
- * When a node transitions to published, update the stored URL in TopicalBoost
- * so draft URLs (e.g. /node/123) are replaced with the published path alias.
+ * Refresh analyzed content URLs after publication, node edits, or alias edits.
  */
 function ttd_topics_entity_update(EntityInterface $entity) {
+  if ($entity instanceof \Drupal\path_alias\PathAliasInterface) {
+    ttd_topics_schedule_content_url_sync_for_alias($entity);
+  }
   \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
@@ -2118,25 +2120,42 @@ function ttd_topics_entity_update(EntityInterface $entity) {
     ]);
   }
 
-  $config = \Drupal::config('ttd_topics.settings');
-  $enabled_content_types = array_filter($config->get('enabled_content_types') ?: []);
-
-  if (!in_array($entity->bundle(), $enabled_content_types)) {
-    return;
+  try {
+    \Drupal::service('ttd_topics.analysis_service')->queueContentUrlUpdate($entity);
   }
+  catch (\Throwable $e) {
+    \Drupal::logger('ttd_topics')->warning('Failed to queue content URL update for node @nid: @message', [
+      '@nid' => $entity->id(),
+      '@message' => $e->getMessage(),
+    ]);
+  }
+}
 
-  $is_newly_published = $entity->isPublished() && $entity->original && !$entity->original->isPublished();
-
-  // The publish hook can run before an asynchronously queued analysis creates
-  // the API content row. Only records with a completed analysis need the
-  // lightweight URL-only update; new analyses already send the published URL.
-  $has_completed_analysis = $entity->hasField('field_ttd_last_analyzed')
-    && !$entity->get('field_ttd_last_analyzed')->isEmpty();
-
-  if ($is_newly_published && $has_completed_analysis) {
-    /** @var \Drupal\ttd_topics\Service\TtdTopicsAnalysisService $analysis_service */
-    $analysis_service = \Drupal::service('ttd_topics.analysis_service');
-    $analysis_service->updateContentUrl($entity);
+/**
+ * Queue the current node URL after a path alias is inserted, changed, or removed.
+ */
+function ttd_topics_schedule_content_url_sync_for_alias(\Drupal\path_alias\PathAliasInterface $alias) {
+  $paths = [$alias->getPath()];
+  if (isset($alias->original) && $alias->original instanceof \Drupal\path_alias\PathAliasInterface) {
+    $paths[] = $alias->original->getPath();
+  }
+  foreach (array_unique($paths) as $path) {
+    if (!preg_match('~^/node/([1-9][0-9]*)$~', $path, $matches)) {
+      continue;
+    }
+    try {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load((int) $matches[1]);
+      if ($node instanceof NodeInterface) {
+        \Drupal::service('ttd_topics.analysis_service')->queueContentUrlUpdate($node);
+        \Drupal::service('ttd_topics.analytics_inventory')->queueNode($node);
+      }
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue URL sync for alias path @path: @message', [
+        '@path' => $path,
+        '@message' => $e->getMessage(),
+      ]);
+    }
   }
 }
 
@@ -2144,6 +2163,9 @@ function ttd_topics_entity_update(EntityInterface $entity) {
  * Implements hook_entity_insert().
  */
 function ttd_topics_entity_insert(EntityInterface $entity) {
+  if ($entity instanceof \Drupal\path_alias\PathAliasInterface) {
+    ttd_topics_schedule_content_url_sync_for_alias($entity);
+  }
   \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
@@ -2164,6 +2186,15 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
         '@message' => $e->getMessage(),
       ]);
     }
+    try {
+      \Drupal::service('ttd_topics.analysis_service')->queueContentUrlUpdate($entity);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('ttd_topics')->warning('Failed to queue content URL insert for node @nid: @message', [
+        '@nid' => $entity->id(),
+        '@message' => $e->getMessage(),
+      ]);
+    }
   }
 }
 
@@ -2171,6 +2202,9 @@ function ttd_topics_entity_insert(EntityInterface $entity) {
  * Implements hook_entity_delete().
  */
 function ttd_topics_entity_delete(EntityInterface $entity) {
+  if ($entity instanceof \Drupal\path_alias\PathAliasInterface) {
+    ttd_topics_schedule_content_url_sync_for_alias($entity);
+  }
   \Drupal::service('ttd_topics.topic_list_index')->entityChanged($entity);
   if ($entity instanceof NodeInterface || ($entity instanceof \Drupal\taxonomy\TermInterface && $entity->bundle() === 'ttd_topics')) {
     ttd_topics_reset_runtime_caches();
@@ -2183,6 +2217,7 @@ function ttd_topics_entity_delete(EntityInterface $entity) {
 
   if ($entity instanceof NodeInterface) {
     \Drupal::keyValue('ttd_topics.social_focus_topic')->delete((string) $entity->id());
+    \Drupal::keyValue('ttd_topics.content_url_sync')->delete((string) $entity->id());
     try {
       \Drupal::service('ttd_topics.analytics_inventory')->queueNode($entity, TRUE);
     }
@@ -2266,6 +2301,12 @@ function ttd_topics_taxonomy_term_insert(\Drupal\taxonomy\TermInterface $term) {
  * Implements hook_cron().
  */
 function ttd_topics_cron() {
+  try {
+    \Drupal::service('ttd_topics.content_url_repair')->queueIfDue();
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('ttd_topics')->warning('Archive URL repair could not queue: @message', ['@message' => $e->getMessage()]);
+  }
   // This bounded worker cannot be crowded out by analysis or sync queue jobs.
   try {
     \Drupal::service('ttd_topics.analytics_inventory')->runDescriptionCron();

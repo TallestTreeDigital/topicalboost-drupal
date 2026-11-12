@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.44] - 2026-11-12
+
+### Fixed
+- Queue public URL and publication-status changes for metadata sync, including changes saved while a previous sync is running.
+- Preserve the existing publication-date and saved-description sync during URL updates.
+
+### Added
+- Add an optional archive URL repair that processes bounded batches and stops when complete. Installing this release does not start it.
+
 ## [2.0.43] - 2026-11-06
 
 ### Fixed

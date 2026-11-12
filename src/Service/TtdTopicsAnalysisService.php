@@ -568,43 +568,159 @@ class TtdTopicsAnalysisService {
   }
 
   /**
-   * Update the stored content URL for a node (e.g. after draft -> publish).
+   * Only published, analyzed nodes of enabled types have a content row to sync.
    */
-  public function updateContentUrl(NodeInterface $node) {
-    $config = \Drupal::config('ttd_topics.settings');
-    $api_key = $config->get('topicalboost_api_key');
-    $api_base_url = TOPICALBOOST_API_ENDPOINT;
+  public function isContentUrlSyncEligible(NodeInterface $node): bool {
+    $types = \Drupal::config('ttd_topics.settings')->get('enabled_content_types') ?: [];
+    return (int) $node->id() > 0 && $node->isPublished()
+      && in_array($node->bundle(), $types, TRUE)
+      && $node->hasField('field_ttd_last_analyzed')
+      && !$node->get('field_ttd_last_analyzed')->isEmpty();
+  }
 
-    $url = \ttd_topics_get_node_absolute_url($node);
-    if (empty($url)) {
-      return;
+  /**
+   * Defer URL reads until node and Pathauto alias saves have completed.
+   */
+  public function queueContentUrlUpdate(NodeInterface $node): bool {
+    if (!$this->isContentUrlSyncEligible($node)) {
+      return FALSE;
     }
+    \Drupal::service('path_alias.manager')->cacheClear('/node/' . $node->id());
+    if ($this->contentUrlIsCurrent($node)) return FALSE;
+    return $this->enqueueContentUrlUpdate((int) $node->id());
+  }
 
+  protected function enqueueContentUrlUpdate(int $node_id): bool {
+    $lock = \Drupal::lock();
+    $lock_name = 'ttd_topics.content_url.queue.' . $node_id;
+    if (!$lock->acquire($lock_name, 30.0)) {
+      return FALSE;
+    }
     try {
-      $client = new Client();
-      $client->patch($api_base_url . '/content/url', [
-        'headers' => [
-          'Content-Type' => 'application/json',
-          'x-api-key' => $api_key,
-          'x-tb-plugin-version' => $this->getModuleVersion(),
-          'x-tb-platform' => 'drupal',
-        ],
-        'json' => array_filter([
-          'customer_id' => $node->id(),
-          'url' => $url,
-          'status' => $node->isPublished() ? 'publish' : 'draft',
-          'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
-          'publishedDate' => $node->isPublished() ? \ttd_topics_site_date($node->getCreatedTime()) : NULL,
-        ], function ($v) { return $v !== NULL; }),
-        'timeout' => 10,
+      $pending = \Drupal::database()->select('advancedqueue', 'aq')
+        ->condition('queue_id', 'ttd_topics_analysis')
+        ->condition('type', 'ttd_content_url_sync')
+        ->condition('state', 'queued')
+        ->condition('payload', json_encode(['node_id' => $node_id]))
+        ->countQuery()->execute()->fetchField();
+      // A save during processing needs a follow-up job with the latest URL.
+      if ($pending) {
+        return FALSE;
+      }
+      $queue = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue')->load('ttd_topics_analysis');
+      if (!$queue) {
+        throw new \RuntimeException('TopicalBoost analysis queue is not available.');
+      }
+      $queue->enqueueJob(\Drupal\advancedqueue\Job::create('ttd_content_url_sync', ['node_id' => $node_id]));
+      return TRUE;
+    }
+    finally {
+      $lock->release($lock_name);
+    }
+  }
+
+  /**
+   * Load the current node and serialize updates for its stable CMS ID.
+   */
+  public function syncContentUrl(int $node_id): array {
+    $lock = \Drupal::lock();
+    $lock_name = 'ttd_topics.content_url.sync.' . $node_id;
+    if (!$lock->acquire($lock_name, 30.0)) {
+      throw new \RuntimeException('A content URL sync is already running for this node.');
+    }
+    try {
+      $storage = \Drupal::entityTypeManager()->getStorage('node');
+      $storage->resetCache([$node_id]);
+      \Drupal::service('path_alias.manager')->cacheClear('/node/' . $node_id);
+      $node = $storage->load($node_id);
+      if (!$node instanceof NodeInterface || !$this->isContentUrlSyncEligible($node)) {
+        return ['skipped' => TRUE];
+      }
+      $url = \ttd_topics_get_node_absolute_url($node);
+      $query = [];
+      parse_str((string) (parse_url($url, PHP_URL_QUERY) ?: ''), $query);
+      if (!$url || isset($query['p'])) {
+        return ['skipped' => TRUE];
+      }
+      $response = $this->updateContentUrl($node);
+      if ($response === NULL) {
+        throw new \RuntimeException('The API did not confirm the content URL update.');
+      }
+      return $response;
+    }
+    finally {
+      $lock->release($lock_name);
+    }
+  }
+
+  /**
+   * Update the stored content URL and return the API reconciliation result.
+   */
+  public function updateContentUrl(NodeInterface $node): ?array {
+    $body = $this->contentUrlMetadata($node);
+    if (!$body) return NULL;
+    $result = $this->sendContentUrlMetadata('/content/url', $body);
+    if ($result !== NULL) $this->confirmContentUrlMetadata($body);
+    return $result;
+  }
+
+  public function contentUrlMetadata(NodeInterface $node): ?array {
+    $url = \ttd_topics_get_node_absolute_url($node);
+    if (!$url) return NULL;
+    return array_filter([
+      'customer_id' => $node->id(), 'url' => $url,
+      'status' => $node->isPublished() ? 'publish' : 'draft',
+      'publishedAt' => $node->isPublished() ? gmdate('Y-m-d\TH:i:s\Z', $node->getCreatedTime()) : NULL,
+      'publishedDate' => $node->isPublished() ? \ttd_topics_site_date($node->getCreatedTime()) : NULL,
+    ], static function ($v) { return $v !== NULL; });
+  }
+
+  private function contentUrlFingerprint(array $body): string {
+    return hash('sha256', json_encode([TOPICALBOOST_API_ENDPOINT,
+      \Drupal::config('ttd_topics.settings')->get('topicalboost_api_key'), $body]));
+  }
+
+  public function contentUrlIsCurrent(NodeInterface $node): bool {
+    $confirmed = \Drupal::keyValue('ttd_topics.content_url_sync')->get((string) $node->id());
+    return $confirmed && $confirmed === $this->contentUrlFingerprint($this->contentUrlMetadata($node) ?: []);
+  }
+
+  public function confirmContentUrlMetadata(array $body): void {
+    $id = (int) $body['customer_id'];
+    \Drupal::keyValue('ttd_topics.content_url_sync')->set((string) $id, $this->contentUrlFingerprint($body));
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    $storage->resetCache([$id]);
+    \Drupal::service('path_alias.manager')->cacheClear('/node/' . $id);
+    $node = $storage->load($id);
+    try {
+      if ($node instanceof NodeInterface && !$this->contentUrlIsCurrent($node)) $this->queueContentUrlUpdate($node);
+    }
+    finally {
+      unset($node);
+      $storage->resetCache([$id]);
+      gc_collect_cycles();
+    }
+  }
+
+  public function updateContentUrls(array $items): ?array {
+    return $this->sendContentUrlMetadata('/content/urls', ['items' => $items]);
+  }
+
+  private function sendContentUrlMetadata(string $path, array $body): ?array {
+    try {
+      $response = (new Client())->patch(TOPICALBOOST_API_ENDPOINT . $path, [
+        'headers' => array_merge(\ttd_topics_api_headers(\Drupal::config('ttd_topics.settings')->get('topicalboost_api_key')), [
+          'x-tb-plugin-version' => $this->getModuleVersion(), 'x-tb-platform' => 'drupal',
+        ]),
+        'json' => $body, 'timeout' => 8,
       ]);
+      $result = json_decode((string) $response->getBody(), TRUE);
+      return is_array($result) ? $result : NULL;
     }
     catch (\Exception $e) {
-      \Drupal::logger('ttd_topics')->warning('Failed to update content URL for node @id: @message', [
-        '@id' => $node->id(),
-        '@message' => $e->getMessage(),
-      ]);
+      \Drupal::logger('ttd_topics')->warning('Content URL metadata request failed: @message', ['@message' => $e->getMessage()]);
     }
+    return NULL;
   }
 
   /**

@@ -288,7 +288,7 @@ class AnalyticsInventoryService {
    * Build the connector-compatible payload for a Drupal node.
    */
   public function buildNodePayload(NodeInterface $node, ?string $revision = NULL): array {
-    $url = $node->toUrl('canonical', ['absolute' => TRUE])->toString();
+    $url = \ttd_topics_get_node_absolute_url($node);
     $path = rawurldecode((string) (parse_url($url, PHP_URL_PATH) ?: '/'));
     $path = '/' . ltrim($path, '/');
     $authors = $this->authors($node);

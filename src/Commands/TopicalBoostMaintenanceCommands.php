@@ -12,6 +12,83 @@ use Symfony\Component\Console\Helper\ProgressBar;
 class TopicalBoostMaintenanceCommands extends DrushCommands {
 
   /**
+   * Reconcile analyzed content URLs without starting content reanalysis.
+   *
+   * @command topicalboost:sync-content-urls
+   * @aliases ttd-sync-content-urls
+   * @option node-ids Comma-separated node IDs. Omit to scan analyzed published nodes.
+   * @option limit Maximum nodes in this run. Defaults to 500, capped at 1000.
+   * @option offset Starting offset for a bounded archive scan.
+   * @option dry-run Print candidates without calling the API.
+   */
+  public function syncContentUrls(array $options = ['node-ids' => '', 'limit' => 500, 'offset' => 0, 'dry-run' => FALSE]): void {
+    $options += ['node-ids' => '', 'limit' => 500, 'offset' => 0, 'dry-run' => FALSE];
+    $limit = min(1000, max(1, (int) $options['limit']));
+    $offset = max(0, (int) $options['offset']);
+    $dry_run = (bool) $options['dry-run'];
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    if (trim((string) $options['node-ids']) !== '') {
+      $ids = preg_split('/\s*,\s*/', trim((string) $options['node-ids']));
+      foreach ($ids as $id) {
+        if (!preg_match('/^[1-9][0-9]*$/', $id)) {
+          throw new \InvalidArgumentException('Node IDs must be positive integers.');
+        }
+      }
+      $ids = array_slice(array_values(array_unique(array_map('intval', $ids))), 0, $limit);
+    }
+    else {
+      $types = \Drupal::config('ttd_topics.settings')->get('enabled_content_types') ?: [];
+      $ids = $types ? array_values($storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('status', 1)
+        ->condition('type', $types, 'IN')
+        ->exists('field_ttd_last_analyzed')
+        ->sort('nid', 'ASC')
+        ->range($offset, $limit)
+        ->execute()) : [];
+    }
+
+    $service = \Drupal::service('ttd_topics.analysis_service');
+    $counts = ['repaired' => 0, 'metadata_updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'failed' => 0];
+    foreach ($ids as $id) {
+      $node = $storage->load($id);
+      if (!$node instanceof \Drupal\node\NodeInterface || !$service->isContentUrlSyncEligible($node)) {
+        $counts['skipped']++;
+        continue;
+      }
+      $url = \ttd_topics_get_node_absolute_url($node);
+      $query = [];
+      parse_str((string) (parse_url($url, PHP_URL_QUERY) ?: ''), $query);
+      if (!$url || isset($query['p'])) {
+        $counts['skipped']++;
+        continue;
+      }
+      if ($dry_run) {
+        $this->output()->writeln("{$id} {$url}");
+        continue;
+      }
+      try {
+        $result = $service->syncContentUrl((int) $id);
+        $label = !empty($result['skipped']) ? 'skipped'
+          : (!empty($result['urlChanged']) ? 'repaired'
+            : (!empty($result['metadataChanged']) ? 'metadata_updated' : 'unchanged'));
+        $counts[$label]++;
+      }
+      catch (\Throwable $e) {
+        $counts['failed']++;
+        $this->logger()->warning("Failed to sync node {$id}: " . $e->getMessage());
+      }
+    }
+    $this->output()->writeln('Candidates: ' . count($ids) . ($dry_run ? ' (dry run)' : ''));
+    foreach ($counts as $label => $count) {
+      $this->output()->writeln("{$label}: {$count}");
+    }
+    if ($counts['failed'] > 0) {
+      throw new \RuntimeException('Some content URL updates failed. Re-run the same IDs after checking the API.');
+    }
+  }
+
+  /**
    * Import TopicalBoost SQL data and rebuild Drupal topic terms/relationships.
    *
    * @param string $file
