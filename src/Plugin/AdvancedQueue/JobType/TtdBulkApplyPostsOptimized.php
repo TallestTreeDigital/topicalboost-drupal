@@ -3,6 +3,7 @@
 namespace Drupal\ttd_topics\Plugin\AdvancedQueue\JobType;
 
 use Drupal\advancedqueue\Job;
+use Drupal\ttd_topics\Service\BulkAnalysisLifecycle;
 use Drupal\advancedqueue\JobResult;
 use Drupal\advancedqueue\Plugin\AdvancedQueue\JobType\JobTypeBase;
 use Drupal\node\NodeInterface;
@@ -29,6 +30,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
   public function process(Job $job) {
     $payload = $job->getPayload();
     $request_id = $payload['request_id'];
+    if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
     $page = $payload['page'];
 
     try {
@@ -40,7 +42,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
       // Single API call gets posts + entities together using v2 endpoint
       $response = $client->get($api_base_url . '/v2/result/posts', [
-        'headers' => ['x-api-key' => $api_key],
+        'headers' => \ttd_topics_api_headers($api_key),
         'query' => [
           'request_id' => $request_id,
           'page' => $page,
@@ -49,6 +51,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
       ]);
 
       $result = json_decode($response->getBody(), TRUE);
+      if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
 
       if (isset($result['posts']) && !empty($result['posts'])) {
         $posts = $result['posts'];
@@ -56,11 +59,13 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
 
         // Process entities first (store metadata)
         foreach ($entities as $entity) {
+          if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
           $this->storeEntityMetadata($entity);
         }
 
         // Process posts (assign topics to nodes)
-        $processed_count = $this->processPosts($posts, $entities);
+        $processed_count = $this->processPosts($posts, $entities, $request_id);
+        if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
 
         // Update progress
         $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress', [
@@ -133,7 +138,7 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
   /**
    * Process posts and assign entities to nodes.
    */
-  private function processPosts($posts, $entities) {
+  private function processPosts($posts, $entities, $request_id = NULL) {
     $node_storage = \Drupal::entityTypeManager()->getStorage('node');
     $processed_count = 0;
 
@@ -142,10 +147,11 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
     ]);
 
     foreach ($posts as $post) {
+      if ($request_id !== NULL && !BulkAnalysisLifecycle::current($request_id)) break;
       $customer_id = $post['customer_id'] ?? NULL;
       $entity_ids = $post['entity_ids'] ?? [];
 
-      if ($customer_id && !empty($entity_ids)) {
+      if ($customer_id) {
         $node = $node_storage->load($customer_id);
 
         if ($node && $node instanceof NodeInterface) {
@@ -170,9 +176,11 @@ class TtdBulkApplyPostsOptimized extends JobTypeBase {
           }
 
           // Apply entities to node
+          if ($request_id !== NULL && !BulkAnalysisLifecycle::current($request_id)) break;
           $this->applyEntitiesToNode($node, $post_entities);
 
           try {
+            if ($request_id !== NULL && !BulkAnalysisLifecycle::current($request_id)) break;
             $node->save();
             $processed_count++;
           } catch (\Exception $e) {

@@ -64,7 +64,7 @@ class AnalyticsInventoryService {
   }
 
   /**
-   * Probe the TopicalBoost API and queue a full sync when entitled.
+   * Refresh Analytics entitlement without scanning the archive.
    */
   public function probe(): array {
     if ($this->state->get(self::DISABLED_STATE_KEY, FALSE)) {
@@ -81,15 +81,19 @@ class AnalyticsInventoryService {
       return ['enabled' => FALSE, 'queued' => FALSE];
     }
 
-    $content_types = $status['analytics']['inventoryPostTypes'] ?? [];
-    $content_types = $this->normalizeContentTypes($content_types);
-    if (!empty($content_types)) {
-      $this->state->set(self::CONTENT_TYPES_STATE_KEY, $content_types);
+    $content_types = $status['analytics']['inventoryPostTypes'] ?? NULL;
+    if (is_array($content_types)) {
+      $this->state->set(self::CONTENT_TYPES_STATE_KEY, $this->normalizeContentTypes($content_types));
+    }
+    else {
+      $this->state->delete(self::CONTENT_TYPES_STATE_KEY);
     }
 
     return [
       'enabled' => TRUE,
-      'queued' => $this->queueFullSync(),
+      // Analytics imports the canonical inventory from TopicalBoost. The CMS
+      // relay sends edits and saved descriptions without a weekly archive scan.
+      'queued' => FALSE,
       'content_types' => $this->contentTypes(),
     ];
   }
@@ -187,13 +191,14 @@ class AnalyticsInventoryService {
     try {
       $context = $this->savedDescriptionRequestContext();
       $revision = $this->savedDescriptions->observationRevision();
-      $node_ids = $this->entityTypeManager->getStorage('node')->getQuery()
+      $types = $this->contentTypes();
+      $node_ids = $types ? $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
         ->condition('status', 1)
-        ->condition('type', $this->contentTypes(), 'IN')
+        ->condition('type', $types, 'IN')
         ->sort('nid', 'ASC')
         ->range(($page - 1) * $per_page, $per_page)
-        ->execute();
+        ->execute() : [];
 
       $tokens = $this->savedDescriptions->dirtyTokens($node_ids);
       $this->entityTypeManager->getStorage('node')->resetCache($node_ids);
@@ -449,12 +454,9 @@ class AnalyticsInventoryService {
   }
 
   protected function contentTypes(): array {
-    $types = $this->state->get(self::CONTENT_TYPES_STATE_KEY, []);
-    $types = $this->normalizeContentTypes($types);
-    if (empty($types)) {
-      $types = $this->normalizeContentTypes($this->configFactory->get('ttd_topics.settings')->get('enabled_content_types') ?: []);
-    }
-    return $types ?: ['article'];
+    $enabled = $this->normalizeContentTypes($this->configFactory->get('ttd_topics.settings')->get('enabled_content_types') ?: []);
+    $analytics = $this->normalizeContentTypes($this->state->get(self::CONTENT_TYPES_STATE_KEY, []));
+    return $analytics ? array_values(array_intersect($enabled, $analytics)) : $enabled;
   }
 
   protected function normalizeContentTypes($types): array {

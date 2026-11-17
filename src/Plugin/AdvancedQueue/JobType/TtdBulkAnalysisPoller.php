@@ -3,6 +3,7 @@
 namespace Drupal\ttd_topics\Plugin\AdvancedQueue\JobType;
 
 use Drupal\advancedqueue\Job;
+use Drupal\ttd_topics\Service\BulkAnalysisLifecycle;
 use Drupal\advancedqueue\JobResult;
 use Drupal\advancedqueue\Plugin\AdvancedQueue\JobType\JobTypeBase;
 use GuzzleHttp\Client;
@@ -26,6 +27,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
   public function process(Job $job) {
     $payload = $job->getPayload();
     $request_id = $payload['request_id'];
+    if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
 
     try {
       $config = \Drupal::config('ttd_topics.settings');
@@ -34,12 +36,18 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
 
       $client = new Client();
       $response = $client->get($api_base_url . '/poll/analysis', [
-        'headers' => ['x-api-key' => $api_key],
+        'headers' => \ttd_topics_api_headers($api_key),
         'query' => ['request_id' => $request_id],
         'timeout' => 10,
       ]);
 
       $analysis_status = json_decode($response->getBody(), TRUE);
+      if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
+      if (!empty($analysis_status['terminal'])) {
+        BulkAnalysisLifecycle::stop($request_id, $analysis_status['status'] ?? 'failed',
+          $analysis_status['message'] ?? 'The analysis stopped. Start a new analysis to retry.');
+        return JobResult::success('Bulk analysis stopped.');
+      }
 
       if ($this->shouldClearStaleRequest($request_id, $analysis_status ?: [])) {
         $this->cleanupStaleRequest($request_id);
@@ -62,7 +70,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
       }
       else {
         // Analysis not complete yet - check if we should continue polling.
-        $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+        $current_request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
         if ($current_request_id === $request_id) {
           $status_message = $analysis_status['message'] ?? 'In progress';
           return $this->scheduleNextPoll($request_id, 'Analysis status: ' . $status_message . ' - scheduled next poll in 3 minutes');
@@ -75,8 +83,9 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
 
     }
     catch (RequestException $e) {
+      if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
       // If there's an API error, check if the request_id is still valid.
-      $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+      $current_request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
       if ($current_request_id !== $request_id) {
         // Request ID changed or was cleared - stop polling.
         return JobResult::success('Request ID changed - stopping poll for old request ' . $request_id);
@@ -107,6 +116,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
    * Automatically start applying results when analysis is complete (using optimized posts endpoint).
    */
   private function autoStartApplyResults($request_id) {
+    if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
     try {
       // Schedule optimized posts retrieval job.
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
@@ -146,6 +156,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
    * Schedule a new poller job for a request.
    */
   private function scheduleNextPoll($request_id, string $success_message) {
+    if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
     try {
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
       $queue = $queue_storage->load('ttd_topics_analysis');
@@ -239,7 +250,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
     $batch_count = (int) $database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', 'ttd_bulk_batch_send')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -248,7 +259,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
     $apply_count = (int) $database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -274,7 +285,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
    * Clean up local state and queued jobs for a stale request.
    */
   private function cleanupStaleRequest(string $request_id): void {
-    $current_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $current_request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
     if ($current_request_id !== $request_id) {
       return;
     }
@@ -283,7 +294,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
     $database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_analysis_poller', 'ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
 
@@ -309,7 +320,7 @@ class TtdBulkAnalysisPoller extends JobTypeBase {
     $database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
   }

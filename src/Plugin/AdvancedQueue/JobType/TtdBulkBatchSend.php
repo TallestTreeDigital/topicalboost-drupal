@@ -3,6 +3,7 @@
 namespace Drupal\ttd_topics\Plugin\AdvancedQueue\JobType;
 
 use Drupal\advancedqueue\Job;
+use Drupal\ttd_topics\Service\BulkAnalysisLifecycle;
 use Drupal\advancedqueue\JobResult;
 use Drupal\advancedqueue\Plugin\AdvancedQueue\JobType\JobTypeBase;
 use Drupal\node\NodeInterface;
@@ -26,6 +27,7 @@ class TtdBulkBatchSend extends JobTypeBase {
   public function process(Job $job) {
     $payload = $job->getPayload();
     $request_id = $payload['request_id'];
+    if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
     $page = $payload['page'];
     $page_count = $payload['page_count'];
     $filters = $payload['filters'];
@@ -39,6 +41,8 @@ class TtdBulkBatchSend extends JobTypeBase {
         return JobResult::success('No nodes found for batch ' . $page);
       }
 
+      if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
+
       // Send batch to bulk API.
       $this->sendBatchToApi($request_id, $page, $page_count, $nodes_data);
 
@@ -46,6 +50,14 @@ class TtdBulkBatchSend extends JobTypeBase {
 
     }
     catch (\Exception $e) {
+      if (!BulkAnalysisLifecycle::current($request_id)) return JobResult::success('Bulk request is no longer active.');
+      $closed = $e instanceof \GuzzleHttp\Exception\RequestException && $e->getResponse()
+        && $e->getResponse()->getStatusCode() === 409;
+      if ($closed || $job->getNumRetries() >= 3) {
+        BulkAnalysisLifecycle::stop($request_id, 'failed', 'A content batch could not be uploaded. Start a new analysis to retry.');
+        return JobResult::success('Bulk upload stopped.');
+      }
+
       \Drupal::logger('ttd_topics')->error('Error sending bulk batch @page: @message', [
         '@page' => $page,
         '@message' => $e->getMessage(),

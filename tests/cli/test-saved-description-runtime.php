@@ -74,6 +74,7 @@ for ($i = 0; $i < 23; $i++) {
 }
 Node::create(['type' => 'article', 'title' => 'Draft must stay out', 'status' => 0])->save();
 Node::create(['type' => 'outside_story', 'title' => 'Other type must stay out', 'status' => 1])->save();
+Drupal::configFactory()->getEditable('ttd_topics.settings')->set('enabled_content_types', ['article', 'legacy_story', 'unsupported_story'])->save();
 Drupal::state()->set(Inventory::ENABLED_STATE_KEY, TRUE);
 Drupal::state()->set(Inventory::LAST_PROBE_STATE_KEY, time());
 Drupal::state()->set(Inventory::CONTENT_TYPES_STATE_KEY, ['article', 'legacy_story', 'unsupported_story']);

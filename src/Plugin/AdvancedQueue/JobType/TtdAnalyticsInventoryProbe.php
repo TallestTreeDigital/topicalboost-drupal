@@ -7,7 +7,7 @@ use Drupal\advancedqueue\JobResult;
 use Drupal\advancedqueue\Plugin\AdvancedQueue\JobType\JobTypeBase;
 
 /**
- * Checks Drupal Analytics entitlement and starts a full inventory sync.
+ * Refreshes Drupal Analytics entitlement.
  *
  * @AdvancedQueueJobType(
  *   id = "ttd_analytics_inventory_probe",

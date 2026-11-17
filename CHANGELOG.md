@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.45] - 2026-11-17
+
+### Fixed
+- Recover a bulk analysis that is still running on the server when Drupal has lost its request ID. Drupal resumes background polling and does not start a second analysis.
+- A cancelled bulk analysis stays cancelled. Recovery does not restore it.
+
+### Added
+- Send publish dates for all published content of the enabled types in background batches of 100. The catch-up resumes after errors and runs once per connection.
+
 ## [2.0.44] - 2026-11-12
 
 ### Fixed

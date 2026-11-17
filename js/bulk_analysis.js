@@ -140,6 +140,10 @@
       }
     })
     .done(function (response) {
+      if (response.data && response.data.analysis_status && response.data.analysis_status.terminal) {
+        terminalAnalysis(response.data.analysis_status);
+        return;
+      }
       if (response.success && response.data.request_id) {
         currentRequestId = response.data.request_id;
         analysisInProgress = true;
@@ -708,6 +712,10 @@
       }
     })
     .done(function (response) {
+      if (response.data && response.data.analysis_status && response.data.analysis_status.terminal) {
+        terminalAnalysis(response.data.analysis_status);
+        return;
+      }
       if (response.success && response.data.request_id === currentRequestId) {
         updateProgressDisplay(response.data);
       } else if (!response.data.request_id) {
@@ -1023,11 +1031,28 @@
   /**
    * Analysis failed
    */
+  function terminalAnalysis(status) {
+    if (status.status === 'cancelling') {
+      stopProgressPolling();
+      analysisInProgress = true;
+      currentRequestId = status.request_id;
+      currentStage = null;
+      updateUIForAnalysis(true);
+      $('#ttd-bulk-analysis-analyze-button').text('Cancellation pending');
+      $('#ttd-bulk-analysis-reset-button').text('Retry cancellation').prop('disabled', false).show();
+      showMessage(status.message || 'Retry cancellation to confirm the server stopped.', 'error');
+      return;
+    }
+    analysisFailed(status.message || 'The analysis stopped.');
+  }
+
   function analysisFailed(message) {
     stopProgressPolling();
     analysisInProgress = false;
     currentRequestId = null;
     currentStage = null;
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_ACTIVE);
+    localStorage.removeItem(STORAGE_KEY_ANALYSIS_REQUEST_ID);
 
     updateUIForAnalysis(false);
     showMessage('Analysis failed: ' + message, 'error');
@@ -1052,6 +1077,10 @@
       }
     })
     .done(function (response) {
+      if (!response.success) {
+        showMessage(response.message || 'Cancellation could not be confirmed.', 'error');
+        return;
+      }
       stopProgressPolling();
       analysisInProgress = false;
       currentRequestId = null;
@@ -1073,7 +1102,7 @@
     })
     .fail(function (xhr) {
       Drupal.ttd_topics.debug.error('Reset analysis failed:', xhr);
-      showMessage('Failed to cancel analysis', 'error');
+      showMessage((xhr.responseJSON && xhr.responseJSON.message) || 'Failed to cancel analysis', 'error');
     });
   }
 

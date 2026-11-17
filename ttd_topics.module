@@ -2307,6 +2307,12 @@ function ttd_topics_cron() {
   catch (\Throwable $e) {
     \Drupal::logger('ttd_topics')->warning('Archive URL repair could not queue: @message', ['@message' => $e->getMessage()]);
   }
+  try {
+    \Drupal::service('ttd_topics.publish_dates')->queueIfDue();
+  }
+  catch (\Throwable $error) {
+    \Drupal::logger('ttd_topics')->warning('Publish-date catch-up will retry on cron.');
+  }
   // This bounded worker cannot be crowded out by analysis or sync queue jobs.
   try {
     \Drupal::service('ttd_topics.analytics_inventory')->runDescriptionCron();

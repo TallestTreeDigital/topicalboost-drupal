@@ -3,6 +3,8 @@
 namespace Drupal\ttd_topics\Controller;
 
 use Drupal\advancedqueue\Job;
+use Drupal\ttd_topics\Service\BulkAnalysisLifecycle;
+use Drupal\ttd_topics\Service\BulkAnalysisRecovery;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
@@ -172,8 +174,25 @@ class BulkAnalysisController extends ControllerBase {
    * Initiate bulk analysis using the bulk API endpoint.
    */
   public function initiateAnalysis(Request $request) {
+    $lock = \Drupal::lock();
+    if (!$lock->acquire(BulkAnalysisRecovery::LOCK, 60.0)) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Analysis status is being checked. Try again shortly.'], 409);
+    }
+    try {
+      (new BulkAnalysisRecovery())->recover(TRUE);
+      return $this->initiateTrackedAnalysis($request);
+    }
+    catch (\Throwable $error) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'Could not verify existing analysis. Try again shortly.'], 503);
+    }
+    finally {
+      $lock->release(BulkAnalysisRecovery::LOCK);
+    }
+  }
+
+  private function initiateTrackedAnalysis(Request $request) {
     // SAFEGUARD 1: Check if an analysis is already in progress.
-    $existing_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $existing_request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
     if ($existing_request_id) {
       $existing_state = $this->inspectExistingAnalysisState((string) $existing_request_id);
       if (!empty($existing_state['active'])) {
@@ -215,6 +234,7 @@ class BulkAnalysisController extends ControllerBase {
 
         // Store the request ID in state.
         \Drupal::state()->set('topicalboost.bulk_analysis.request_id', $request_id);
+        \Drupal::keyValue('state')->delete(BulkAnalysisRecovery::EMPTY_STATE);
         \Drupal::state()->set('topicalboost.bulk_analysis.filters', $filters);
         \Drupal::state()->set('topicalboost.bulk_analysis.content_count', $content_count);
         \Drupal::state()->set('topicalboost.bulk_analysis.started_at', time());
@@ -293,7 +313,21 @@ class BulkAnalysisController extends ControllerBase {
    * Poll bulk analysis progress.
    */
   public function pollAnalysis(Request $request) {
-    $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
+    if (!$request_id) {
+      try {
+        $request_id = (new BulkAnalysisRecovery())->recover();
+      }
+      catch (\Throwable $error) {
+        return new JsonResponse(['success' => FALSE, 'message' => 'Could not verify existing analysis. Try again shortly.'], 503);
+      }
+    }
+    $terminal = $request_id ? BulkAnalysisLifecycle::terminalStatus($request_id) : NULL;
+    if ($terminal) {
+      $data = $this->emptyAnalysisData();
+      $data['analysis_status'] = $terminal;
+      return new JsonResponse(['success' => TRUE, 'data' => $data]);
+    }
     $debug = (bool) \Drupal::config('ttd_topics.settings')->get('debug_mode');
 
     if ($debug) {
@@ -343,12 +377,21 @@ class BulkAnalysisController extends ControllerBase {
 
       // Poll API for analysis status.
       $response = $client->get($api_base_url . '/poll/analysis', [
-        'headers' => ['x-api-key' => $api_key],
+        'headers' => \ttd_topics_api_headers($api_key),
         'query' => ['request_id' => $request_id],
         'timeout' => 10,
       ]);
 
       $analysis_status = json_decode($response->getBody(), TRUE) ?: [];
+      if (!empty($analysis_status['terminal']) && BulkAnalysisLifecycle::current($request_id)) {
+        BulkAnalysisLifecycle::stop($request_id, (string) ($analysis_status['status'] ?? 'failed'),
+          (string) ($analysis_status['message'] ?? 'Bulk analysis stopped. Start a new analysis to retry.'));
+      }
+      if (!BulkAnalysisLifecycle::current($request_id)) {
+        $data = $this->emptyAnalysisData();
+        $data['analysis_status'] = BulkAnalysisLifecycle::terminalStatus($request_id);
+        return new JsonResponse(['success' => TRUE, 'data' => $data]);
+      }
 
       // Debug logging to see the actual API response structure.
       \Drupal::logger('ttd_topics')->info('API Response for request @request_id: @response', [
@@ -439,6 +482,9 @@ class BulkAnalysisController extends ControllerBase {
    */
   public function applyResults(Request $request) {
     $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    if (!BulkAnalysisLifecycle::current($request_id)) {
+      return new JsonResponse(['success' => FALSE, 'message' => 'This analysis is no longer active.'], 409);
+    }
 
     if (!$request_id) {
       return new JsonResponse([
@@ -488,76 +534,49 @@ class BulkAnalysisController extends ControllerBase {
    * Reset bulk analysis (clear queue and state).
    */
   public function resetAnalysis(Request $request) {
-    $request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
+    $request_id = \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST);
     $cleared_jobs = 0;
-
-    \Drupal::logger('ttd_topics')->warning('resetAnalysis() called - request_id before deletion: @request_id', [
-      '@request_id' => $request_id ?? 'NULL',
-    ]);
-
-    // SAFEGUARD: Log reset attempts for audit purposes
     if ($request_id) {
-      \Drupal::logger('ttd_topics')->warning('Reset analysis requested for request @request_id', [
-        '@request_id' => $request_id,
-      ]);
+      $cleared_jobs = BulkAnalysisLifecycle::stop($request_id, 'cancelling',
+        'Local work stopped. API cancellation still needs confirmation. Retry cancellation.');
+      try {
+        $this->cancelBulkAnalysisApi($request_id);
+      }
+      catch (\Throwable $e) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'message' => 'Local work stopped. API cancellation could not be confirmed. Retry cancellation.',
+        ], 503);
+      }
+      BulkAnalysisLifecycle::stop($request_id, 'cancelled', 'Bulk analysis cancelled.');
+      if ((string) \Drupal::keyValue('state')->get(BulkAnalysisLifecycle::REQUEST) === (string) $request_id) {
+        $this->clearStaleBulkAnalysisState();
+      }
     }
-
-    if ($request_id) {
-      $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
-      $queue = $queue_storage->load('ttd_topics_analysis');
-
-      // Count jobs before clearing for logging.
-      $bulk_jobs_count = $this->countBulkAnalysisJobs($request_id);
-      $apply_jobs_count = $this->countApplyJobs($request_id);
-      $cleared_jobs = $bulk_jobs_count + $apply_jobs_count;
-
-      \Drupal::logger('ttd_topics')->warning('Clearing @bulk_count bulk jobs and @apply_count apply jobs', [
-        '@bulk_count' => $bulk_jobs_count,
-        '@apply_count' => $apply_jobs_count,
-      ]);
-
-      // Clear all related jobs.
-      $this->clearBulkAnalysisJobs($queue, $request_id);
-      $this->clearApplyJobs($queue, $request_id);
-
-      // Clear all related state.
-      \Drupal::logger('ttd_topics')->warning('Deleting state keys for request @request_id', [
-        '@request_id' => $request_id,
-      ]);
-
-      \Drupal::state()->delete('topicalboost.bulk_analysis.request_id');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.filters');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.content_count');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.started_at');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.apply_progress');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.completed_at');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.customer_id_page_count');
-      \Drupal::state()->delete('topicalboost.bulk_analysis.entity_page_count');
-
-      // Verify state was actually deleted
-      $verify_request_id = \Drupal::state()->get('topicalboost.bulk_analysis.request_id');
-      \Drupal::logger('ttd_topics')->warning('VERIFICATION: request_id after deletion: @request_id', [
-        '@request_id' => $verify_request_id ?? 'NULL (DELETED SUCCESSFULLY)',
-      ]);
-
-      // Log the cancellation.
-      \Drupal::logger('ttd_topics')->info('Bulk analysis cancelled - cleared @count queued jobs for request @request_id', [
-        '@count' => $cleared_jobs,
-        '@request_id' => $request_id,
-      ]);
-    } else {
-      \Drupal::logger('ttd_topics')->warning('resetAnalysis() called but no active request_id found');
-    }
-
-    $message = $cleared_jobs > 0
-      ? "Bulk analysis cancelled - cleared {$cleared_jobs} queued jobs"
-      : 'Bulk analysis reset successfully - no active jobs found';
-
     return new JsonResponse([
       'success' => TRUE,
-      'message' => $message,
+      'message' => 'Bulk analysis cancelled.',
       'data' => ['cleared_jobs' => $cleared_jobs],
     ]);
+  }
+
+  protected function cancelBulkAnalysisApi($request_id): void {
+    $config = $this->configFactory->get('ttd_topics.settings');
+    $endpoint = defined('TOPICALBOOST_API_ENDPOINT') ? TOPICALBOOST_API_ENDPOINT : 'https://api.topicalboost.com';
+    try {
+      $response = (new Client())->post($endpoint . '/analyze/bulk/cancel', [
+        'headers' => \ttd_topics_api_headers($config->get('topicalboost_api_key')),
+        'json' => ['request_id' => (int) $request_id], 'timeout' => 30,
+      ]);
+    }
+    catch (RequestException $e) {
+      if ($e->getResponse() && $e->getResponse()->getStatusCode() === 404) return;
+      throw $e;
+    }
+    $result = json_decode($response->getBody(), TRUE);
+    if ((string) ($result['request_id'] ?? '') !== (string) $request_id) {
+      throw new \RuntimeException('The API did not confirm cancellation.');
+    }
   }
 
   /**
@@ -658,7 +677,7 @@ class BulkAnalysisController extends ControllerBase {
     $total_batches = $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', 'ttd_bulk_batch_send')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->countQuery()
       ->execute()
       ->fetchField();
@@ -666,7 +685,7 @@ class BulkAnalysisController extends ControllerBase {
     $pending_batches = $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', 'ttd_bulk_batch_send')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -692,6 +711,12 @@ class BulkAnalysisController extends ControllerBase {
    * Inspect an existing request before blocking a new bulk analysis.
    */
   private function inspectExistingAnalysisState(string $request_id): array {
+    $terminal = BulkAnalysisLifecycle::terminalStatus($request_id);
+    if ($terminal) {
+      return ['active' => $terminal['status'] === 'cancelling',
+        'message' => $terminal['message'], 'reason' => $terminal['status']];
+    }
+
     $apply_progress = \Drupal::state()->get('topicalboost.bulk_analysis.apply_progress');
 
     if ($this->isApplyComplete($apply_progress)) {
@@ -749,6 +774,12 @@ class BulkAnalysisController extends ControllerBase {
       ];
     }
 
+    if (!empty($analysis_status['terminal'])) {
+      BulkAnalysisLifecycle::stop($request_id, (string) ($analysis_status['status'] ?? 'failed'),
+        (string) ($analysis_status['message'] ?? 'Bulk analysis stopped. Start a new analysis to retry.'));
+      return ['active' => FALSE, 'reason' => 'API analysis stopped'];
+    }
+
     if ($this->isNoRequestFoundStatus($analysis_status)) {
       return [
         'active' => FALSE,
@@ -783,7 +814,7 @@ class BulkAnalysisController extends ControllerBase {
   private function pollBulkAnalysisApi(string $api_base_url, string $api_key, string $request_id): array {
     $client = new Client();
     $response = $client->get($api_base_url . '/poll/analysis', [
-      'headers' => ['x-api-key' => $api_key],
+      'headers' => \ttd_topics_api_headers($api_key),
       'query' => ['request_id' => $request_id],
       'timeout' => 10,
     ]);
@@ -899,7 +930,7 @@ class BulkAnalysisController extends ControllerBase {
     $this->database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
   }
@@ -911,7 +942,7 @@ class BulkAnalysisController extends ControllerBase {
     $this->database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
   }
@@ -923,7 +954,7 @@ class BulkAnalysisController extends ControllerBase {
     return (int) $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -937,7 +968,7 @@ class BulkAnalysisController extends ControllerBase {
     return (int) $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', 'ttd_bulk_batch_send')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -951,7 +982,7 @@ class BulkAnalysisController extends ControllerBase {
     return (int) $this->database->select('advancedqueue', 'aq')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->countQuery()
       ->execute()
@@ -1008,6 +1039,7 @@ class BulkAnalysisController extends ControllerBase {
    * Automatically start applying results when analysis is complete (using optimized posts endpoint).
    */
   private function autoStartApplyResults($request_id) {
+    if (!BulkAnalysisLifecycle::current($request_id)) return;
     try {
       // Schedule optimized posts retrieval job.
       $queue_storage = \Drupal::entityTypeManager()->getStorage('advancedqueue_queue');
@@ -1072,7 +1104,7 @@ class BulkAnalysisController extends ControllerBase {
     $this->database->delete('advancedqueue')
       ->condition('queue_id', 'ttd_topics_analysis')
       ->condition('type', ['ttd_bulk_batch_send', 'ttd_bulk_analysis_poller', 'ttd_bulk_apply_customer_ids', 'ttd_bulk_apply_entities', 'ttd_bulk_apply_posts_optimized'], 'IN')
-      ->condition('payload', '%' . $request_id . '%', 'LIKE')
+      ->condition(BulkAnalysisLifecycle::requestCondition($request_id))
       ->condition('state', ['queued', 'processing'], 'IN')
       ->execute();
   }

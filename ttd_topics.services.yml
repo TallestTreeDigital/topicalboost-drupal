@@ -27,6 +27,9 @@ services:
   ttd_topics.content_url_repair:
     class: Drupal\ttd_topics\Service\ContentUrlRepairService
 
+  ttd_topics.publish_dates:
+    class: Drupal\ttd_topics\Service\PublishDateSync
+
   ttd_topics.sync_service:
     class: Drupal\ttd_topics\Service\TtdSyncService
 
