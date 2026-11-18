@@ -64,4 +64,4 @@ services:
 
   ttd_topics.analytics_inventory:
     class: Drupal\ttd_topics\Service\AnalyticsInventoryService
-    arguments: ['@config.factory', '@state', '@entity_type.manager', '@database', '@http_client', '@lock', '@datetime.time']
+    arguments: ['@config.factory', '@state', '@entity_type.manager', '@database', '@http_client', '@lock', '@datetime.time', '@keyvalue']

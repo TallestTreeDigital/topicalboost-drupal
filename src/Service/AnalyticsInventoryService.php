@@ -8,6 +8,8 @@ use Drupal\Core\Database\Connection;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\node\NodeInterface;
@@ -30,7 +32,14 @@ class AnalyticsInventoryService {
   public const LAST_FULL_SYNC_STATE_KEY = 'topicalboost.analytics_inventory.last_full_sync';
   public const PROBE_INTERVAL = 604800;
   public const BATCH_SIZE = 50;
+  public const AUTHOR_REPLAY_QUEUE = 'ttd_analytics_author_replay';
+  private const AUTHOR_REPLAY_STATE = 'topicalboost.analytics_author_replay.v1';
+  private const AUTHOR_REPLAY_SWITCH = 'topicalboost.analytics_author_replay.switch';
+  private const AUTHOR_REPLAY_LOCK = 'ttd_topics.analytics_author_replay';
+  private const AUTHOR_REPLAY_PREFIX = 'topicalboost-drupal-authors-v1-';
+  private const AUTHOR_REPLAY_BATCH_SIZE = 100;
   protected SavedDescriptionSync $savedDescriptions;
+  protected KeyValueStoreInterface $replayState;
 
   public function __construct(
     protected ConfigFactoryInterface $configFactory,
@@ -40,8 +49,11 @@ class AnalyticsInventoryService {
     protected ClientInterface $httpClient,
     protected LockBackendInterface $lock,
     protected TimeInterface $time,
+    KeyValueFactoryInterface $keyValue,
   ) {
     $this->savedDescriptions = new SavedDescriptionSync($this, $state, $database, $entityTypeManager, $lock);
+    // Read the current checkpoint under the lock without clearing Drupal's state cache.
+    $this->replayState = $keyValue->get('state');
   }
 
   /**
@@ -71,13 +83,15 @@ class AnalyticsInventoryService {
       $this->state->set(self::ENABLED_STATE_KEY, FALSE);
       return ['enabled' => FALSE, 'queued' => FALSE];
     }
-    $status = $this->request('GET', '/analytics/content-inventory/status');
+    $context = $this->savedDescriptionRequestContext();
+    $status = $this->request('GET', '/analytics/content-inventory/status', NULL, 30, $context);
     $enabled = !empty($status['enabled']) && !empty($status['connected']);
     $this->state->set(self::ENABLED_STATE_KEY, $enabled);
     $this->state->set(self::LAST_PROBE_STATE_KEY, $this->time->getRequestTime());
 
     if (!$enabled) {
       $this->state->delete(self::CONTENT_TYPES_STATE_KEY);
+      $this->recordAuthorReplaySwitch(FALSE, $context);
       return ['enabled' => FALSE, 'queued' => FALSE];
     }
 
@@ -88,6 +102,7 @@ class AnalyticsInventoryService {
     else {
       $this->state->delete(self::CONTENT_TYPES_STATE_KEY);
     }
+    $this->recordAuthorReplaySwitch(($status['analytics']['authorReplay'] ?? NULL) === TRUE, $context);
 
     return [
       'enabled' => TRUE,
@@ -96,6 +111,125 @@ class AnalyticsInventoryService {
       'queued' => FALSE,
       'content_types' => $this->contentTypes(),
     ];
+  }
+
+  /** Cron restores a lost wakeup. The queue item carries no progress. */
+  public function queueAuthorReplayIfDue(): void {
+    if (!$this->isEnabled() || !$this->lock->acquire(self::AUTHOR_REPLAY_LOCK, 30.0)) {
+      return;
+    }
+    try {
+      $context = $this->savedDescriptionRequestContext();
+      $types = $this->contentTypes($this->replayState);
+      if (empty($context['headers']['x-api-key']) || !$types) return;
+
+      $scope = $this->authorReplayScope($context, $types);
+      $replay = $this->replayState->get(self::AUTHOR_REPLAY_STATE, []);
+      if (($replay['scope'] ?? NULL) === $scope && $replay['complete']) return;
+
+      $switch = $this->authorReplaySwitch($context);
+      $now = $this->time->getCurrentTime();
+      if (empty($switch['allowed']) && ($switch['checked_at'] ?? 0) <= $now - 86400) {
+        // This extra check must not change the weekly entitlement or content scope.
+        $this->recordAuthorReplaySwitch(FALSE, $context);
+        $status = $this->request('GET', '/analytics/content-inventory/status', NULL, 10, $context);
+        $this->recordAuthorReplaySwitch(!empty($status['enabled']) && !empty($status['connected'])
+          && ($status['analytics']['authorReplay'] ?? NULL) === TRUE, $context);
+        $switch = $this->authorReplaySwitch($context);
+      }
+      if (empty($switch['allowed'])) return;
+
+      if (($replay['scope'] ?? NULL) !== $scope) {
+        $replay = [
+          'scope' => $scope,
+          'sync_id' => self::AUTHOR_REPLAY_PREFIX . gmdate('YmdHis', $now) . '-' . bin2hex(random_bytes(8)),
+          'cursor' => 0,
+          'page' => 1,
+          'next_at' => 0,
+          'complete' => FALSE,
+        ];
+        $this->replayState->set(self::AUTHOR_REPLAY_STATE, $replay);
+      }
+      if ($replay['next_at'] <= $now) {
+        $queue = \Drupal::queue(self::AUTHOR_REPLAY_QUEUE);
+        if (!$queue->numberOfItems()) $queue->createItem(NULL);
+      }
+    }
+    finally {
+      $this->lock->release(self::AUTHOR_REPLAY_LOCK);
+    }
+  }
+
+  /** Send one page and return the delay before the queue worker runs again. */
+  public function replayAuthors(): int {
+    if (!$this->lock->acquire(self::AUTHOR_REPLAY_LOCK, 300.0)) return 60;
+    try {
+      $context = $this->savedDescriptionRequestContext();
+      $types = $this->contentTypes($this->replayState);
+      $scope = $this->authorReplayScope($context, $types);
+      $replay = $this->replayState->get(self::AUTHOR_REPLAY_STATE, []);
+      if (!$this->isEnabled() || !$types || empty($this->authorReplaySwitch($context)['allowed'])
+        || ($replay['scope'] ?? NULL) !== $scope || $replay['complete']) return 0;
+
+      $remaining = $replay['next_at'] - $this->time->getCurrentTime();
+      if ($remaining > 0) return $remaining;
+
+      $ids = $this->entityTypeManager->getStorage('node')->getQuery()
+        ->accessCheck(FALSE)->condition('status', 1)->condition('type', $types, 'IN')
+        ->condition('nid', $replay['cursor'], '>')->sort('nid', 'ASC')
+        ->range(0, self::AUTHOR_REPLAY_BATCH_SIZE)->execute();
+      $complete = count($ids) < self::AUTHOR_REPLAY_BATCH_SIZE;
+      $delivery = $this->sendInventoryPage($ids, $replay['sync_id'], $replay['page'],
+        self::AUTHOR_REPLAY_BATCH_SIZE, $complete, $context, $types);
+      $response = $delivery['response'];
+
+      // A response to the old connection or scope cannot advance the new one.
+      $this->configFactory->reset('ttd_topics.settings');
+      if ($this->authorReplayScope($this->savedDescriptionRequestContext(), $this->contentTypes($this->replayState)) !== $scope) return 0;
+
+      $now = $this->time->getCurrentTime();
+      if (($response['deferred'] ?? NULL) === TRUE) {
+        if (($response['authorReplay'] ?? NULL) === FALSE) return 0;
+        $delay = max(1, (int) ($response['retryAfterSeconds'] ?? 90));
+        $replay['next_at'] = $now + $delay;
+        $this->replayState->set(self::AUTHOR_REPLAY_STATE, $replay);
+        return $delay;
+      }
+
+      $replay['cursor'] = $ids ? (int) end($ids) : $replay['cursor'];
+      $replay['page']++;
+      $replay['complete'] = $complete;
+      $replay['next_at'] = $now + 60;
+      $this->replayState->set(self::AUTHOR_REPLAY_STATE, $replay);
+      return $complete || empty($this->authorReplaySwitch($context)['allowed']) ? 0 : 60;
+    }
+    finally {
+      $this->lock->release(self::AUTHOR_REPLAY_LOCK);
+    }
+  }
+
+  private function authorReplayScope(array $context, array $types): string {
+    sort($types, SORT_STRING);
+    return hash('sha256', json_encode([$context['scope'], $types], JSON_THROW_ON_ERROR));
+  }
+
+  private function authorReplaySwitch(array $context): array {
+    $switch = $this->replayState->get(self::AUTHOR_REPLAY_SWITCH, []);
+    return ($switch['connection'] ?? NULL) === $context['scope'] ? $switch : [];
+  }
+
+  private function recordAuthorReplaySwitch(bool $allowed, array $context): void {
+    $this->replayState->set(self::AUTHOR_REPLAY_SWITCH, [
+      'connection' => $context['scope'],
+      'allowed' => $allowed,
+      'checked_at' => $this->time->getCurrentTime(),
+    ]);
+  }
+
+  private function noteAuthorReplayAnswer(array $response, array $context): void {
+    if (is_bool($response['authorReplay'] ?? NULL)) {
+      $this->recordAuthorReplaySwitch($response['authorReplay'], $context);
+    }
   }
 
   /**
@@ -190,7 +324,6 @@ class AnalyticsInventoryService {
 
     try {
       $context = $this->savedDescriptionRequestContext();
-      $revision = $this->savedDescriptions->observationRevision();
       $types = $this->contentTypes();
       $node_ids = $types ? $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
@@ -200,31 +333,8 @@ class AnalyticsInventoryService {
         ->range(($page - 1) * $per_page, $per_page)
         ->execute() : [];
 
-      $tokens = $this->savedDescriptions->dirtyTokens($node_ids);
-      $this->entityTypeManager->getStorage('node')->resetCache($node_ids);
-      $nodes = $this->entityTypeManager->getStorage('node')->loadMultiple($node_ids);
-      $posts = [];
-      foreach ($node_ids as $node_id) {
-        $node = $nodes[$node_id] ?? NULL;
-        if ($node instanceof NodeInterface && $this->isNodeInScope($node)) {
-          $posts[] = $this->buildNodePayload($node, $revision);
-        }
-      }
-
       $complete = count($node_ids) < $per_page;
-      $response = $this->request('POST', '/analytics/content-inventory', [
-        'sync_id' => $sync_id,
-        'batch' => [
-          'type' => 'full',
-          'page' => $page,
-          'per_page' => $per_page,
-          'post_count' => count($posts),
-          'complete' => $complete,
-        ],
-        'posts' => $posts,
-      ], 120, $context);
-      $this->confirmedWrite($response, count($posts));
-      $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
+      $delivery = $this->sendInventoryPage($node_ids, $sync_id, $page, $per_page, $complete, $context);
 
       if (!$complete) {
         $this->enqueue(self::BATCH_JOB_TYPE, [
@@ -242,13 +352,42 @@ class AnalyticsInventoryService {
 
       return [
         'page' => $page,
-        'sent' => count($posts),
+        'sent' => $delivery['sent'],
         'complete' => $complete,
       ];
     }
     finally {
       $this->lock->release($lock_name);
     }
+  }
+
+  private function sendInventoryPage(array $ids, string $sync_id, int $page, int $per_page, bool $complete, array $context, ?array $replay_types = NULL): array {
+    $revision = $this->savedDescriptions->observationRevision();
+    $tokens = $this->savedDescriptions->dirtyTokens($ids);
+    $storage = $this->entityTypeManager->getStorage('node');
+    if ($ids) $storage->resetCache($ids);
+    $nodes = $storage->loadMultiple($ids);
+    $types = $replay_types ?? $this->contentTypes();
+    $posts = [];
+    foreach ($ids as $id) {
+      $node = $nodes[$id] ?? NULL;
+      if ($node instanceof NodeInterface && $node->isPublished() && in_array($node->bundle(), $types, TRUE)) {
+        $posts[] = $this->buildNodePayload($node, $revision);
+      }
+    }
+
+    $sent = count($posts);
+    $response = $this->request('POST', '/analytics/content-inventory', [
+      'sync_id' => $sync_id,
+      'batch' => ['type' => 'full', 'page' => $page, 'per_page' => $per_page, 'post_count' => $sent, 'complete' => $complete],
+      'posts' => $posts,
+    ], 120, $context);
+    if ($replay_types === NULL || ($response['ok'] ?? NULL) !== TRUE || ($response['deferred'] ?? NULL) !== TRUE) {
+      $this->confirmedWrite($response, $sent);
+      $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
+    }
+    $this->noteAuthorReplayAnswer($response, $context);
+    return ['response' => $response, 'sent' => $sent];
   }
 
   /**
@@ -282,6 +421,7 @@ class AnalyticsInventoryService {
       'deleted_post_ids' => $payload ? [] : [(string) $node_id],
     ], 120, $context);
     $this->confirmedWrite($response, $payload ? 1 : 0);
+    $this->noteAuthorReplayAnswer($response, $context);
     if ($payload) $this->savedDescriptions->confirmPosts([$payload], $context['scope'], $tokens);
     else $this->savedDescriptions->confirmDeletion($node_id, $revision, $context['scope'], $tokens[(string) $node_id]);
     $this->reportSavedDescriptionStatus();
@@ -387,6 +527,7 @@ class AnalyticsInventoryService {
       'posts' => $posts,
     ], $timeout, $context);
     $written = $this->confirmedWrite($response, count($posts));
+    $this->noteAuthorReplayAnswer($response, $context);
     $this->savedDescriptions->confirmPosts($posts, $context['scope'], $tokens);
     return $written;
   }
@@ -453,9 +594,9 @@ class AnalyticsInventoryService {
     return $node->isPublished() && in_array($node->bundle(), $this->contentTypes(), TRUE);
   }
 
-  protected function contentTypes(): array {
+  protected function contentTypes(?KeyValueStoreInterface $store = NULL): array {
     $enabled = $this->normalizeContentTypes($this->configFactory->get('ttd_topics.settings')->get('enabled_content_types') ?: []);
-    $analytics = $this->normalizeContentTypes($this->state->get(self::CONTENT_TYPES_STATE_KEY, []));
+    $analytics = $this->normalizeContentTypes(($store ?? $this->state)->get(self::CONTENT_TYPES_STATE_KEY, []));
     return $analytics ? array_values(array_intersect($enabled, $analytics)) : $enabled;
   }
 

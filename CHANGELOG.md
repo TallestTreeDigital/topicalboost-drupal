@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.46] - 2026-11-18
+
+### Added
+- Send the authors of existing articles to Analytics once, in background batches of 100, when Analytics turns this on for the site. The catch-up resumes after errors, waits when Analytics asks it to, and runs once per connection.
+
 ## [2.0.45] - 2026-11-17
 
 ### Fixed

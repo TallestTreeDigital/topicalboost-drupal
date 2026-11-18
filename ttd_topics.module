@@ -2353,6 +2353,12 @@ function ttd_topics_cron() {
       '@message' => $e->getMessage(),
     ]);
   }
+  try {
+    \Drupal::service('ttd_topics.analytics_inventory')->queueAuthorReplayIfDue();
+  }
+  catch (\Throwable $error) {
+    \Drupal::logger('ttd_topics')->warning('Analytics author replay could not queue. Cron will try again.');
+  }
 
   // One-shot backfill: push pre-existing local hidden topics into TopicalBoost.
   $local_hidden_backfill_queued = FALSE;

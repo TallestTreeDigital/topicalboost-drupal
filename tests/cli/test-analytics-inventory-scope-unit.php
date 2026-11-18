@@ -2,6 +2,7 @@
 
 namespace Drupal\Core\Config { interface ConfigFactoryInterface {} }
 namespace Drupal\Core\State { interface StateInterface {} }
+namespace Drupal\Core\KeyValueStore { interface KeyValueStoreInterface {} }
 namespace Drupal\Core\Entity { interface EntityTypeManagerInterface {} }
 namespace Drupal\Core\Lock { interface LockBackendInterface {} }
 namespace Drupal\Component\Datetime { interface TimeInterface {} }
@@ -24,7 +25,7 @@ namespace {
       public function get($key) { return $key === 'enabled_content_types' ? $this->config->types : 'fixture'; }
     }; }
   }
-  class ScopeState implements \Drupal\Core\State\StateInterface {
+  class ScopeState implements \Drupal\Core\State\StateInterface, \Drupal\Core\KeyValueStore\KeyValueStoreInterface {
     public array $values = [];
     public function get($key, $default = NULL) { return $this->values[$key] ?? $default; }
     public function set($key, $value) { $this->values[$key] = $value; }
@@ -32,6 +33,7 @@ namespace {
   }
   class ScopeTime implements \Drupal\Component\Datetime\TimeInterface {
     public function getRequestTime() { return 100; }
+    public function getCurrentTime() { return 100; }
   }
   class ScopeLock implements \Drupal\Core\Lock\LockBackendInterface {
     public function acquire(...$args) { return TRUE; }
@@ -50,6 +52,7 @@ namespace {
     public int $fullSyncs = 0;
     public function __construct($config, $state, $entities) {
       $this->configFactory = $config; $this->state = $state; $this->entityTypeManager = $entities;
+      $this->replayState = $state;
       $this->time = new ScopeTime(); $this->lock = new ScopeLock();
       $this->savedDescriptions = new \Drupal\ttd_topics\Service\SavedDescriptionSync();
     }
